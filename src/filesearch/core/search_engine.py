@@ -9,7 +9,7 @@ import fnmatch
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: F401
 from pathlib import Path
-from typing import Generator, Optional, Set
+from typing import Any, Dict, Generator, Optional, Set
 
 from loguru import logger
 
@@ -36,6 +36,7 @@ class FileSearchEngine:
         max_workers: int = 4,
         max_results: int = 1000,
         config_manager: Optional[ConfigManager] = None,
+        plugin_manager=None,
     ):
         """Initialize the search engine.
 
@@ -72,6 +73,7 @@ class FileSearchEngine:
 
         self._cancelled = False
         self._executor: Optional[ThreadPoolExecutor] = None
+        self.plugin_manager = plugin_manager
 
         logger.debug(
             f"FileSearchEngine initialized with max_workers={self.max_workers}, "
@@ -193,7 +195,9 @@ class FileSearchEngine:
             logger.error(f"Unexpected error scanning {directory}: {e}")
             raise SearchError(f"Error scanning directory {directory}: {e}")
 
-    def search(self, directory: Path, query: str) -> Generator[Path, None, None]:
+    def search(
+        self, directory: Path, query: str
+    ) -> Generator[Dict[str, Any], None, None]:
         """Search for files matching the query pattern.
 
         Args:
@@ -201,7 +205,7 @@ class FileSearchEngine:
             query: Search pattern (supports wildcards with fnmatch syntax)
 
         Yields:
-            Path objects for matching files
+            Dict objects for matching files/results with keys: 'path', 'name', 'source', etc.
 
         Raises:
             SearchError: If directory doesn't exist or is not accessible
@@ -243,13 +247,29 @@ class FileSearchEngine:
                     self._scan_directory, directory, query, results
                 )
 
-                # Wait for completion or cancellation
-                while not future.done() and not self._should_cancel():
-                    # Yield any results found so far for real-time streaming
+                # Yield any results found so far for real-time streaming
+                while not future.done():
                     if results:
                         for path in list(results):
-                            yield path
+                            if self._should_cancel():
+                                results.clear()
+                                return
+                            try:
+                                stat = path.stat()
+                                yield {
+                                    "path": str(path),
+                                    "name": path.name,
+                                    "source": "filesystem",
+                                    "size": stat.st_size,
+                                    "modified": stat.st_mtime,
+                                }
+                            except Exception as e:
+                                logger.error(f"Error getting stat for {path}: {e}")
                             results.remove(path)
+
+                    if self._should_cancel():
+                        results.clear()
+                        return
 
                     # Small delay to avoid busy waiting
                     import time
@@ -264,10 +284,36 @@ class FileSearchEngine:
                     raise SearchError(f"Search execution failed: {e}")
 
                 # Yield any remaining results
-                for path in results:
-                    yield path
-
+                if not self._should_cancel():
+                    for path in results:
+                        try:
+                            stat = path.stat()
+                            yield {
+                                "path": str(path),
+                                "name": path.name,
+                                "source": "filesystem",
+                                "size": stat.st_size,
+                                "modified": stat.st_mtime,
+                            }
+                        except Exception as e:
+                            logger.error(f"Error getting stat for {path}: {e}")
                 results.clear()
+
+                # Get plugin results
+                if self.plugin_manager:
+                    context = {
+                        "directory": str(directory),
+                        "query": query,
+                        "max_results": self.max_results,
+                    }
+                    for plugin in self.plugin_manager.get_loaded_plugins():
+                        if plugin.enabled:
+                            try:
+                                plugin_results = plugin.search(query, context)
+                                for result in plugin_results:
+                                    yield result
+                            except Exception as e:
+                                logger.error(f"Plugin {plugin.name} search failed: {e}")
 
             logger.info(f"Search completed. Cancelled: {self._should_cancel()}")
 
@@ -281,7 +327,7 @@ class FileSearchEngine:
 # Convenience function for simple searches
 def search_files(
     directory: Path, pattern: str, max_results: int = 1000, max_workers: int = 4
-) -> Generator[Path, None, None]:
+) -> Generator[Dict[str, Any], None, None]:
     """Convenience function for one-off file searches.
 
     Args:

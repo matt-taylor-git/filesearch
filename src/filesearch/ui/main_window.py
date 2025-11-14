@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QPushButton,
     QVBoxLayout,
@@ -24,6 +26,7 @@ from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import open_containing_folder, safe_open
 from filesearch.core.search_engine import FileSearchEngine
+from filesearch.plugins.plugin_manager import PluginManager
 
 
 class SearchWorker(QThread):
@@ -40,7 +43,7 @@ class SearchWorker(QThread):
         search_stopped(int, int): Emitted when search is stopped
     """
 
-    result_found = pyqtSignal(Path, int)  # path, result_number
+    result_found = pyqtSignal(dict, int)  # result_dict, result_number
     progress_update = pyqtSignal(
         int, str, int
     )  # progress_percent, current_dir, files_found
@@ -73,13 +76,13 @@ class SearchWorker(QThread):
         try:
             logger.info(f"Starting search in {self.directory} for '{self.query}'")
 
-            # Perform the search
-            for result_path in self.search_engine.search(self.directory, self.query):
+            # Perform the search (includes plugin results)
+            for result in self.search_engine.search(self.directory, self.query):
                 if not self._is_running:
                     break
 
                 files_found += 1
-                self.result_found.emit(result_path, files_found)
+                self.result_found.emit(result, files_found)
 
                 # Update progress periodically
                 if files_found % 10 == 0:
@@ -120,20 +123,27 @@ class MainWindow(QMainWindow):
         is_searching (bool): Whether a search is currently active
     """
 
-    def __init__(self, config_manager: Optional[ConfigManager] = None):
+    def __init__(
+        self,
+        config_manager: Optional[ConfigManager] = None,
+        plugin_manager: Optional[PluginManager] = None,
+    ):
         """Initialize the main window.
 
         Args:
             config_manager: Configuration manager instance (creates default if None)
+            plugin_manager: Plugin manager instance (creates default if None)
         """
         super().__init__()
 
         # Initialize components
         self.config_manager = config_manager or ConfigManager()
+        self.plugin_manager = plugin_manager or PluginManager(self.config_manager)
         self.search_engine = FileSearchEngine(config_manager=self.config_manager)
         self.search_worker: Optional[SearchWorker] = None
         self.is_searching = False
         self.search_results = []
+        self.plugin_results = []
 
         # Setup UI
         self.setup_ui()
@@ -201,9 +211,12 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(search_layout)
         main_layout.addLayout(query_layout)
 
-        # Results area (placeholder for now)
+        # Results area
         self.results_label = QLabel("Results:")
         main_layout.addWidget(self.results_label)
+
+        self.results_list = QListWidget()
+        main_layout.addWidget(self.results_list)
 
         # Status bar
         self.statusBar().showMessage("Ready")
@@ -279,6 +292,7 @@ class MainWindow(QMainWindow):
 
         # Clear previous results
         self.search_results.clear()
+        self.results_list.clear()
 
         # Update UI state
         self.is_searching = True
@@ -310,20 +324,27 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Stopping search...")
         logger.info("Search stop requested")
 
-    def on_result_found(self, path: Path, result_number: int) -> None:
+    def on_result_found(self, result: dict, result_number: int) -> None:
         """Handle search result found signal.
 
         Args:
-            path: Path to the found file
+            result: Result dictionary
             result_number: Result number
         """
-        self.search_results.append(path)
+        self.search_results.append(result)
+
+        # Add to results list
+        source = result.get("source", "filesystem")
+        display_text = f"{result['name']} ({source})"
+        item = QListWidgetItem(display_text)
+        item.setData(Qt.ItemDataRole.UserRole, result)
+        self.results_list.addItem(item)
 
         # Update status periodically
         if result_number % 10 == 0:
             self.statusBar().showMessage(f"Found {result_number} files...")
 
-        logger.debug(f"Result found: {path} (#{result_number})")
+        logger.debug(f"Result found: {result} (#{result_number})")
 
     def on_progress_update(
         self, progress: int, current_dir: str, files_found: int
@@ -422,7 +443,7 @@ class MainWindow(QMainWindow):
         try:
             from filesearch.ui.settings_dialog import SettingsDialog
 
-            dialog = SettingsDialog(self.config_manager, self)
+            dialog = SettingsDialog(self.config_manager, self.plugin_manager, self)
             dialog.exec()
             logger.info("Settings dialog shown")
         except Exception as e:

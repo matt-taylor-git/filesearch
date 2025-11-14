@@ -1,0 +1,18 @@
+{
+  "name": "Recent Files Search",
+  "version": "1.0.0",
+  "author": "File Search Team",
+  "description": "Search through recently accessed files. This plugin maintains a list of files you've recently opened and allows you to search through them quickly.",
+  "dependencies": [],
+  "min_app_version": "1.0.0",
+  "max_app_version": "2.0.0",
+  "config_schema": {
+    "max_recent_files": {
+      "type": "integer",
+      "default": 100,
+      "minimum": 10,
+      "maximum": 1000,
+      "description": "Maximum number of recent files to track"
+    }
+  }
+}

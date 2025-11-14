@@ -16,27 +16,27 @@ from filesearch import __version__, get_project_root
 
 def setup_logging(log_level: str = "INFO") -> None:
     """Configure logging with rotating file handler.
-    
+
     Args:
         log_level: The logging level (DEBUG, INFO, WARNING, ERROR).
     """
     # Create logs directory if it doesn't exist
     log_dir = get_project_root() / "logs"
     log_dir.mkdir(exist_ok=True)
-    
+
     # Remove default handler
     logger.remove()
-    
+
     # Add console handler
     logger.add(
         sys.stderr,
         level=log_level,
         format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-               "<level>{level: <8}</level> | "
-               "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-               "<level>{message}</level>",
+        "<level>{level: <8}</level> | "
+        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+        "<level>{message}</level>",
     )
-    
+
     # Add file handler with rotation
     logger.add(
         log_dir / "filesearch.log",
@@ -46,13 +46,13 @@ def setup_logging(log_level: str = "INFO") -> None:
         compression="zip",
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
     )
-    
+
     logger.info("Logging initialized with level: {}", log_level)
 
 
 def parse_arguments() -> Optional[str]:
     """Parse command-line arguments.
-    
+
     Returns:
         Optional[str]: The log level if specified, otherwise None.
     """
@@ -92,7 +92,7 @@ def parse_arguments() -> Optional[str]:
 
 def main() -> int:
     """Main application entry point.
-    
+
     Returns:
         int: Exit code (0 for success, non-zero for error).
     """
@@ -101,30 +101,41 @@ def main() -> int:
         log_level = parse_arguments()
         if log_level is None:
             log_level = "INFO"
-        
+
         # Setup logging
         setup_logging(log_level)
-        
+
         logger.info("Starting File Search v{}", __version__)
         logger.info("Project root: {}", get_project_root())
-        
-        # TODO: Initialize and start the GUI application
-        # For now, just log that we're ready
+
+        # Initialize and start the GUI application
+        logger.info("Initializing GUI application")
+
+        from PyQt6.QtWidgets import QApplication
+
+        from filesearch.core.config_manager import ConfigManager
+        from filesearch.plugins.plugin_manager import PluginManager
+        from filesearch.ui.main_window import MainWindow
+
+        # Initialize components
+        config_manager = ConfigManager()
+        plugin_manager = PluginManager(config_manager)
+
+        # Load plugins
+        loaded_plugins = plugin_manager.load_plugins()
+        logger.info("Loaded {} plugins", len(loaded_plugins))
+
+        # Create and show main window
+        app = QApplication(sys.argv)
+        window = MainWindow(config_manager, plugin_manager)
+        window.show()
+
         logger.info("Application initialized successfully")
-        logger.info("GUI implementation will be added in future stories")
-        
-        # Placeholder for GUI startup
-        # from filesearch.ui.main_window import MainWindow
-        # from PyQt6.QtWidgets import QApplication
-        # 
-        # app = QApplication(sys.argv)
-        # window = MainWindow()
-        # window.show()
-        # return app.exec()
-        
+        return app.exec()
+
         logger.info("Application shutdown complete")
         return 0
-        
+
     except Exception as e:
         logger.exception("Fatal error in main application: {}", e)
         return 1

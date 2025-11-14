@@ -31,6 +31,7 @@ from PyQt6.QtWidgets import (
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import ConfigError  # noqa: F401
+from filesearch.plugins.plugin_manager import PluginManager
 
 
 class SettingsDialog(QDialog):
@@ -49,15 +50,22 @@ class SettingsDialog(QDialog):
         performance_tab (QWidget): Performance settings tab
     """
 
-    def __init__(self, config_manager: ConfigManager, parent: Optional[QWidget] = None):
+    def __init__(
+        self,
+        config_manager: ConfigManager,
+        plugin_manager: Optional[PluginManager] = None,
+        parent: Optional[QWidget] = None,
+    ):
         """Initialize the settings dialog.
 
         Args:
             config_manager: Configuration manager instance
+            plugin_manager: Plugin manager instance (optional)
             parent: Parent widget (optional)
         """
         super().__init__(parent)
         self.config_manager = config_manager
+        self.plugin_manager = plugin_manager
         self.setWindowTitle("Settings")
         self.setMinimumSize(600, 400)
 
@@ -83,11 +91,15 @@ class SettingsDialog(QDialog):
         self.search_tab = self._create_search_tab()
         self.ui_tab = self._create_ui_tab()
         self.performance_tab = self._create_performance_tab()
+        if self.plugin_manager:
+            self.plugin_tab = self._create_plugin_tab()
 
         # Add tabs to widget
         self.tabs.addTab(self.search_tab, "Search")
         self.tabs.addTab(self.ui_tab, "UI")
         self.tabs.addTab(self.performance_tab, "Performance")
+        if self.plugin_manager:
+            self.tabs.addTab(self.plugin_tab, "Plugins")
 
         # Create button box
         button_box = QDialogButtonBox(
@@ -281,6 +293,52 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         return tab
 
+    def _create_plugin_tab(self) -> QWidget:
+        """Create the plugin management tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        tab.setLayout(layout)
+
+        # Plugin list
+        plugin_group = QGroupBox("Loaded Plugins")
+        plugin_layout = QVBoxLayout()
+
+        self.plugin_list = QListWidget()
+        self.plugin_list.setMaximumHeight(200)
+        plugin_layout.addWidget(self.plugin_list)
+
+        # Plugin controls
+        controls_layout = QHBoxLayout()
+        self.enable_plugin_button = QPushButton("Enable")
+        self.disable_plugin_button = QPushButton("Disable")
+        self.configure_plugin_button = QPushButton("Configure")
+
+        self.enable_plugin_button.clicked.connect(self.enable_selected_plugin)
+        self.disable_plugin_button.clicked.connect(self.disable_selected_plugin)
+        self.configure_plugin_button.clicked.connect(self.configure_selected_plugin)
+
+        controls_layout.addWidget(self.enable_plugin_button)
+        controls_layout.addWidget(self.disable_plugin_button)
+        controls_layout.addWidget(self.configure_plugin_button)
+        controls_layout.addStretch()
+
+        plugin_layout.addLayout(controls_layout)
+        plugin_group.setLayout(plugin_layout)
+        layout.addWidget(plugin_group)
+
+        # Plugin status
+        status_group = QGroupBox("Plugin Status")
+        status_layout = QVBoxLayout()
+
+        self.plugin_status_label = QLabel("No plugins loaded")
+        status_layout.addWidget(self.plugin_status_label)
+
+        status_group.setLayout(status_layout)
+        layout.addWidget(status_group)
+
+        layout.addStretch()
+        return tab
+
     def load_settings(self) -> None:
         """Load current settings from configuration."""
         try:
@@ -341,6 +399,10 @@ class SettingsDialog(QDialog):
             self.cache_ttl_spin.setValue(
                 self.config_manager.get("performance_settings.cache_ttl_minutes", 30)
             )
+
+            # Load plugin settings
+            if self.plugin_manager:
+                self.load_plugin_settings()
 
             logger.debug("Settings loaded successfully")
 
@@ -500,3 +562,82 @@ class SettingsDialog(QDialog):
         """Handle cache enable/disable toggle."""
         self.cache_ttl_spin.setEnabled(checked)
         logger.debug(f"Cache toggled: {checked}")
+
+    def load_plugin_settings(self) -> None:
+        """Load plugin settings into the plugin tab."""
+        if not self.plugin_manager:
+            return
+
+        self.plugin_list.clear()
+        plugin_status = self.plugin_manager.get_plugin_status()
+
+        for plugin_name, status in plugin_status.items():
+            item_text = f"{plugin_name} - {status['name']} ({status['version']})"
+            if status["loaded"]:
+                item_text += " [Loaded]"
+                if status["enabled"]:
+                    item_text += " [Enabled]"
+                else:
+                    item_text += " [Disabled]"
+            else:
+                item_text += " [Not Loaded]"
+
+            item = QListWidgetItem(item_text)
+            item.setData(Qt.ItemDataRole.UserRole, plugin_name)
+            self.plugin_list.addItem(item)
+
+        # Update status label
+        loaded_count = sum(1 for s in plugin_status.values() if s["loaded"])
+        enabled_count = sum(
+            1 for s in plugin_status.values() if s["loaded"] and s["enabled"]
+        )
+        self.plugin_status_label.setText(
+            f"Loaded: {loaded_count}, Enabled: {enabled_count}"
+        )
+
+    def enable_selected_plugin(self) -> None:
+        """Enable the selected plugin."""
+        current_item = self.plugin_list.currentItem()
+        if current_item and self.plugin_manager:
+            plugin_name = current_item.data(Qt.ItemDataRole.UserRole)
+            if self.plugin_manager.enable_plugin(plugin_name):
+                self.load_plugin_settings()
+                logger.info(f"Enabled plugin: {plugin_name}")
+            else:
+                QMessageBox.warning(
+                    self, "Enable Failed", f"Failed to enable plugin: {plugin_name}"
+                )
+
+    def disable_selected_plugin(self) -> None:
+        """Disable the selected plugin."""
+        current_item = self.plugin_list.currentItem()
+        if current_item and self.plugin_manager:
+            plugin_name = current_item.data(Qt.ItemDataRole.UserRole)
+            if self.plugin_manager.disable_plugin(plugin_name):
+                self.load_plugin_settings()
+                logger.info(f"Disabled plugin: {plugin_name}")
+            else:
+                QMessageBox.warning(
+                    self, "Disable Failed", f"Failed to disable plugin: {plugin_name}"
+                )
+
+    def configure_selected_plugin(self) -> None:
+        """Configure the selected plugin."""
+        current_item = self.plugin_list.currentItem()
+        if current_item and self.plugin_manager:
+            plugin_name = current_item.data(Qt.ItemDataRole.UserRole)
+            plugin = self.plugin_manager.get_plugin(plugin_name)
+            if plugin:
+                # For now, show a simple config dialog
+                # In future, this could be more sophisticated
+                config = plugin.config
+                config_str = "\n".join(f"{k}: {v}" for k, v in config.items())
+                QMessageBox.information(
+                    self,
+                    f"Plugin Config: {plugin_name}",
+                    config_str or "No configuration",
+                )
+            else:
+                QMessageBox.warning(
+                    self, "Plugin Not Loaded", f"Plugin {plugin_name} is not loaded"
+                )

@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>1.4</story-id>
+    <story-key>1-4-implement-plugin-architecture-foundation</story-key>
+    <story-title>Implement Plugin Architecture Foundation</story-title>
+    <epic-id>1</epic-id>
+    <generated-date>2025-11-14</generated-date>
+    <generated-by>SM Agent</generated-by>
+  </metadata>
+
+  <story>
+    <as-a>developer</as-a>
+    <i-want>a plugin system that allows adding features without core code changes</i-want>
+    <so-that>future enhancements like folder visualization can be added modularly</so-that>
+  </story>
+
+  <acceptance-criteria>
+    <ac id="ac1">
+      <title>Plugin Discovery</title>
+      <requirement>Scan ~/.filesearch/plugins/ directory for plugin modules</requirement>
+      <requirement>Load plugins from Python entry points (filesearch.plugins group)</requirement>
+      <requirement>Support built-in plugins in /src/filesearch/plugins/builtin/</requirement>
+      <requirement>Plugin metadata file: plugin.json with name, version, author, description, dependencies</requirement>
+    </ac>
+    <ac id="ac2">
+      <title>Plugin Base Class</title>
+      <requirement>Abstract base class SearchPlugin with required methods: initialize, get_name, search, is_enabled</requirement>
+    </ac>
+    <ac id="ac3">
+      <title>Plugin Manager</title>
+      <requirement>PluginManager class for loading and managing plugins</requirement>
+      <requirement>Methods: load_plugins(), get_plugin(name), enable_plugin(name), disable_plugin(name)</requirement>
+      <requirement>Plugin lifecycle: discovery → load → initialize → enable/disable → unload</requirement>
+      <requirement>Error isolation: one plugin failure doesn't crash entire application</requirement>
+      <requirement>Plugin configuration section in main config file</requirement>
+    </ac>
+    <ac id="ac4">
+      <title>Built-in Example Plugin</title>
+      <requirement>Create example_plugin.py demonstrating plugin structure</requirement>
+      <requirement>Simple "recent files" search plugin (tracks recently accessed files)</requirement>
+      <requirement>Includes complete plugin.json metadata</requirement>
+      <requirement>Serves as template for future plugins</requirement>
+    </ac>
+    <ac id="ac5">
+      <title>Plugin UI Integration</title>
+      <requirement>Settings panel showing loaded plugins with enable/disable toggles</requirement>
+      <requirement>Plugin-specific configuration dialogs</requirement>
+      <requirement>Visual indicator for plugin status (loaded, enabled, error)</requirement>
+      <requirement>Plugin search results integrated into main results list with source indicator</requirement>
+    </ac>
+  </acceptance-criteria>
+
+  <tasks>
+    <task id="task-1">
+      <title>Plugin Manager Implementation</title>
+      <subtask>Create src/filesearch/plugins/plugin_manager.py</subtask>
+      <subtask>Implement PluginManager class with plugin lifecycle management</subtask>
+      <subtask>Implement plugin discovery from multiple sources (directory, entry points, builtin)</subtask>
+      <subtask>Implement plugin loading and initialization with error isolation</subtask>
+      <subtask>Implement plugin enable/disable functionality</subtask>
+      <subtask>Implement plugin configuration management</subtask>
+      <subtask>Add comprehensive error handling and logging</subtask>
+      <subtask>Write unit tests for plugin manager</subtask>
+    </task>
+    <task id="task-2">
+      <title>Plugin Base Class Enhancement</title>
+      <subtask>Enhance src/filesearch/plugins/plugin_base.py</subtask>
+      <subtask>Ensure abstract methods are properly defined</subtask>
+      <subtask>Add plugin metadata support (version, author, description)</subtask>
+      <subtask>Add plugin configuration validation methods</subtask>
+      <subtask>Add plugin dependency resolution support</subtask>
+      <subtask>Add plugin API versioning support</subtask>
+      <subtask>Write unit tests for plugin base class</subtask>
+    </task>
+    <task id="task-3">
+      <title>Built-in Example Plugin</title>
+      <subtask>Create src/filesearch/plugins/builtin/__init__.py</subtask>
+      <subtask>Create src/filesearch/plugins/builtin/example_plugin.py</subtask>
+      <subtask>Implement recent files tracking functionality</subtask>
+      <subtask>Implement search method for recent files</subtask>
+      <subtask>Create plugin.json metadata file</subtask>
+      <subtask>Write unit tests for example plugin</subtask>
+    </task>
+    <task id="task-4">
+      <title>Plugin UI Integration</title>
+      <subtask>Enhance src/filesearch/ui/settings_dialog.py</subtask>
+      <subtask>Add plugin management tab</subtask>
+      <subtask>Implement plugin list with enable/disable toggles</subtask>
+      <subtask>Implement plugin status indicators</subtask>
+      <subtask>Implement plugin configuration dialogs</subtask>
+      <subtask>Add plugin settings to configuration system</subtask>
+      <subtask>Update src/filesearch/ui/main_window.py</subtask>
+      <subtask>Integrate plugin search results into main results</subtask>
+      <subtask>Add plugin source indicators to results</subtask>
+      <subtask>Implement plugin result highlighting</subtask>
+    </task>
+    <task id="task-5">
+      <title>Plugin Development Documentation</title>
+      <subtask>Create docs/plugin-development.md</subtask>
+      <subtask>Document plugin architecture overview</subtask>
+      <subtask>Provide plugin development tutorial</subtask>
+      <subtask>Document plugin API reference</subtask>
+      <subtask>Include example plugin walkthrough</subtask>
+      <subtask>Document plugin best practices</subtask>
+    </task>
+    <task id="task-6">
+      <title>Integration and Testing</title>
+      <subtask>Integrate plugin system with existing modules</subtask>
+      <subtask>Update search_engine.py to support plugin search results</subtask>
+      <subtask>Update config_manager.py to handle plugin configuration</subtask>
+      <subtask>Update main_window.py to initialize plugin system</subtask>
+      <subtask>Write integration tests</subtask>
+      <subtask>Test plugin discovery mechanisms</subtask>
+      <subtask>Test plugin loading and initialization</subtask>
+      <subtask>Test plugin error isolation</subtask>
+      <subtask>Test plugin UI integration</subtask>
+      <subtask>Test plugin search result integration</subtask>
+    </task>
+  </tasks>
+
+  <artifacts>
+    <docs>
+      <document>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Extensibility</section>
+        <snippet>FR17: Modular code structure allowing easy addition of new search features. FR18: Configuration file for user preferences. FR19: Plugin architecture for future enhancements like folder usage visualization.</snippet>
+      </document>
+      <document>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Plugin Architecture</section>
+        <snippet>Hybrid plugin discovery (entry points + directory scanning). Maximum flexibility for distributed and user-developed plugins. Error isolation prevents plugin crashes from affecting core. Plugin architecture enables folder visualization feature (vision).</snippet>
+      </document>
+      <document>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 1.4: Implement Plugin Architecture Foundation</section>
+        <snippet>Plugin Discovery: Scan ~/.filesearch/plugins/ directory, load from Python entry points, support built-in plugins. Plugin Base Class: SearchPlugin with initialize, get_name, search methods. Plugin Manager: load_plugins(), get_plugin(), enable_plugin(), disable_plugin(). Built-in Example Plugin: example_plugin.py with recent files tracking. Plugin UI Integration: Settings panel with enable/disable toggles.</snippet>
+      </document>
+      <document>
+        <path>docs/configuration.md</path>
+        <title>Configuration Documentation</title>
+        <section>Plugin Configuration</section>
+        <snippet>Configuration system supports plugin settings. Plugin configuration section in main config file. Real-time validation of configuration values.</snippet>
+      </document>
+    </docs>
+
+    <code>
+      <file>
+        <path>src/filesearch/plugins/plugin_base.py</path>
+        <kind>plugin base</kind>
+        <symbol>SearchPlugin</symbol>
+        <lines>1-420</lines>
+        <reason>Abstract base class for all search plugins. Already partially implemented with initialize, search, get_name methods. Needs enhancement for metadata support, validation, and dependency resolution.</reason>
+      </file>
+      <file>
+        <path>src/filesearch/core/config_manager.py</path>
+        <kind>configuration</kind>
+        <symbol>ConfigManager</symbol>
+        <lines>1-500</lines>
+        <reason>Configuration management system. Will be extended to handle plugin configuration sections and plugin-specific settings.</reason>
+      </file>
+      <file>
+        <path>src/filesearch/ui/settings_dialog.py</path>
+        <kind>ui component</kind>
+        <symbol>SettingsDialog</symbol>
+        <lines>1-450</lines>
+        <reason>Settings dialog with tabbed interface. Will be enhanced to add plugin management tab with enable/disable toggles and plugin configuration dialogs.</reason>
+      </file>
+      <file>
+        <path>src/filesearch/ui/main_window.py</path>
+        <kind>ui component</kind>
+        <symbol>MainWindow</symbol>
+        <lines>1-600</lines>
+        <reason>Main application window. Will be updated to integrate plugin search results into main results list with source indicators.</reason>
+      </file>
+      <file>
+        <path>src/filesearch/core/search_engine.py</path>
+        <kind>search engine</kind>
+        <symbol>SearchEngine</symbol>
+        <lines>1-400</lines>
+        <reason>Core search engine. Will be enhanced to support plugin search results and merge them with core search results.</reason>
+      </file>
+      <file>
+        <path>src/filesearch/core/exceptions.py</path>
+        <kind>exceptions</kind>
+        <symbol>PluginError</symbol>
+        <lines>1-100</lines>
+        <reason>Custom exception hierarchy including PluginError. Used for plugin-related error handling and graceful degradation.</reason>
+      </file>
+      <file>
+        <path>src/filesearch/main.py</path>
+        <kind>application entry</kind>
+        <symbol>main</symbol>
+        <lines>1-100</lines>
+        <reason>Application entry point. Will be updated to initialize plugin system on startup.</reason>
+      </file>
+    </code>
+
+    <interfaces>
+      <interface>
+        <name>SearchPlugin</name>
+        <kind>abstract base class</kind>
+        <signature>class SearchPlugin(ABC): def initialize(self, config: Dict[str, Any]) -> bool; def search(self, query: str, context: Dict[str, Any]) -> List[Dict[str, Any]]; def get_name(self) -> str; def get_version(self) -> str; def cleanup(self) -> None</signature>
+        <path>src/filesearch/plugins/plugin_base.py</path>
+      </interface>
+      <interface>
+        <name>PluginManager</name>
+        <kind>class</kind>
+        <signature>class PluginManager: def load_plugins(self) -> List[SearchPlugin]; def get_plugin(self, name: str) -> Optional[SearchPlugin]; def enable_plugin(self, name: str) -> bool; def disable_plugin(self, name: str) -> bool; def discover_plugins(self) -> List[type]</signature>
+        <path>src/filesearch/plugins/plugin_manager.py</path>
+      </interface>
+      <interface>
+        <name>ConfigManager</name>
+        <kind>class</kind>
+        <signature>class ConfigManager: def get(self, key: str, default: Any = None) -> Any; def set(self, key: str, value: Any) -> None; def save(self) -> None; def load(self) -> None</signature>
+        <path>src/filesearch/core/config_manager.py</path>
+      </interface>
+    </interfaces>
+
+    <dependencies>
+      <ecosystem name="python">
+        <package name="PyQt6" version="6.6.0" />
+        <package name="loguru" version="0.7.2" />
+        <package name="pytest" version="7.4+" />
+        <package name="pytest-qt" version="4.2+" />
+        <package name="platformdirs" version="3.0+" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <category>architecture</category>
+      <description>One-way dependency flow: UI → Core → Plugins. Plugins cannot access core internals directly.</description>
+    </constraint>
+    <constraint>
+      <category>architecture</category>
+      <description>Plugin error isolation: plugin failures must be logged but not crash the main application.</description>
+    </constraint>
+    <constraint>
+      <category>coding-standards</category>
+      <description>Type hints required for all public methods (Python 3.9+ compatibility).</description>
+    </constraint>
+    <constraint>
+      <category>coding-standards</category>
+      <description>Google-style docstrings on all modules and public functions.</description>
+    </constraint>
+    <constraint>
+      <category>coding-standards</category>
+      <description>Error handling using custom exception hierarchy from core/exceptions.py.</description>
+    </constraint>
+    <constraint>
+      <category>coding-standards</category>
+      <description>Logging integration using loguru with structured logging.</description>
+    </constraint>
+    <constraint>
+      <category>testing</category>
+      <description>Unit tests for each module in /tests/unit/ with >80% coverage target.</description>
+    </constraint>
+    <constraint>
+      <category>testing</category>
+      <description>pytest-qt for UI component testing.</description>
+    </constraint>
+    <constraint>
+      <category>design-patterns</category>
+      <description>Plugin Pattern for extensible architecture.</description>
+    </constraint>
+    <constraint>
+      <category>design-patterns</category>
+      <description>Factory Pattern for plugin instantiation and management.</description>
+    </constraint>
+    <constraint>
+      <category>design-patterns</category>
+      <description>Observer Pattern for plugin event handling.</description>
+    </constraint>
+  </constraints>
+
+  <tests>
+    <standards>pytest with pytest-qt for UI components. Unit tests for each module in /tests/unit/ with >80% coverage target. Integration tests for cross-module functionality. Test file naming: test_*.py.</standards>
+    <locations>
+      <location>/tests/unit/test_plugin_manager.py</location>
+      <location>/tests/unit/test_plugin_base.py</location>
+      <location>/tests/unit/test_example_plugin.py</location>
+      <location>/tests/integration/test_plugin_system.py</location>
+      <location>/tests/ui/test_plugin_settings.py</location>
+    </locations>
+    <ideas>
+      <idea ac="ac1">Test plugin discovery from directory scanning</idea>
+      <idea ac="ac1">Test plugin discovery from entry points</idea>
+      <idea ac="ac1">Test plugin metadata loading from plugin.json</idea>
+      <idea ac="ac2">Test SearchPlugin abstract method enforcement</idea>
+      <idea ac="ac2">Test plugin metadata properties (name, version, author)</idea>
+      <idea ac="ac3">Test PluginManager.load_plugins() with multiple sources</idea>
+      <idea ac="ac3">Test plugin error isolation (one plugin failure doesn't crash system)</idea>
+      <idea ac="ac3">Test plugin enable/disable functionality</idea>
+      <idea ac="ac4">Test example plugin initialization and search</idea>
+      <idea ac="ac4">Test recent files tracking functionality</idea>
+      <idea ac="ac5">Test plugin management UI with enable/disable toggles</idea>
+      <idea ac="ac5">Test plugin search results integration into main results</idea>
+      <idea ac="ac5">Test plugin status indicators in UI</idea>
+    </ideas>
+  </tests>
+
+  <dev-agent-record>
+    <context-reference>docs/sprint-artifacts/stories/1-4-implement-plugin-architecture-foundation.context.xml</context-reference>
+    <agent-model>claude-3-5-sonnet-20241022</agent-model>
+    <completion-notes></completion-notes>
+    <file-list></file-list>
+  </dev-agent-record>
+</story-context>
