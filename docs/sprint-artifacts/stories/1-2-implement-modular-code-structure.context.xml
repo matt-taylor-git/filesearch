@@ -1,0 +1,236 @@
+<story-context id="1-2-implement-modular-code-structure" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>2</storyId>
+    <title>Implement Modular Code Structure</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-14</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/1-2-implement-modular-code-structure.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a modular code architecture with clear separation of concerns</iWant>
+    <soThat>new features can be added without modifying core search logic</soThat>
+    <tasks>5 core modules to implement: search_engine.py, file_utils.py, config_manager.py, plugin_base.py, main_window.py with comprehensive unit tests for each</tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. Core Search Engine Module created at src/filesearch/core/search_engine.py with FileSearchEngine class implementing search(directory, query) method using multi-threaded traversal, partial matching, early termination, and generator pattern
+    2. File Utilities Module created at src/filesearch/core/file_utils.py with get_file_info(), safe_open(), and open_containing_folder() functions with cross-platform support
+    3. Configuration Manager Module created at src/filesearch/core/config_manager.py with ConfigManager class supporting JSON format, platformdirs for cross-platform paths, and validation
+    4. Plugin Base Module created at src/filesearch/plugins/plugin_base.py with abstract SearchPlugin class using abc.ABC and @abstractmethod decorators
+    5. Main GUI Window Module created at src/filesearch/ui/main_window.py with MainWindow class implementing event-driven architecture with signals/slots
+    6. Each module has comprehensive unit tests in /tests/unit/ with >80% coverage
+    7. All modules include type hints (Python 3.9+), error handling using core/exceptions.py, logging with loguru, and Google-style docstrings
+    8. Module dependencies flow in one direction: UI depends on Core, Core has no UI dependencies, Plugins depend on Plugin Base, Config Manager is standalone
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Functional Requirements</section>
+        <snippet>FR17: Modular code structure allowing easy addition of new search features. FR18: Configuration file for user preferences. FR19: Plugin architecture for future enhancements.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Epic to Architecture Mapping</section>
+        <snippet>Epic 1 modules: core/config_manager.py, core/exceptions.py, plugins/plugin_base.py, plugins/plugin_manager.py, models/search_result.py, utils/logger.py. Epic 2 modules: core/search_engine.py, ui/search_controls.py, ui/progress_widget.py, ui/main_window.py.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Project Structure</section>
+        <snippet>Core modules in src/filesearch/core/: search_engine.py (multi-threaded search), file_utils.py (file operations), config_manager.py (QSettings wrapper), exceptions.py (custom exception hierarchy). UI modules in src/filesearch/ui/: main_window.py (QMainWindow), search_controls.py, results_view.py, progress_widget.py, settings_dialog.py. Plugin modules in src/filesearch/plugins/: plugin_base.py (abstract base class), plugin_manager.py, builtin/example_plugin.py.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Technology Stack Details</section>
+        <snippet>PyQt6 for cross-platform GUI with native look and feel, QThread for background search, QSettings for configuration, signals/slots for thread-safe communication. loguru for structured logging with rotation and retention. pytest with pytest-qt for testing. concurrent.futures for multi-threaded search. pathlib.Path for cross-platform paths.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Implementation Patterns</section>
+        <snippet>Naming conventions: Python modules use snake_case.py, classes use PascalCase, public methods use snake_case with type hints, private methods use leading underscore. Code organization: imports (stdlib, third-party, local), constants, type definitions, exceptions, classes, functions. Plugin structure must follow exact pattern with SearchPlugin abstract base class.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Data Architecture</section>
+        <snippet>SearchResult dataclass with path (Path), size (int), modified (float), plugin_source (Optional[str]). Methods: get_display_name(), get_display_path(), get_display_size(), get_display_date(). Configuration structure using QSettings with search/*, ui/*, performance/*, plugins/*, recent/* keys.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>API Contracts</section>
+        <snippet>Plugin Base Class with abstract methods: initialize(config: Dict) -> bool, get_name() -> str, get_version() -> str, search(query: str, context: Dict) -> List[SearchResult]. Signal signatures for SearchEngine: result_found(Path, int), progress_update(int, str, int), search_complete(int, int), error_occurred(str, int), search_stopped(int, int).</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 1.2: Implement Modular Code Structure</section>
+        <snippet>5 core modules to create: search_engine.py with FileSearchEngine class, file_utils.py with get_file_info/safe_open/open_containing_folder, config_manager.py with ConfigManager class, plugin_base.py with SearchPlugin abstract class, main_window.py with MainWindow class. Module dependencies flow in one direction. Each module has comprehensive unit tests with >80% coverage, type hints, error handling, logging.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/filesearch/core/exceptions.py</path>
+        <kind>exceptions</kind>
+        <symbol>FileSearchError, SearchError, PluginError, ConfigError</symbol>
+        <lines>11-130</lines>
+        <reason>Custom exception hierarchy for error handling across all modules. SearchEngine should raise SearchError for permission denied and path not found. PluginBase uses PluginError for load/init failures. ConfigManager uses ConfigError for validation issues.</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/__init__.py</path>
+        <kind>package</kind>
+        <symbol>__version__, setup_logging()</symbol>
+        <lines>1-50</lines>
+        <reason>Package initialization with version info and logging setup. All modules will import from this package. Logging configuration uses loguru with rotation, retention, compression.</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/main.py</path>
+        <kind>entrypoint</kind>
+        <symbol>main(), CLI entry point</symbol>
+        <lines>1-80</lines>
+        <reason>Application entry point demonstrating logging setup and error handling patterns. Shows proper use of pathlib.Path and loguru integration.</reason>
+      </artifact>
+      <artifact>
+        <path>tests/unit/test_exceptions.py</path>
+        <kind>test</kind>
+        <symbol>TestFileSearchError, TestSearchError, TestPluginError</symbol>
+        <lines>1-100</lines>
+        <reason>Unit test patterns for exception classes. Shows pytest fixtures and test structure to follow for new test files.</reason>
+      </artifact>
+      <artifact>
+        <path>tests/unit/test_main.py</path>
+        <kind>test</kind>
+        <symbol>TestMainModule</symbol>
+        <lines>1-80</lines>
+        <reason>Unit test patterns for main module. Demonstrates pytest test structure, fixtures, and assertions to use for new test files.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="PyQt6" version="6.6.0" purpose="GUI framework for main_window.py, cross-platform native UI, QThread for background search, signals/slots for thread-safe communication" />
+        <package name="loguru" version="0.7.2" purpose="Structured logging for all modules, automatic rotation/retention/compression, thread-safe" />
+        <package name="pytest" version="7.4+" purpose="Testing framework for all unit tests" />
+        <package name="pytest-qt" version="4.2+" purpose="Qt testing utilities for main_window.py tests, event loop management" />
+        <package name="platformdirs" version="3.0+" purpose="Cross-platform config directory detection for config_manager.py" />
+      </python>
+      <stdlib>
+        <package name="concurrent.futures" version="Python 3.9+" purpose="ThreadPoolExecutor for multi-threaded search in search_engine.py" />
+        <package name="pathlib" version="Python 3.9+" purpose="Cross-platform path handling throughout all modules" />
+        <package name="os" version="Python 3.9+" purpose="File system operations, os.scandir() for efficient directory traversal" />
+        <package name="abc" version="Python 3.9+" purpose="Abstract base class for plugin_base.py SearchPlugin" />
+        <package name="typing" version="Python 3.9+" purpose="Type hints for all public methods" />
+        <package name="json" version="Python 3.9+" purpose="JSON configuration file format for config_manager.py" />
+        <package name="fnmatch" version="Python 3.9+" purpose="Partial matching algorithm for search_engine.py" />
+      </stdlib>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="architecture">One-way dependency flow: UI depends on Core, Core has no UI dependencies, Plugins depend on Plugin Base, Config Manager is standalone</constraint>
+    <constraint type="code_quality">Type hints required for all public methods (Python 3.9+ compatibility)</constraint>
+    <constraint type="code_quality">Google or NumPy style docstrings required on all modules and public functions</constraint>
+    <constraint type="error_handling">Use custom exception hierarchy from core/exceptions.py (FileSearchError, SearchError, PluginError, ConfigError)</constraint>
+    <constraint type="logging">Integrate loguru logging with structured logging using .bind() for context</constraint>
+    <constraint type="testing">Comprehensive unit tests required for each module with >80% coverage</constraint>
+    <constraint type="testing">Test file naming: test_*.py in /tests/unit/ directory</constraint>
+    <constraint type="naming">Python modules use snake_case.py, classes use PascalCase, public methods use snake_case with type hints</constraint>
+    <constraint type="naming">Private methods use leading underscore (e.g., _private_method)</constraint>
+    <constraint type="performance">Search engine must support early termination when max results reached</constraint>
+    <constraint type="performance">Use os.scandir() instead of os.listdir() for better performance</constraint>
+    <constraint type="cross_platform">Support Windows, macOS, and Linux for all file operations</constraint>
+    <constraint type="cross_platform">Use platformdirs for config directory detection</constraint>
+    <constraint type="design_pattern">Use generator pattern for memory-efficient search results streaming</constraint>
+    <constraint type="design_pattern">Use abstract base class with abc.ABC and @abstractmethod for plugin architecture</dependency>
+    <constraint type="design_pattern">Use dependency injection: UI receives search_engine instance</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>SearchEngine</name>
+      <kind>class</kind>
+      <signature>class SearchEngine(QObject): result_found = pyqtSignal(Path, int), progress_update = pyqtSignal(int, str, int), search_complete = pyqtSignal(int, int), error_occurred = pyqtSignal(str, int), search_stopped = pyqtSignal(int, int)</signature>
+      <path>src/filesearch/core/search_engine.py</path>
+    </interface>
+    <interface>
+      <name>SearchPlugin</name>
+      <kind>abstract class</kind>
+      <signature>class SearchPlugin(ABC): @abstractmethod def initialize(self, config: Dict[str, Any]) -> bool, @abstractmethod def get_name(self) -> str, @abstractmethod def get_version(self) -> str, @abstractmethod def search(self, query: str, context: Dict[str, Any]) -> List[SearchResult]</signature>
+      <path>src/filesearch/plugins/plugin_base.py</path>
+    </interface>
+    <interface>
+      <name>ConfigManager</name>
+      <kind>class</kind>
+      <signature>class ConfigManager: def get(self, key: str, default: Any = None) -> Any, def set(self, key: str, value: Any) -> None, def save(self) -> None, def load(self) -> None</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>FileSearchEngine</name>
+      <kind>class</kind>
+      <signature>class FileSearchEngine: def search(self, directory: Path, query: str) -> Generator[Path, None, None]</signature>
+      <path>src/filesearch/core/search_engine.py</path>
+    </interface>
+    <interface>
+      <name>MainWindow</name>
+      <kind>class</kind>
+      <signature>class MainWindow(QMainWindow): def __init__(self), def setup_ui(self), def connect_signals(self)</signature>
+      <path>src/filesearch/ui/main_window.py</path>
+    </interface>
+    <interface>
+      <name>SearchResult</name>
+      <kind>dataclass</kind>
+      <signature>@dataclass class SearchResult: path: Path, size: int, modified: float, plugin_source: Optional[str] = None</signature>
+      <path>src/filesearch/models/search_result.py</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>pytest with pytest-qt for UI components. Unit tests for each module in /tests/unit/. Target: >80% code coverage for each module. Test file naming: test_*.py. Use fixtures for common test setup. Test categories: happy path, edge cases, error handling, cross-platform where applicable.</standards>
+    <locations>
+      <location>tests/unit/test_search_engine.py</location>
+      <location>tests/unit/test_file_utils.py</location>
+      <location>tests/unit/test_config_manager.py</location>
+      <location>tests/unit/test_plugin_base.py</location>
+      <location>tests/unit/test_main_window.py</location>
+    </locations>
+    <ideas>
+      <idea ac="1">Test FileSearchEngine.search() with various query patterns (exact match, partial match, wildcards)</idea>
+      <idea ac="1">Test multi-threaded search performance and thread safety</idea>
+      <idea ac="1">Test early termination when max_results reached</idea>
+      <idea ac="1">Test search cancellation mechanism</idea>
+      <idea ac="1">Test generator pattern yields results as found</idea>
+      <idea ac="1">Test error handling for permission denied and path not found</idea>
+      <idea ac="1">Test Unicode filename support</idea>
+      <idea ac="2">Test get_file_info() returns correct size, modified time, type</idea>
+      <idea ac="2">Test safe_open() uses correct platform-specific command</idea>
+      <idea ac="2">Test open_containing_folder() opens correct directory</idea>
+      <idea ac="2">Test error handling for non-existent files</idea>
+      <idea ac="2">Test cross-platform file opening (Windows, macOS, Linux)</idea>
+      <idea ac="3">Test ConfigManager.get() with existing and non-existing keys</idea>
+      <idea ac="3">Test ConfigManager.set() and save() persists values</idea>
+      <idea ac="3">Test ConfigManager.load() reads from JSON file</idea>
+      <idea ac="3">Test cross-platform config directory detection</idea>
+      <idea ac="3">Test validation rejects invalid configuration values</idea>
+      <idea ac="4">Test SearchPlugin cannot be instantiated directly (abstract class)</idea>
+      <idea ac="4">Test plugin subclass must implement all abstract methods</idea>
+      <idea ac="4">Test plugin metadata attributes</idea>
+      <idea ac="5">Test MainWindow initializes all UI components</idea>
+      <idea ac="5">Test signal/slot connections</idea>
+      <idea ac="5">Test event handling for search input and buttons</idea>
+      <idea ac="6">Test each module achieves >80% code coverage</idea>
+      <idea ac="7">Test type hints are valid Python 3.9+ syntax</idea>
+      <idea ac="7">Test error handling uses correct exception types</idea>
+      <idea ac="7">Test logging integration with loguru</idea>
+      <idea ac="8">Test module dependency flow (no circular dependencies)</idea>
+    </ideas>
+  </tests>
+</story-context>
