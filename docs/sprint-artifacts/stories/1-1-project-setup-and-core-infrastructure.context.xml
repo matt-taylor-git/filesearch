@@ -1,0 +1,185 @@
+<story-context id="bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1</storyId>
+    <title>Project Setup and Core Infrastructure</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-13</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/1-1-project-setup-and-core-infrastructure.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer</asA>
+    <iWant>a properly structured Python project with build system and deployment pipeline</iWant>
+    <soThat>subsequent development can proceed with consistent tooling and practices</soThat>
+    <tasks>Create project directory structure, Set up Python packaging configuration, Initialize Git repository, Create core project files, Set up cross-platform utilities, Set up code quality standards, Set up development environment</tasks>
+  </story>
+
+  <acceptanceCriteria>Given an empty project directory When I initialize the project structure Then the following directories should be created: /src/filesearch/, /src/filesearch/core/, /src/filesearch/plugins/, /src/filesearch/ui/, /tests/, /config/, /docs/ And the following files should be created: pyproject.toml, requirements.txt, requirements-dev.txt, .gitignore, README.md, src/filesearch/__init__.py, src/filesearch/main.py And the project should include: Cross-platform path handling using pathlib.Path, Logging configuration with rotating file handler (max 5MB, 3 backups), Error handling framework with custom exceptions, Type hints throughout codebase (Python 3.9+ compatibility), Docstrings following Google or NumPy style</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>File Search - Product Requirements Document</title>
+        <section>Implementation Planning</section>
+        <snippet>Requirements must be decomposed into epics and bite-sized stories (200k context limit). Next Step: Run workflow epics-stories to create the implementation breakdown.</snippet>
+      </doc>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>File Search - Epic Breakdown</title>
+        <section>Epic 1: Extensibility Foundation - Story 1.1</section>
+        <snippet>As a developer, I want a properly structured Python project with build system and deployment pipeline, So that subsequent development can proceed with consistent tooling and practices. Prerequisites: None (first story)</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Project Initialization</section>
+        <snippet>First implementation story should execute: Create virtual environment, Install dependencies (PyQt6, loguru, pytest, pytest-qt), Create project structure with src/filesearch/{core,ui,plugins,models,utils}, tests/{unit,integration,ui}, docs, scripts</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Technology Stack Details</section>
+        <snippet>PyQt6 (6.6.0) for cross-platform GUI framework. loguru (0.7.2) for modern structured logging. pytest (7.4+) with pytest-qt (4.2+) for testing. Python Standard Library including pathlib.Path, concurrent.futures, os, sys, datetime.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Implementation Patterns - Naming Conventions</section>
+        <snippet>Python modules: snake_case.py. Plugin files: *_plugin.py. Test files: test_*.py. UI files: *_view.py, *_dialog.py, *_widget.py. Class Naming: PascalCase. Function/Method Naming: snake_case for public, _private_method for private. Signal handlers: on_event_name. Qt slot methods: handle_event_name.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Implementation Patterns - Code Organization</section>
+        <snippet>Each module follows this structure: 1. Imports (stdlib first, then third-party, then local), 2. Constants, 3. Type definitions, 4. Exception definitions, 5. Class definitions, 6. Function definitions, 7. if __name__ == "__main__" (entry points only)</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Implementation Patterns - Error Handling</section>
+        <snippet>Exception Hierarchy: FileSearchError (base), SearchError (search operations), PluginError (plugin loading/execution), ConfigError (configuration). Error Recovery: Continue search when encountering errors, log errors via loguru, show user-friendly summary.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Implementation Patterns - Logging Strategy</section>
+        <snippet>loguru configured with rotation="5 MB", retention="10 days", compression="zip", level="INFO". Usage: logger.info("Search started in {}", directory) - use {} for lazy evaluation. Use .bind() for structured logging context. Log Levels: DEBUG (development), INFO (general operations), WARNING (potential issues), ERROR (failed operations).</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/filesearch/__init__.py</path>
+        <kind>package</kind>
+        <symbol>__init__</symbol>
+        <lines>1-10</lines>
+        <reason>Package initialization file to be created with version info</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/main.py</path>
+        <kind>entry-point</kind>
+        <symbol>main</symbol>
+        <lines>1-20</lines>
+        <reason>Application entry point to be created as the main executable</reason>
+      </artifact>
+      <interface>
+        <name>Project Structure</name>
+        <kind>directory-layout</kind>
+        <signature>/src/filesearch/ (main package), /src/filesearch/core/ (core modules), /src/filesearch/plugins/ (plugin architecture), /src/filesearch/ui/ (UI components), /tests/ (test suite), /config/ (config files), /docs/ (documentation)</signature>
+        <path>docs/architecture.md</path>
+      </interface>
+      <interface>
+        <name>Python Packaging</name>
+        <kind>configuration</kind>
+        <signature>pyproject.toml with project metadata, dependencies, build settings</signature>
+        <path>docs/epics.md</path>
+      </interface>
+      <interface>
+        <name>Logging Configuration</name>
+        <kind>configuration</kind>
+        <signature>loguru with rotation="5 MB", retention="10 days", compression="zip", level="INFO"</signature>
+        <path>docs/architecture.md</path>
+      </interface>
+    </code>
+    <dependencies>
+      <python>
+        <package name="PyQt6" version="6.6.0" />
+        <package name="loguru" version="0.7.2" />
+        <package name="pytest" version="7.4+" />
+        <package name="pytest-qt" version="4.2+" />
+        <package name="black" />
+        <package name="flake8" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Follow standard Python project layout with src/ directory structure</constraint>
+    <constraint>Modular architecture with clear separation of concerns (core, ui, plugins)</constraint>
+    <constraint>Cross-platform compatibility from the start (Windows, macOS, Linux)</constraint>
+    <constraint>Python 3.9+ with type hints throughout codebase</constraint>
+    <constraint>Docstrings following Google or NumPy style</constraint>
+    <constraint>Error handling with specific exception types</constraint>
+    <constraint>Logging integration throughout codebase</constraint>
+    <constraint>Pre-commit hooks for code formatting (black) and linting (flake8)</constraint>
+    <constraint>GitHub Actions for automated testing</constraint>
+    <constraint>Virtual environment setup for each platform</constraint>
+    <constraint>Target: >80% code coverage</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Directory Structure</name>
+      <kind>filesystem</kind>
+      <signature>/src/filesearch/ (main package), /src/filesearch/core/ (core modules), /src/filesearch/plugins/ (plugin architecture), /src/filesearch/ui/ (UI components), /tests/ (test suite), /config/ (config files), /docs/ (documentation)</signature>
+      <path>docs/epics.md</path>
+    </interface>
+    <interface>
+      <name>Python Package Configuration</name>
+      <kind>configuration</kind>
+      <signature>pyproject.toml with project metadata, dependencies (PyQt6, loguru, pytest), and build settings</signature>
+      <path>docs/epics.md</path>
+    </interface>
+    <interface>
+      <name>Logging Framework</name>
+      <kind>library</kind>
+      <signature>loguru with rotation="5 MB", retention="10 days", compression="zip", level="INFO"</signature>
+      <path>docs/architecture.md</path>
+    </interface>
+    <interface>
+      <name>Exception Hierarchy</name>
+      <kind>code</kind>
+      <signature>FileSearchError (base), SearchError (search operations), PluginError (plugin loading/execution), ConfigError (configuration)</signature>
+      <path>docs/architecture.md</path>
+    </interface>
+    <interface>
+      <name>Testing Framework</name>
+      <kind>library</kind>
+      <signature>pytest with pytest-qt for Qt event loop management and widget testing</signature>
+      <path>docs/architecture.md</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Testing Framework: pytest with pytest-qt. Unit tests for individual modules. Integration tests for workflow testing. UI tests for interface components. Target: >80% code coverage.</standards>
+    <locations>
+      <location>/tests/unit/</location>
+      <location>/tests/integration/</location>
+      <location>/tests/ui/</location>
+    </locations>
+    <ideas>
+      <idea>Test directory creation - verify all required directories are created</idea>
+      <idea>Test pyproject.toml validation - ensure valid TOML syntax and required sections</idea>
+      <idea>Test requirements files - verify all dependencies are listed with correct versions</idea>
+      <idea>Test .gitignore patterns - ensure standard Python patterns are included</idea>
+      <idea>Test package initialization - verify __init__.py contains version info</idea>
+      <idea>Test main entry point - ensure main.py can be executed without errors</idea>
+      <idea>Test logging configuration - verify log files are created with rotation</idea>
+      <idea>Test exception hierarchy - verify custom exceptions can be raised and caught</idea>
+      <idea>Test type hints - verify mypy or similar type checker passes</idea>
+      <idea>Test docstring style - verify docstring format compliance</idea>
+    </ideas>
+  </tests>
+</story-context>
