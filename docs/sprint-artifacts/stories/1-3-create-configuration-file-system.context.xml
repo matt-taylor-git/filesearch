@@ -1,0 +1,238 @@
+<story-context id="1-3-create-configuration-file-system" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>3</storyId>
+    <title>Create Configuration File System</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-11-14</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/1-3-create-configuration-file-system.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>a configuration file to persist my preferences</iWant>
+    <soThat>I don't have to reconfigure the application on each launch</soThat>
+    <tasks>
+      - Configuration Manager Enhancement
+      - Settings Dialog Implementation
+      - Configuration Documentation
+      - Integration and Testing
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    **Given** the modular structure from Story 1.2
+    **When** I implement the configuration system
+    **Then** the following configuration options should be supported:
+
+    ### 1. Search Preferences
+    - `default_search_directory` - String path (default: user's home directory)
+    - `case_sensitive_search` - Boolean (default: false)
+    - `include_hidden_files` - Boolean (default: false)
+    - `max_search_results` - Integer (default: 1000, max: 10000)
+    - `file_extensions_to_exclude` - List of strings (default: ['.tmp', '.log', '.swp'])
+
+    ### 2. UI Preferences
+    - `window_geometry` - Dict with x, y, width, height (default: centered, 800x600)
+    - `result_font_size` - Integer pixels (default: 12)
+    - `show_file_icons` - Boolean (default: true)
+    - `auto_expand_results` - Boolean (default: false)
+
+    ### 3. Performance Settings
+    - `search_thread_count` - Integer (default: number of CPU cores)
+    - `enable_search_cache` - Boolean (default: false for MVP)
+    - `cache_ttl_minutes` - Integer (default: 30)
+
+    **And** the configuration file should:
+    - Be stored at platform-appropriate location:
+      - Windows: `%APPDATA%/filesearch/config.json`
+      - macOS: `~/Library/Application Support/filesearch/config.json`
+      - Linux: `~/.config/filesearch/config.json`
+    - Auto-create on first launch with default values
+    - Validate configuration on load (ignore invalid keys, use defaults for missing values)
+    - Support manual editing (human-readable JSON with comments allowed)
+    - Reload configuration without restart (file watcher or manual refresh)
+
+    **And** the UI should provide:
+    - Settings dialog accessible from menu bar
+    - Real-time validation of configuration values
+    - Reset to defaults button
+    - Apply changes without restart where possible
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>File Search - Epic Breakdown</title>
+        <section>Story 1.3: Create Configuration File System</section>
+        <snippet>Configuration options for Search Preferences, UI Preferences, and Performance Settings. Platform-appropriate storage locations and UI settings dialog requirements.</snippet>
+      </doc>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>File Search - Product Requirements Document</title>
+        <section>Functional Requirements - Extensibility</section>
+        <snippet>FR18: Configuration file for user preferences. FR19: Plugin architecture for future enhancements.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Configuration Structure</section>
+        <snippet>QSettings keys for search settings, UI settings, performance settings, and plugin settings. Cross-platform automatic storage using QSettings.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Technology Stack Details</section>
+        <snippet>PyQt6 provides QSettings for cross-platform configuration. loguru for logging. pytest with pytest-qt for testing.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Decision Summary</section>
+        <snippet>Configuration Storage: QSettings (PyQt6) for cross-platform automatic storage, type-safe, no file format decisions needed.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>ADR-004: QSettings for Configuration</section>
+        <snippet>Use QSettings for cross-platform configuration storage. Automatic platform-appropriate storage, type-safe, atomic saves prevent corruption.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <file>
+        <path>src/filesearch/core/config_manager.py</path>
+        <kind>service</kind>
+        <symbol>ConfigManager</symbol>
+        <lines>1-130</lines>
+        <reason>Existing configuration manager to be enhanced with comprehensive settings support</reason>
+      </file>
+      <file>
+        <path>src/filesearch/ui/main_window.py</path>
+        <kind>ui</kind>
+        <symbol>MainWindow</symbol>
+        <lines>1-159</lines>
+        <reason>Main window where settings menu and config integration will be added</reason>
+      </file>
+      <file>
+        <path>src/filesearch/core/search_engine.py</path>
+        <kind>service</kind>
+        <symbol>FileSearchEngine</symbol>
+        <lines>1-184</lines>
+        <reason>Search engine that will consume configuration values for search behavior</reason>
+      </file>
+      <file>
+        <path>src/filesearch/core/exceptions.py</path>
+        <kind>exceptions</kind>
+        <symbol>ConfigError</symbol>
+        <lines>25-27</lines>
+        <reason>Custom exception hierarchy for configuration-related errors</reason>
+      </file>
+    </code>
+    <dependencies>
+      <python>
+        <package>PyQt6>=6.6.0</package>
+        <package>loguru>=0.7.2</package>
+        <package>platformdirs>=3.0.0</package>
+        <package>watchdog>=3.0.0</package>
+        <package>jsonschema>=4.0.0</package>
+      </python>
+      <dev>
+        <package>pytest>=7.4.0</package>
+        <package>pytest-qt>=4.2.0</package>
+      </dev>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Configuration must use platformdirs for cross-platform directory detection</constraint>
+    <constraint>JSON format for human readability and manual editing</constraint>
+    <constraint>Schema validation to ensure config integrity</constraint>
+    <constraint>Version tracking for future migrations</constraint>
+    <constraint>Settings dialog must follow PyQt6 UI patterns established in main_window.py</constraint>
+    <constraint>ConfigManager should follow singleton pattern for global access</constraint>
+    <constraint>Real-time validation without blocking UI</constraint>
+    <constraint>Changes should apply without restart where possible</constraint>
+    <constraint>Follow one-way dependency flow: UI → Core → Plugins</constraint>
+    <constraint>Use type hints for all public methods (Python 3.9+ compatibility)</constraint>
+    <constraint>Google-style docstrings on all modules and public functions</constraint>
+    <constraint>Error handling using custom exception hierarchy from core/exceptions.py</constraint>
+    <constraint>Logging integration using loguru with structured logging</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>ConfigManager</name>
+      <kind>class</kind>
+      <signature>ConfigManager(config_dir: Optional[Path] = None)</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>get</name>
+      <kind>method</kind>
+      <signature>get(key: str, default: Any = None) -> Any</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>set</name>
+      <kind>method</kind>
+      <signature>set(key: str, value: Any) -> None</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>load</name>
+      <kind>method</kind>
+      <signature>load() -> None</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>save</name>
+      <kind>method</kind>
+      <signature>save() -> None</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>SettingsDialog</name>
+      <kind>class</kind>
+      <signature>SettingsDialog(config_manager: ConfigManager, parent: Optional[QWidget] = None)</signature>
+      <path>src/filesearch/ui/settings_dialog.py</path>
+    </interface>
+    <interface>
+      <name>validate_config</name>
+      <kind>method</kind>
+      <signature>validate_config(config_dict: Dict[str, Any]) -> Tuple[bool, List[str]]</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>reset_to_defaults</name>
+      <kind>method</kind>
+      <signature>reset_to_defaults() -> None</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>pytest with pytest-qt for UI components. Unit tests for each module in /tests/unit/ with >80% coverage. Test file naming: test_*.py. Use fixtures for common test setup.</standards>
+    <locations>
+      <location>tests/unit/test_config_manager.py</location>
+      <location>tests/unit/test_settings_dialog.py</location>
+      <location>tests/integration/test_config_integration.py</location>
+    </locations>
+    <ideas>
+      <idea ac="1">Test config loading with valid JSON</idea>
+      <idea ac="1">Test config loading with missing keys (should use defaults)</idea>
+      <idea ac="1">Test config loading with invalid keys (should ignore)</idea>
+      <idea ac="1">Test platform-specific config directory detection</idea>
+      <idea ac="2">Test settings dialog UI initialization</idea>
+      <idea ac="2">Test real-time validation feedback</idea>
+      <idea ac="2">Test reset to defaults functionality</idea>
+      <idea ac="3">Test config integration with search_engine</idea>
+      <idea ac="3">Test config integration with main_window</idea>
+      <idea ac="4">Test config file auto-creation on first launch</idea>
+      <idea ac="5">Test config validation with invalid values</idea>
+      <idea ac="6">Test settings dialog apply/cancel behavior</idea>
+      <idea ac="6">Test settings dialog real-time validation display</idea>
+    </ideas>
+  </tests>
+</story-context>

@@ -142,3 +142,4 @@ Thumbs.db
 config/*.local.toml
 logs/
 *.log
+MagicMock/

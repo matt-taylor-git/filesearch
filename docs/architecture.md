@@ -260,19 +260,19 @@ These patterns ensure consistent implementation across all AI agents:
 ```python
 class ClassName:
     """Docstring with description and attributes"""
-    
+
     # Class variables
     CLASS_CONSTANT = value
-    
+
     def __init__(self, param1: Type, param2: Type = default):
         """Initialize with parameters"""
         self.instance_var = param1  # Public
         self._private_var = param2  # Private
-        
+
     def public_method(self, arg: Type) -> ReturnType:
         """Public method docstring"""
         return result
-        
+
     def _private_method(self, arg: Type) -> ReturnType:
         """Private method docstring"""
         return result
@@ -288,11 +288,11 @@ class MyPlugin(SearchPlugin):
     def initialize(self, config: Dict) -> bool:
         # Initialize plugin, return True if successful
         return True
-    
+
     def get_name(self) -> str:
         # Return display name
         return "My Plugin"
-    
+
     def search(self, query: str, context: Dict) -> List[SearchResult]:
         # Perform search, return list of SearchResult objects
         return []
@@ -339,7 +339,7 @@ class ConfigError(FileSearchError):
 # In utils/logger.py
 from loguru import logger
 
-logger.add("logs/filesearch.log", 
+logger.add("logs/filesearch.log",
            rotation="5 MB",      # Rotate at 5MB
            retention="10 days",  # Keep logs for 10 days
            compression="zip",    # Compress old logs
@@ -379,29 +379,29 @@ class SearchResult:
     size: int                     # File size in bytes (0 for directories)
     modified: float              # Modification timestamp (from path.stat().st_mtime)
     plugin_source: Optional[str] = None  # Plugin name if from plugin, None if from core
-    
+
     def get_display_name(self) -> str:
         """Return filename for display"""
         return self.path.name
-    
+
     def get_display_path(self) -> str:
         """Return path with user directory abbreviated"""
         try:
             return str(self.path.relative_to(Path.home()))
         except ValueError:
             return str(self.path)
-    
+
     def get_display_size(self) -> str:
         """Return human-readable file size"""
         if self.size == 0 and self.path.is_dir():
             return "Folder"
-        
+
         for unit in ['B', 'KB', 'MB', 'GB']:
             if self.size < 1024.0:
                 return f"{self.size:.1f} {unit}"
             self.size /= 1024.0
         return f"{self.size:.1f} TB"
-    
+
     def get_display_date(self) -> str:
         """Return formatted modification date"""
         from datetime import datetime
@@ -460,48 +460,48 @@ from filesearch.models.search_result import SearchResult
 
 class SearchPlugin(ABC):
     """Abstract base class for all search plugins"""
-    
+
     @abstractmethod
     def initialize(self, config: Dict[str, Any]) -> bool:
         """
         Initialize plugin with configuration.
-        
+
         Args:
             config: Plugin-specific configuration dictionary
-            
+
         Returns:
             True if initialization successful, False otherwise
         """
         pass
-    
+
     @abstractmethod
     def get_name(self) -> str:
         """Return display name of the plugin"""
         pass
-    
+
     @abstractmethod
     def get_version(self) -> str:
         """Return version string (e.g., '1.0.0')"""
         pass
-    
+
     @abstractmethod
     def search(self, query: str, context: Dict[str, Any]) -> List[SearchResult]:
         """
         Perform search using plugin-specific logic.
-        
+
         Args:
             query: Search query string
             context: Search context (directory, options, etc.)
-            
+
         Returns:
             List of SearchResult objects
         """
         pass
-    
+
     def is_enabled(self) -> bool:
         """Check if plugin is enabled (can be overridden)"""
         return True
-    
+
     def cleanup(self) -> None:
         """Cleanup resources when plugin unloaded (optional)"""
         pass
@@ -515,19 +515,19 @@ class SearchEngine(QObject):
     # Emitted when a result is found
     # Parameters: filepath (Path), search_id (int)
     result_found = pyqtSignal(Path, int)
-    
+
     # Emitted periodically during search
     # Parameters: files_scanned (int), current_dir (str), search_id (int)
     progress_update = pyqtSignal(int, str, int)
-    
+
     # Emitted when search completes
     # Parameters: total_results (int), search_id (int)
     search_complete = pyqtSignal(int, int)
-    
+
     # Emitted when error occurs
     # Parameters: error_message (str), search_id (int)
     error_occurred = pyqtSignal(str, int)
-    
+
     # Emitted when search is stopped by user
     # Parameters: files_scanned (int), search_id (int)
     search_stopped = pyqtSignal(int, int)
@@ -837,6 +837,24 @@ pyinstaller scripts/filesearch.spec
 - Not human-editable (stored in platform-specific format)
 - Harder to sync across machines
 - But much more robust than manual file management
+
+### ADR-009: JSON Configuration Files
+
+**Decision:** Use JSON files with platformdirs for configuration storage
+
+**Rationale:**
+- Human-readable and manually editable format meets explicit user requirement (AC4)
+- Cross-platform directory detection using platformdirs library
+- Simple JSON parsing with built-in Python support
+- Easy to version and migrate configurations
+- Supports comments in JSON (implementation allows)
+
+**Tradeoffs:**
+- Less robust than QSettings (no atomic saves, potential corruption)
+- Requires manual file management and validation
+- But provides the required human-editable configuration
+
+**Status:** Accepted (supersedes ADR-004 for MVP implementation)
 
 **Status:** Accepted
 
