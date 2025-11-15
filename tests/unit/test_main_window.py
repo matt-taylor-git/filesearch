@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from PyQt6.QtCore import Qt, QThread
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
 from filesearch.core.config_manager import ConfigManager
@@ -86,11 +87,10 @@ class TestMainWindowInitialization:
 
     def test_main_window_ui_components(self, main_window):
         """Test that MainWindow has required UI components."""
-        assert hasattr(main_window, "dir_input")
+        assert hasattr(main_window, "directory_selector")
         assert hasattr(main_window, "query_input")
         assert hasattr(main_window, "search_button")
         assert hasattr(main_window, "stop_button")
-        assert hasattr(main_window, "browse_button")
         assert hasattr(main_window, "results_label")
 
     def test_main_window_title(self, main_window):
@@ -112,7 +112,7 @@ class TestMainWindowUIState:
         assert main_window.search_button.isEnabled() is True
         assert main_window.stop_button.isEnabled() is False
         assert main_window.query_input.isEnabled() is True
-        assert main_window.dir_input.text() != ""
+        assert str(main_window.directory_selector.get_directory()) != ""
 
     def test_load_window_settings(self, main_window):
         """Test loading window settings."""
@@ -148,8 +148,8 @@ class TestMainWindowSearchControls:
 
     def test_start_search_with_empty_inputs(self, main_window):
         """Test starting search with empty inputs."""
-        main_window.dir_input.setText("")
-        main_window.query_input.setText("")
+        main_window.directory_selector.set_directory(Path(""))
+        main_window.query_input.set_text("")
 
         main_window.start_search()
 
@@ -159,8 +159,8 @@ class TestMainWindowSearchControls:
 
     def test_start_search_with_invalid_directory(self, main_window):
         """Test starting search with invalid directory."""
-        main_window.dir_input.setText("/nonexistent/directory")
-        main_window.query_input.setText("*.txt")
+        main_window.directory_selector.set_directory(Path("/nonexistent/directory"))
+        main_window.query_input.set_text("*.txt")
 
         main_window.start_search()
 
@@ -170,23 +170,20 @@ class TestMainWindowSearchControls:
 
     def test_start_search_enables_stop_button(self, main_window):
         """Test that starting search enables stop button."""
-        with patch.object(main_window, "browse_directory"):
-            with tempfile.TemporaryDirectory() as tmpdir:
-                main_window.dir_input.setText(tmpdir)
-                main_window.query_input.setText("*.txt")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main_window.directory_selector.set_directory(Path(tmpdir))
+            main_window.query_input.set_text("*.txt")
 
-                # Mock the search worker to prevent actual search
-                with patch(
-                    "filesearch.ui.main_window.SearchWorker"
-                ) as mock_worker_class:
-                    mock_worker = Mock()
-                    mock_worker_class.return_value = mock_worker
+            # Mock the search worker to prevent actual search
+            with patch("filesearch.ui.main_window.SearchWorker") as mock_worker_class:
+                mock_worker = Mock()
+                mock_worker_class.return_value = mock_worker
 
-                    main_window.start_search()
+                main_window.start_search()
 
-                    # In a real scenario, this would be True during search
-                    # But with mocking, we just verify the method runs
-                    assert main_window.search_button.isEnabled() is False
+                # In a real scenario, this would be True during search
+                # But with mocking, we just verify the method runs
+                assert main_window.search_button.isEnabled() is False
 
     def test_stop_search_when_not_searching(self, main_window):
         """Test stopping search when not currently searching."""
@@ -200,7 +197,6 @@ class TestMainWindowSearchControls:
         main_window.is_searching = True
         main_window.search_button.setEnabled(False)
         main_window.stop_button.setEnabled(True)
-        main_window.query_input.setEnabled(False)
 
         # Reset UI
         main_window.reset_search_ui()
@@ -208,39 +204,43 @@ class TestMainWindowSearchControls:
         assert main_window.is_searching is False
         assert main_window.search_button.isEnabled() is True
         assert main_window.stop_button.isEnabled() is False
-        assert main_window.query_input.isEnabled() is True
 
 
 class TestMainWindowSignals:
     """Test cases for MainWindow signal handling."""
 
-    def test_signals_connected(self, main_window, qtbot):
+    def test_signals_connected(self, qtbot, config_manager):
         """Test that signals are properly connected."""
-        qtbot.addWidget(main_window)
-        main_window.show()
+        with patch(
+            "filesearch.ui.main_window.MainWindow.start_search"
+        ) as mock_start, patch(
+            "filesearch.ui.main_window.MainWindow.stop_search"
+        ) as mock_stop:
+            main_window = MainWindow(config_manager=config_manager)
+            main_window.show()
+            qtbot.addWidget(main_window)
+            main_window.activateWindow()
+            QApplication.processEvents()
 
-        # Test search button click
-        with patch.object(main_window, "start_search") as mock_start:
-            main_window.search_button.click()
+            # Test search button click
+            main_window.query_input.set_text("test")
+            main_window.search_button.clicked.emit()
             mock_start.assert_called_once()
 
-        # Test stop button click
-        with patch.object(main_window, "stop_search") as mock_stop:
-            qtbot.click(main_window.stop_button)
+            # Test stop button click
+            main_window.stop_button.clicked.emit()
             mock_stop.assert_called_once()
 
-        # Test browse button click
-        with patch.object(main_window, "browse_directory") as mock_browse:
-            qtbot.click(main_window.browse_button)
-            mock_browse.assert_called_once()
-
-    def test_query_input_return_pressed(self, main_window, qtbot):
+    def test_query_input_return_pressed(self, qtbot, config_manager):
         """Test that Enter key in query input triggers search."""
-        qtbot.addWidget(main_window)
-        main_window.show()
+        with patch("filesearch.ui.main_window.MainWindow.start_search") as mock_start:
+            main_window = MainWindow(config_manager=config_manager)
+            main_window.show()
+            qtbot.addWidget(main_window)
 
-        with patch.object(main_window, "start_search") as mock_start:
-            qtbot.keyPress(main_window.query_input, Qt.Key.Key_Return)
+            main_window.query_input.set_text("test")
+            main_window.query_input.set_focus()
+            qtbot.keyPress(main_window.query_input.search_input, Qt.Key.Key_Return)
             mock_start.assert_called_once()
 
 

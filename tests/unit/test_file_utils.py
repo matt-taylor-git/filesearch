@@ -14,8 +14,10 @@ from filesearch.core.file_utils import (
     get_file_modified_time,
     get_file_size,
     is_directory,
+    normalize_path,
     open_containing_folder,
     safe_open,
+    validate_directory,
 )
 
 
@@ -301,3 +303,109 @@ class TestConvenienceFunctions:
 
         with pytest.raises(FileSearchError):
             is_directory("/nonexistent/path")
+
+
+class TestPathNormalizationAndValidation:
+    """Test cases for normalize_path and validate_directory functions."""
+
+    @pytest.fixture(autouse=True)
+    def setup_env(self, monkeypatch):
+        """Set up environment variables for testing."""
+        self.home_dir = Path.home()
+        self.test_dir = self.home_dir / "test_dir_for_filesearch"
+        self.test_dir.mkdir(exist_ok=True)
+        self.test_file = self.test_dir / "test_file.txt"
+        self.test_file.touch(exist_ok=True)
+
+        # Mock environment variables
+        monkeypatch.setenv("HOME", str(self.home_dir))
+        monkeypatch.setenv("USERPROFILE", str(self.home_dir))
+        monkeypatch.setenv("TEST_VAR", str(self.test_dir))
+
+        # Ensure the test directory is readable
+        os.chmod(self.test_dir, 0o755)
+
+        yield
+
+        # Cleanup
+        if self.test_dir.exists():
+            self.test_file.unlink(missing_ok=True)
+            self.test_dir.rmdir()
+
+    # --- normalize_path tests ---
+
+    def test_normalize_path_tilde(self):
+        """Test path normalization with '~' shortcut."""
+        normalized = normalize_path("~")
+        assert normalized == self.home_dir.resolve()
+
+    def test_normalize_path_env_var_home(self):
+        """Test path normalization with $HOME environment variable."""
+        normalized = normalize_path("$HOME")
+        assert normalized == self.home_dir.resolve()
+
+    def test_normalize_path_env_var_custom(self):
+        """Test path normalization with a custom environment variable."""
+        normalized = normalize_path("$TEST_VAR")
+        assert normalized == self.test_dir.resolve()
+
+    def test_normalize_path_mixed_case_windows_env(self):
+        """Test path normalization with %USERPROFILE% (Windows style)."""
+        # On Linux/macOS, os.path.expandvars handles %VAR% as $VAR
+        normalized = normalize_path("%USERPROFILE%")
+        assert normalized == self.home_dir.resolve()
+
+    def test_normalize_path_absolute(self):
+        """Test path normalization for an already absolute path."""
+        abs_path = self.test_dir.resolve()
+        normalized = normalize_path(str(abs_path))
+        assert normalized == abs_path
+
+    def test_normalize_path_network_unc(self):
+        """Test path normalization for UNC/network paths (AC #6.3)."""
+        # Test cross-platform network path support
+        network_path = "//server/share/folder"
+        normalized = normalize_path(network_path)
+        # pathlib.Path handles network paths cross-platform
+        assert isinstance(normalized, Path)
+        # Should normalize without error
+        assert str(normalized).endswith("server/share/folder")
+
+    # --- validate_directory tests ---
+
+    def test_validate_directory_valid(self):
+        """Test validation for a valid, existing, and readable directory."""
+        error = validate_directory(self.test_dir.resolve())
+        assert error is None
+
+    def test_validate_directory_nonexistent(self):
+        """Test validation for a non-existent path."""
+        non_existent_path = self.test_dir / "non_existent_folder"
+        error = validate_directory(non_existent_path)
+        assert error == "Directory does not exist."
+
+    def test_validate_directory_is_file(self):
+        """Test validation for a path that is a file, not a directory."""
+        error = validate_directory(self.test_file)
+        assert error == "Path is not a directory."
+
+    @pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="Permission tests are unreliable on Windows",
+    )
+    def test_validate_directory_permission_denied(self):
+        """Test validation for a directory with no read permission."""
+        # Create a temporary directory with no read permission
+        temp_dir_path = self.test_dir / "no_read_perm"
+        temp_dir_path.mkdir()
+
+        # Remove read permission for the current user
+        os.chmod(temp_dir_path, 0o300)  # Write/Execute only
+
+        try:
+            error = validate_directory(temp_dir_path)
+            assert error == "Permission denied: Cannot read directory contents."
+        finally:
+            # Restore permissions for cleanup
+            os.chmod(temp_dir_path, 0o755)
+            temp_dir_path.rmdir()

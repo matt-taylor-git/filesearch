@@ -1,13 +1,13 @@
 """Core search engine module for file searching functionality.
 
-This module provides the FileSearchEngine class that implements multi-threaded
+This module provides FileSearchEngine class that implements multi-threaded
 file searching with partial matching, early termination, and generator-based
 result streaming.
 """
 
 import fnmatch
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed  # noqa: F401
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional, Set
 
@@ -37,8 +37,9 @@ class FileSearchEngine:
         max_results: int = 1000,
         config_manager: Optional[ConfigManager] = None,
         plugin_manager=None,
+        progress_callback=None,
     ):
-        """Initialize the search engine.
+        """Initialize search engine.
 
         Args:
             max_workers: Maximum number of worker threads (default: 4)
@@ -74,6 +75,7 @@ class FileSearchEngine:
         self._cancelled = False
         self._executor: Optional[ThreadPoolExecutor] = None
         self.plugin_manager = plugin_manager
+        self.progress_callback = progress_callback
 
         logger.debug(
             f"FileSearchEngine initialized with max_workers={self.max_workers}, "
@@ -81,7 +83,7 @@ class FileSearchEngine:
         )
 
     def cancel(self) -> None:
-        """Cancel the current search operation."""
+        """Cancel current search operation."""
         self._cancelled = True
         logger.info("Search cancellation requested")
 
@@ -98,10 +100,10 @@ class FileSearchEngine:
         self._cancelled = False
 
     def _match_pattern(self, filename: str, pattern: str) -> bool:
-        """Check if filename matches the search pattern.
+        """Check if filename matches search pattern.
 
         Args:
-            filename: Name of the file to check
+            filename: Name of file to check
             pattern: Search pattern (supports wildcards with fnmatch)
 
         Returns:
@@ -119,7 +121,7 @@ class FileSearchEngine:
             return False
 
     def _scan_directory(
-        self, directory: Path, pattern: str, results: Set[Path]
+        self, directory: Path, pattern: str, results: Set[Path], depth: int = 0
     ) -> None:
         """Scan a single directory for matching files.
 
@@ -127,6 +129,7 @@ class FileSearchEngine:
             directory: Directory path to scan
             pattern: Search pattern to match
             results: Set to store matching file paths
+            depth: Current recursion depth (for symlink cycle detection)
 
         Note:
             This method is designed to be called from worker threads.
@@ -134,6 +137,11 @@ class FileSearchEngine:
         """
         if self._should_cancel():
             logger.debug(f"Cancelling scan of {directory}")
+            return
+
+        # Check for symlink cycle detection (max depth 10)
+        if depth > 10:
+            logger.warning(f"Maximum symlink depth (10) reached at {directory}")
             return
 
         try:
@@ -163,6 +171,19 @@ class FileSearchEngine:
                                 results.add(Path(entry.path))
                                 logger.debug(f"Match found: {entry.path}")
 
+                                # Call progress callback if provided
+                                if self.progress_callback:
+                                    try:
+                                        self.progress_callback(
+                                            {
+                                                "files_scanned": len(results),
+                                                "current_file": entry.path,
+                                                "status": "scanning",
+                                            }
+                                        )
+                                    except Exception as e:
+                                        logger.warning(f"Progress callback error: {e}")
+
                                 # Check if we've reached max results
                                 if (
                                     self.max_results > 0
@@ -175,13 +196,36 @@ class FileSearchEngine:
                                     self.cancel()  # Signal other threads to stop
                                     break
 
-                        elif entry.is_dir() and not entry.is_symlink():
+                        elif entry.is_dir():
                             # Skip hidden directories if not including them
                             if not self.include_hidden and entry.name.startswith("."):
                                 continue
 
-                            # Recursively scan subdirectories
-                            self._scan_directory(Path(entry.path), pattern, results)
+                            # Handle symlinks with cycle detection
+                            if entry.is_symlink():
+                                try:
+                                    # Resolve symlink and check if it creates a cycle
+                                    resolved_path = Path(entry.path).resolve()
+                                    # Simple cycle detection by checking if resolved path is within current path
+                                    if directory in resolved_path.parents:
+                                        logger.warning(
+                                            f"Symlink cycle detected: {entry.path} -> {resolved_path}"
+                                        )
+                                        continue
+                                    # Recursively scan resolved symlink directory
+                                    self._scan_directory(
+                                        resolved_path, pattern, results, depth + 1
+                                    )
+                                except (OSError, PermissionError) as e:
+                                    logger.warning(
+                                        f"Cannot resolve symlink {entry.path}: {e}"
+                                    )
+                                    continue
+                            else:
+                                # Regular directory - recurse normally
+                                self._scan_directory(
+                                    Path(entry.path), pattern, results, depth + 1
+                                )
 
                     except (PermissionError, OSError) as e:
                         logger.warning(
@@ -198,7 +242,7 @@ class FileSearchEngine:
     def search(
         self, directory: Path, query: str
     ) -> Generator[Dict[str, Any], None, None]:
-        """Search for files matching the query pattern.
+        """Search for files matching query pattern.
 
         Args:
             directory: Root directory to start search from
@@ -213,8 +257,8 @@ class FileSearchEngine:
 
         Example:
             >>> engine = FileSearchEngine(max_results=100)
-            >>> for path in engine.search(Path('/home/user'), '*.py'):
-            ...     print(path)
+            >>> for result in engine.search(Path('/home/user'), '*.py'):
+            ...     print(result['path'])
         """
         logger.info(f"Starting search in {directory} for pattern '{query}'")
 
@@ -244,59 +288,29 @@ class FileSearchEngine:
 
                 # Submit root directory for scanning
                 future = executor.submit(
-                    self._scan_directory, directory, query, results
+                    self._scan_directory, directory, query, results, 0
                 )
 
-                # Yield any results found so far for real-time streaming
-                while not future.done():
-                    if results:
-                        for path in list(results):
-                            if self._should_cancel():
-                                results.clear()
-                                return
-                            try:
-                                stat = path.stat()
-                                yield {
-                                    "path": str(path),
-                                    "name": path.name,
-                                    "source": "filesystem",
-                                    "size": stat.st_size,
-                                    "modified": stat.st_mtime,
-                                }
-                            except Exception as e:
-                                logger.error(f"Error getting stat for {path}: {e}")
-                            results.remove(path)
-
-                    if self._should_cancel():
-                        results.clear()
-                        return
-
-                    # Small delay to avoid busy waiting
-                    import time
-
-                    time.sleep(0.01)
-
-                # Ensure we get the final results
+                # Wait for scan to complete
                 try:
-                    future.result(timeout=1.0)
+                    future.result()  # Wait for scanning to complete
                 except Exception as e:
                     logger.error(f"Error in search execution: {e}")
                     raise SearchError(f"Search execution failed: {e}")
 
-                # Yield any remaining results
-                if not self._should_cancel():
-                    for path in results:
-                        try:
-                            stat = path.stat()
-                            yield {
-                                "path": str(path),
-                                "name": path.name,
-                                "source": "filesystem",
-                                "size": stat.st_size,
-                                "modified": stat.st_mtime,
-                            }
-                        except Exception as e:
-                            logger.error(f"Error getting stat for {path}: {e}")
+                # Yield all results found (even if cancelled due to max results)
+                for path in results:
+                    try:
+                        stat = path.stat()
+                        yield {
+                            "path": str(path),
+                            "name": path.name,
+                            "source": "filesystem",
+                            "size": stat.st_size,
+                            "modified": stat.st_mtime,
+                        }
+                    except Exception as e:
+                        logger.error(f"Error getting stat for {path}: {e}")
                 results.clear()
 
                 # Get plugin results
@@ -337,11 +351,11 @@ def search_files(
         max_workers: Number of worker threads (default: 4)
 
     Yields:
-        Path objects for matching files
+        Dict objects for matching files with keys: 'path', 'name', 'source', etc.
 
     Example:
-        >>> for path in search_files(Path('.'), '*.txt', max_results=50):
-        ...     print(path)
+        >>> for result in search_files(Path('.'), '*.txt', max_results=50):
+        ...     print(result['path'])
     """
     engine = FileSearchEngine(max_workers=max_workers, max_results=max_results)
     yield from engine.search(directory, pattern)

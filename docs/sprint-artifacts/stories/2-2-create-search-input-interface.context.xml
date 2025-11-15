@@ -1,0 +1,182 @@
+<story-context id="{bmad_folder}/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>2</storyId>
+    <title>create-search-input-interface</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-14</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/2-2-create-search-input-interface.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>a prominent search input field where I can type my search query</iWant>
+    <soThat>I can easily enter what I'm looking for</soThat>
+    <tasks>### Search Input Widget Implementation
+- [ ] Create `src/filesearch/ui/search_controls.py` (AC: #1, #2, #3)
+  - [ ] Implement `SearchInputWidget` class with QLineEdit base (AC: #1)
+  - [ ] Add placeholder text and label configuration (AC: #1)
+  - [ ] Implement widget sizing and layout (80% width, min 400px, 32px height) (AC: #1)
+  - [ ] Set default focus on application launch (AC: #1)
+  - [ ] Write unit tests for search input widget (AC: #1, #2, #3)
+
+### Input Validation and Handling
+- [ ] Implement input validation and sanitization (AC: #2, #3)
+  - [ ] Add maximum length validation (255 characters) (AC: #2)
+  - [ ] Handle special characters safely (prevent regex injection) (AC: #2)
+  - [ ] Add empty query validation with friendly error message (AC: #3)
+  - [ ] Implement clipboard paste support (Ctrl+V/Cmd+V) (AC: #2)
+  - [ ] Write tests for input validation edge cases (AC: #2, #3)
+
+### Search History and Auto-complete
+- [ ] Implement search history functionality (AC: #2)
+  - [ ] Store last 10 searches in ConfigManager (persist across restarts) (AC: #2)
+  - [ ] Create dropdown widget for search history (accessible via down arrow) (AC: #2)
+  - [ ] Implement auto-complete suggestions from recent searches (AC: #2)
+  - [ ] Add clear search history option (AC: #2)
+  - [ ] Write tests for search history persistence and auto-complete (AC: #2)
+
+### Visual Feedback and Styling
+- [ ] Implement visual feedback system (AC: #4)
+  - [ ] Style widget with proper colors (gray normal, blue focused, red error) (AC: #4)
+  - [ ] Add clear button (X icon) that appears when text entered (AC: #2, #4)
+  - [ ] Implement loading indicator (spinner) during search operations (AC: #4)
+  - [ ] Add hover effects and transitions (AC: #4)
+  - [ ] Write tests for visual feedback states (AC: #4)
+
+### Keyboard Interactions
+- [ ] Implement comprehensive keyboard support (AC: #3)
+  - [ ] Enter key initiates search (connect to search engine) (AC: #3)
+  - [ ] Escape key clears input and returns focus (AC: #3)
+  - [ ] Ctrl+L selects all text (standard shortcut) (AC: #3)
+  - [ ] Tab/Shift+Tab navigation to next/previous controls (AC: #3)
+  - [ ] Write tests for all keyboard interactions (AC: #3)
+
+### Accessibility Implementation
+- [ ] Implement accessibility features (AC: #5)
+  - [ ] Add screen reader announcements and ARIA labels (AC: #5)
+  - [ ] Ensure full keyboard navigation support (AC: #5)
+  - [ ] Test high contrast mode compatibility (AC: #5)
+  - [ ] Add accessibility tests using platform tools (AC: #5)
+
+### Integration with Search Engine
+- [ ] Integrate with search engine from Story 2.1 (AC: #3)
+  - [ ] Connect search input to SearchEngine.search() method (AC: #3)
+  - [ ] Handle search engine callbacks for loading/error states (AC: #4)
+  - [ ] Pass search options (case sensitivity, etc.) from config (AC: #3)
+  - [ ] Implement search debouncing (300ms delay for auto-search) (AC: #3)
+  - [ ] Write integration tests with search engine (AC: #3, #4)
+
+### Configuration Integration
+- [ ] Integrate with configuration system from Story 1.3 (AC: #2)
+  - [ ] Store/retrieve search history in ConfigManager (AC: #2)
+  - [ ] Read search preferences (auto-search enabled, etc.) (AC: #3)
+  - [ ] Persist search input state across application restarts (AC: #2)
+  - [ ] Write tests for configuration integration (AC: #2)</tasks>
+  </story>
+
+    <acceptanceCriteria>**Given** the main application window
+**When** I view the search interface
+**Then** I should see a search input field at the top of the window with:
+- Clear label: "Search files and folders"
+- Placeholder text: "Enter filename or partial name..."
+- Width: 80% of window width (minimum 400px)
+- Height: 32px with 8px padding
+- Font size: 14px, system font family
+- Focused by default when application launches
+
+**And** the search input should support:
+- Keyboard input with immediate feedback
+- Paste from clipboard (Ctrl+V or Cmd+V)
+- Clear button (X icon) appearing when text is entered
+- Search history dropdown (store last 10 searches, accessible via down arrow)
+- Auto-complete suggestions from recent searches
+- Maximum length: 255 characters
+- Special character handling (quotes, asterisks, etc. treated as literal search terms)
+
+**And** keyboard interactions:
+- **Enter key:** Immediately initiates search
+- **Escape key:** Clears the input and returns focus
+- **Ctrl+L:** Selects all text in the search field (standard shortcut)
+- **Tab key:** Navigates to the next control (directory selector)
+- **Shift+Tab:** Navigates to the previous control
+
+**And** visual feedback:
+- Border color: Light gray normal, blue when focused
+- Background: White with slight transparency
+- Text color: Dark gray (high contrast)
+- Error state: Red border if search fails (rare)
+- Loading indicator: Spinner icon appears during search
+
+**And** accessibility:
+- Screen reader announces: "Search input, enter filename or partial name"
+- ARIA label: `aria-label="Search files and folders"`
+- Keyboard navigation fully supported
+- High contrast mode compatible</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/PRD.md" title="Product Requirements Document" section="User Interface" snippet="File Search is a minimal, clean Python GUI application for fast, cross-platform local file and folder search. Designed as a personal tool that can be easily customized and extended with new features." />
+      <doc path="docs/PRD.md" title="Product Requirements Document" section="User Experience Principles" snippet="Minimal, clean interface focused on search functionality. Intuitive layout with search input prominently displayed. Results presented in clear, scannable list format. Consistent with native desktop application patterns." />
+      <doc path="docs/architecture.md" title="Architecture Document" section="Decision Summary" snippet="PyQt6 for cross-platform GUI with native look and feel, excellent threading support, and professional appearance. QLineEdit for native Qt text input widget with full styling support." />
+      <doc path="docs/architecture.md" title="Architecture Document" section="Project Structure" snippet="UI components in ui/ directory with clear module separation. Signal/Slot Pattern for Qt's event-driven communication. Observer Pattern for search input changes notifying search engine." />
+      <doc path="docs/epics.md" title="Epic Breakdown" section="Epic 2: Search Interface" snippet="Provide an intuitive interface for users to perform file searches. Scope: Search input field, directory selection, search initiation, progress indicators, and status display." />
+    </docs>
+    <code>
+      <artifact path="src/filesearch/core/search_engine.py" kind="service" symbol="FileSearchEngine" lines="20-50" reason="Core search engine with multi-threading and generator-based results. Connect search input to engine.search() method." />
+      <artifact path="src/filesearch/ui/main_window.py" kind="controller" symbol="MainWindow" lines="10-50" reason="Main GUI window that needs search input widget integration. Contains SearchWorker thread for background operations." />
+      <artifact path="src/filesearch/core/config_manager.py" kind="service" symbol="ConfigManager" lines="28-50" reason="Configuration management for search history persistence. Use get()/set() methods for search preferences." />
+      <artifact path="src/filesearch/core/exceptions.py" kind="utility" symbol="SearchError" lines="1-20" reason="Custom exception hierarchy for search-related errors. Use for input validation errors." />
+    </code>
+    <dependencies>
+      <ecosystem name="python">
+        <package name="PyQt6" version=">=6.6.0" purpose="GUI framework with QLineEdit and signal/slot support" />
+        <package name="loguru" version=">=0.7.2" purpose="Structured logging for search input events" />
+      </ecosystem>
+      <ecosystem name="python-dev">
+        <package name="pytest" version=">=7.4.0" purpose="Testing framework with pytest-qt for UI components" />
+        <package name="pytest-qt" version=">=4.2.0" purpose="Qt-specific testing utilities for UI widgets" />
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint name="UI Framework" description="Must use PyQt6 with QLineEdit for search input widget. Follow established signal/slot patterns for event-driven communication." />
+    <constraint name="Code Quality" description="Follow Google-style docstrings, type hints throughout, and structured logging with loguru. Use custom exception hierarchy from core/exceptions.py." />
+    <constraint name="Architecture" description="Maintain modular structure with UI components in ui/ directory. Use Observer Pattern for search input changes notifying search engine." />
+    <constraint name="Configuration" description="Integrate with existing ConfigManager for search history persistence. Use get()/set() methods for configuration values." />
+    <constraint name="Testing" description="Write comprehensive tests using pytest with pytest-qt. Target >80% code coverage with unit, integration, and accessibility tests." />
+  </constraints>
+  <interfaces>
+    <interface name="FileSearchEngine.search" kind="method" signature="search(directory: Path, query: str, options: Dict) -> Generator[SearchResult]" path="src/filesearch/core/search_engine.py" />
+    <interface name="ConfigManager.get" kind="method" signature="get(key: str, default: Any = None) -> Any" path="src/filesearch/core/config_manager.py" />
+    <interface name="ConfigManager.set" kind="method" signature="set(key: str, value: Any) -> None" path="src/filesearch/core/config_manager.py" />
+    <interface name="SearchWorker.result_found" kind="signal" signature="result_found = pyqtSignal(dict, int)" path="src/filesearch/ui/main_window.py" />
+    <interface name="SearchWorker.progress_update" kind="signal" signature="progress_update = pyqtSignal(int, str, int)" path="src/filesearch/ui/main_window.py" />
+  </interfaces>
+  <tests>
+    <standards>Framework: pytest with pytest-qt for UI components. Unit tests for SearchInputWidget class. Integration tests with search engine and configuration. Accessibility tests using platform tools. UI interaction tests (keyboard, mouse, focus). Target: >80% code coverage.</standards>
+    <locations>
+      <location pattern="tests/unit/test_search_controls.py" description="Unit tests for search input widget" />
+      <location pattern="tests/integration/test_search_input_integration.py" description="Integration tests with search engine and config" />
+      <location pattern="tests/ui/test_search_input_accessibility.py" description="Accessibility tests for screen reader and keyboard navigation" />
+    </locations>
+    <ideas>
+      <test idea="test_placeholder_text" ac="#1" description="Verify placeholder text and label are correctly displayed" />
+      <test idea="test_keyboard_input" ac="#2" description="Test normal keyboard input and immediate feedback" />
+      <test idea="test_clipboard_paste" ac="#2" description="Test Ctrl+V/Cmd+V paste functionality" />
+      <test idea="test_max_length_validation" ac="#2" description="Test 255 character limit enforcement" />
+      <test idea="test_search_history_persistence" ac="#2" description="Test search history saved across restarts" />
+      <test idea="test_enter_key_search" ac="#3" description="Test Enter key initiates search" />
+      <test idea="test_escape_key_clear" ac="#3" description="Test Escape key clears input" />
+      <test idea="test_ctrl_l_select_all" ac="#3" description="Test Ctrl+L selects all text" />
+      <test idea="test_tab_navigation" ac="#3" description="Test Tab/Shift+Tab navigation" />
+      <test idea="test_focus_states" ac="#4" description="Test border color changes (gray normal, blue focused)" />
+      <test idea="test_error_state" ac="#4" description="Test red border for search errors" />
+      <test idea="test_loading_indicator" ac="#4" description="Test spinner appears during search" />
+      <test idea="test_screen_reader_support" ac="#5" description="Test ARIA labels and announcements" />
+      <test idea="test_high_contrast" ac="#5" description="Test high contrast mode compatibility" />
+    </ideas>
+  </tests>
+</story-context>

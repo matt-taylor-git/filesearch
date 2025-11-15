@@ -50,9 +50,9 @@ development_status:
 
   # Epic 2: Search Interface
   epic-2: backlog
-  2-1-implement-core-search-engine-with-performance-optimization: backlog
-  2-2-create-search-input-interface: backlog
-  2-3-implement-directory-selection-controls: backlog
+  2-1-implement-core-search-engine-with-performance-optimization: done
+   2-2-create-search-input-interface: done
+   2-3-implement-directory-selection-controls: done
   2-4-add-search-initiation-and-control: backlog
   2-5-add-progress-indication-during-search: backlog
   2-6-add-search-status-display: backlog

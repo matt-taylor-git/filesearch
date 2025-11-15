@@ -27,6 +27,7 @@ from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import open_containing_folder, safe_open
 from filesearch.core.search_engine import FileSearchEngine
 from filesearch.plugins.plugin_manager import PluginManager
+from filesearch.ui.search_controls import SearchInputWidget
 
 
 class SearchWorker(QThread):
@@ -144,11 +145,15 @@ class MainWindow(QMainWindow):
         self.is_searching = False
         self.search_results = []
         self.plugin_results = []
+        self.current_directory = Path.home()  # Initialize current directory state
 
         # Setup UI
         self.setup_ui()
         self.connect_signals()
         self.load_window_settings()
+
+        # Set focus to search input on launch
+        self.query_input.set_focus()
 
         logger.info("MainWindow initialized")
 
@@ -171,45 +176,28 @@ class MainWindow(QMainWindow):
         central_widget.setLayout(main_layout)
 
         # Create search controls layout
-        search_layout = QHBoxLayout()
+        # Search input widget
+        self.query_input = SearchInputWidget(self.config_manager)
+        main_layout.addWidget(self.query_input)
 
-        # Directory selection
-        self.dir_label = QLabel("Directory:")
-        self.dir_input = QLineEdit()
-        self.dir_input.setText(
-            self.config_manager.get(
-                "search_preferences.default_search_directory", str(Path.home())
-            )
-        )
-        self.dir_input.setPlaceholderText("Enter directory path...")
+        # Directory selection widget
+        from filesearch.ui.search_controls import DirectorySelectorWidget
 
-        self.browse_button = QPushButton("Browse...")
+        self.directory_selector = DirectorySelectorWidget(self.config_manager)
+        self.directory_selector.set_directory(self.current_directory)
+        main_layout.addWidget(self.directory_selector)
 
-        search_layout.addWidget(self.dir_label)
-        search_layout.addWidget(self.dir_input)
-        search_layout.addWidget(self.browse_button)
-
-        # Search query layout
-        query_layout = QHBoxLayout()
-
-        self.query_label = QLabel("Search:")
-        self.query_input = QLineEdit()
-        self.query_input.setPlaceholderText(
-            "Enter search pattern (e.g., *.py, document*)"
-        )
-
+        # Search control buttons
+        button_layout = QHBoxLayout()
         self.search_button = QPushButton("Search")
         self.stop_button = QPushButton("Stop")
         self.stop_button.setEnabled(False)
 
-        query_layout.addWidget(self.query_label)
-        query_layout.addWidget(self.query_input)
-        query_layout.addWidget(self.search_button)
-        query_layout.addWidget(self.stop_button)
+        button_layout.addStretch()  # Push buttons to right
+        button_layout.addWidget(self.search_button)
+        button_layout.addWidget(self.stop_button)
 
-        # Add layouts to main layout
-        main_layout.addLayout(search_layout)
-        main_layout.addLayout(query_layout)
+        main_layout.addLayout(button_layout)
 
         # Results area
         self.results_label = QLabel("Results:")
@@ -228,10 +216,12 @@ class MainWindow(QMainWindow):
         # Search controls
         self.search_button.clicked.connect(self.start_search)
         self.stop_button.clicked.connect(self.stop_search)
-        self.browse_button.clicked.connect(self.browse_directory)
 
-        # Enter key triggers search
-        self.query_input.returnPressed.connect(self.start_search)
+        # Search input widget signals
+        self.query_input.search_initiated.connect(self.start_search)
+
+        # Directory selector signals
+        self.directory_selector.directory_changed.connect(self._on_directory_changed)
 
         logger.debug("Signals connected")
 
@@ -261,13 +251,10 @@ class MainWindow(QMainWindow):
         except Exception as e:
             logger.error(f"Error saving window settings: {e}")
 
-    def browse_directory(self) -> None:
-        """Open directory browser dialog."""
-        # Note: This is a simplified version
-        # In a full implementation, you'd use QFileDialog
-        current_dir = self.dir_input.text()
-        self.statusBar().showMessage(f"Browse directory: {current_dir}")
-        logger.info(f"Browse directory requested: {current_dir}")
+    def _on_directory_changed(self, directory: Path) -> None:
+        """Update the current search directory state."""
+        self.current_directory = directory
+        logger.debug(f"Current search directory updated to: {directory}")
 
     def start_search(self) -> None:
         """Start the file search operation."""
@@ -276,8 +263,8 @@ class MainWindow(QMainWindow):
             return
 
         # Get search parameters
-        directory = Path(self.dir_input.text().strip())
-        query = self.query_input.text().strip()
+        directory = self.current_directory
+        query = self.query_input.get_text()
 
         # Validate inputs
         if not directory or not query:
@@ -298,7 +285,9 @@ class MainWindow(QMainWindow):
         self.is_searching = True
         self.search_button.setEnabled(False)
         self.stop_button.setEnabled(True)
-        self.query_input.setEnabled(False)
+        self.query_input.set_loading_state(True)
+        self.query_input.set_error_state(False)
+        self.directory_selector.set_read_only(True)
         self.statusBar().showMessage(f"Searching for '{query}' in {directory}...")
 
         # Create and start search worker
@@ -395,6 +384,7 @@ class MainWindow(QMainWindow):
             error_code: Error code
         """
         self.reset_search_ui()
+        self.query_input.set_error_state(True)
         self.statusBar().showMessage(f"Search error: {error_message}")
         logger.error(f"Search error {error_code}: {error_message}")
 
@@ -403,7 +393,8 @@ class MainWindow(QMainWindow):
         self.is_searching = False
         self.search_button.setEnabled(True)
         self.stop_button.setEnabled(False)
-        self.query_input.setEnabled(True)
+        self.query_input.set_loading_state(False)
+        self.directory_selector.set_read_only(False)
 
         if self.search_worker:
             self.search_worker = None

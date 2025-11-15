@@ -1,0 +1,233 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>3</storyId>
+    <title>Implement Directory Selection Controls</title>
+    <status>drafted</status>
+    <generatedAt>Sat Nov 15 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/2-3-implement-directory-selection-controls.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>a user,</asA>
+    <iWant>to specify which directory to search in,</iWant>
+    <soThat>I can narrow my search to relevant locations.</soThat>
+    <tasks>
+- [ ] **Create Directory Selection Widget**
+  - [ ] Create a new `DirectorySelectorWidget` in `src/filesearch/ui/search_controls.py`.
+  - [ ] Add a `QLineEdit` for the path and a `QPushButton` for "Browse...".
+  - [ ] Implement the layout and styling to match the `SearchInputWidget`.
+- [ ] **Implement Browse Functionality**
+  - [ ] On "Browse..." click, open a `QFileDialog` to select a directory.
+  - [ ] Update the `QLineEdit` with the selected path.
+- [ ] **Implement Recent Directories**
+  - [ ] Add a dropdown to show the last 5 used directories.
+  - [ ] Store and retrieve recent directories from `ConfigManager`.
+- [ ] **Implement Path Validation**
+  - [ ] Validate the path in the `QLineEdit` on input change.
+  - [ ] Show an error for invalid paths.
+  - [ ] Handle user shortcuts like `~` and environment variables.
+- [ ] **Integrate into Main Window**
+  - [ ] Add the `DirectorySelectorWidget` to the `MainWindow` layout.
+  - [ ] Connect the widget's signals to the `SearchEngine`.
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+**Given** the search interface
+**When** I look for directory selection controls
+**Then** I should see:
+- Text input field showing current search directory path
+- Browse button (labeled "Browse..." or with folder icon)
+- Default directory: user's home directory (`~` or `%USERPROFILE%`)
+- Recently used directories dropdown (last 5 directories)
+
+**And** directory text input should:
+- Display full absolute path (not relative)
+- Support manual path entry with validation
+- Auto-complete common paths (home, documents, desktop)
+- Show error state for invalid paths (red border, tooltip: "Directory does not exist")
+- Accept drag-and-drop of folders from file manager
+- Be editable but also show read-only view during search
+
+**And** browse button should:
+- Open native file browser dialog when clicked
+- Dialog title: "Select Search Directory"
+- Default to current directory in text field
+- Show only directories (not files)
+- Allow creating new folder (platform-dependent)
+- Return selected path to text field
+
+**And** recently used directories:
+- Store in configuration file (persist across sessions)
+- Show as dropdown when clicking arrow or right-clicking text field
+- Display friendly names: `/home/user/Documents` → "Documents"
+- Maximum 5 entries, ordered by most recent
+- Clear history option in context menu
+
+**And** keyboard shortcuts:
+- **Ctrl+O:** Open browse dialog (standard "open" shortcut)
+- **Ctrl+D:** Focus directory text field
+- **Escape:** Close browse dialog without selection
+
+**And** the directory should:
+- Validate existence before search starts
+- Check read permissions and show error if denied
+- Support network paths (UNC on Windows, NFS/SMB on Linux/Mac)
+- Expand user shortcuts: `~`, `%USERPROFILE%`, `$HOME`
+- Handle path separators correctly across platforms
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/PRD.md</path>
+        <title>File Search - Product Requirements Document</title>
+        <section>Functional Requirements</section>
+        <snippet>FR2: Users can specify starting directory for search scope. FR14: Directory selection via browse button or text input.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Epic to Architecture Mapping</section>
+        <snippet>Story 2.3 is mapped to `ui/search_controls.py`, which will contain the search input, directory selector, and buttons.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Configuration Structure</section>
+        <snippet>The configuration will store `search/default_directory` and `recent/directories` (str list, last 5) using QSettings (or JSON config per ADR-009).</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>ADR-001: PyQt6 as GUI Framework</section>
+        <snippet>The decision to use PyQt6 is critical, as it provides `QFileDialog` for native directory selection, which is required by the acceptance criteria.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>ADR-009: JSON Configuration Files</section>
+        <snippet>This ADR confirms the use of human-readable JSON files for configuration, which is where the recent directories list will be persisted.</snippet>
+      </doc>
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>ADR-006: pathlib.Path for File Operations</section>
+        <snippet>All file operations, including path validation and handling user shortcuts, must use `pathlib.Path` for cross-platform compatibility.</snippet>
+      </doc>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/filesearch/ui/search_controls.py</path>
+        <kind>UI Widget</kind>
+        <symbol>SearchInputWidget</symbol>
+        <lines>27-472</lines>
+        <reason>Template for new `DirectorySelectorWidget` class, providing layout and styling patterns.</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/main_window.py</path>
+        <kind>UI Window</kind>
+        <symbol>MainWindow</symbol>
+        <lines>113-470</lines>
+        <reason>Needs modification to replace existing directory controls (lines 181-194) with the new widget and update `start_search` logic.</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/core/config_manager.py</path>
+        <kind>Core Utility</kind>
+        <symbol>ConfigManager</symbol>
+        <lines>28-506</lines>
+        <reason>Provides `get`, `set`, and `save` methods for persisting the "Recent Directories" list under the `recent.directories` key.</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/core/file_utils.py</path>
+        <kind>Core Utility</kind>
+        <symbol>get_file_info</symbol>
+        <lines>18-66</lines>
+        <reason>Will be extended with a new utility function to handle path normalization and expansion (`~`, `$HOME`) as required by ACs.</reason>
+      </artifact>
+      <artifact>
+        <path>tests/unit/test_search_controls.py</path>
+        <kind>Test Suite</kind>
+        <symbol>TestSearchInputWidget</symbol>
+        <lines>16-309</lines>
+        <reason>Provides the testing pattern and fixtures (e.g., `config_manager`, `qtbot`) to be reused for testing the new directory selector widget.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <dependency>
+        <name>PyQt6</name>
+        <version>6.6.0</version>
+        <reason>Required for all UI components: QLineEdit, QPushButton, QFileDialog, QCompleter, QWidget, and QThread/Signals.</reason>
+      </dependency>
+      <dependency>
+        <name>pathlib.Path</name>
+        <version>Python 3.9+</version>
+        <reason>Mandatory for all file system operations and path handling to ensure cross-platform compatibility.</reason>
+      </dependency>
+      <dependency>
+        <name>platformdirs</name>
+        <version>N/A</version>
+        <reason>Used by `ConfigManager` to determine cross-platform configuration file locations.</reason>
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <name>UI Component Reuse</name>
+      <description>The new `DirectorySelectorWidget` must be implemented in `src/filesearch/ui/search_controls.py` and follow the styling and structure of `SearchInputWidget` (e.g., 32px height, 14px font).</description>
+    </constraint>
+    <constraint>
+      <name>Configuration Persistence</name>
+      <description>The list of recently used directories (max 5) must be stored and retrieved using the `ConfigManager` under the `recent.directories` key.</description>
+    </constraint>
+    <constraint>
+      <name>Path Normalization</name>
+      <description>A utility function must be created in `src/filesearch/core/file_utils.py` to handle path expansion for user shortcuts (`~`, `$HOME`, `%USERPROFILE%`) and ensure cross-platform path separators are handled correctly before validation.</description>
+    </constraint>
+    <constraint>
+      <name>Native Dialog</name>
+      <description>The "Browse..." button must open a native file browser dialog (`QFileDialog`) configured to select only directories.</description>
+    </constraint>
+    <constraint>
+      <name>Path Validation</name>
+      <description>The widget must validate path existence and read permissions before search starts, showing an error state for invalid paths.</description>
+    </constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>ConfigManager Access</name>
+      <kind>Class Interface</kind>
+      <signature>ConfigManager.get(key: str, default: Any) -> Any; ConfigManager.set(key: str, value: Any) -> None; ConfigManager.save() -> None</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>DirectorySelectorWidget</name>
+      <kind>Class Interface (New)</kind>
+      <signature>DirectorySelectorWidget.get_directory() -> Path; DirectorySelectorWidget.set_directory(path: Path) -> None; DirectorySelectorWidget.browse_clicked() -> None (via signal)</signature>
+      <path>src/filesearch/ui/search_controls.py</path>
+    </interface>
+    <interface>
+      <name>Path Normalization Utility</name>
+      <kind>Function Signature (New)</kind>
+      <signature>normalize_path(path: str) -> Path</signature>
+      <path>src/filesearch/core/file_utils.py</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>The project uses `pytest` with `pytest-qt` for unit and UI testing. Tests should follow the pattern established in `tests/unit/test_search_controls.py`, using fixtures for `ConfigManager` and `qtbot`.</standards>
+    <locations>
+      <location>tests/unit/test_search_controls.py</location>
+      <location>tests/unit/test_file_utils.py</location>
+    </locations>
+    <ideas>
+      <idea>Test path normalization: `~` expands to home, `$HOME` expands to home, invalid path shows error state.</idea>
+      <idea>Test recent directories: Max 5 entries, persistence via `ConfigManager`, correct ordering (most recent first).</idea>
+      <idea>Test browse functionality: `QFileDialog` opens with correct title and filters (directories only).</idea>
+      <idea>Test path validation: Check for existence (`path.exists()`) and read permissions (`os.access(path, os.R_OK)`).</idea>
+      <idea>Test keyboard shortcuts: `Ctrl+O` opens browse dialog, `Ctrl+D` focuses input.</idea>
+    </ideas>
+  </tests>
+</story-context>

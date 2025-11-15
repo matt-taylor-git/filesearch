@@ -23,3 +23,7 @@ Routing guidance:
 | 2025-11-14 | 1.4 | 1 | Enhancement | Med | TBD | Open | Enhance plugin configuration dialogs with proper form-based UI |
 | 2025-11-14 | 1.4 | 1 | Enhancement | Med | TBD | Open | Implement plugin result highlighting in search results |
 | 2025-11-14 | 1.4 | 1 | Bug | Low | TBD | Open | Fix test fixture issues (temp_dir availability) |
+| | 2025-11-15 | 2.3 | 2 | Enhancement | Medium | TBD | Open | Implement auto-complete for common paths (home, documents, desktop) in addition to recent directories (AC #2.3) [file: src/filesearch/ui/search_controls.py:224-236] |
+| | 2025-11-15 | 2.3 | 2 | Enhancement | Medium | TBD | Open | Verify and enhance right-click dropdown behavior to match left-click dropdown functionality (AC #4.2) [file: src/filesearch/ui/search_controls.py:585-601] |
+| | 2025-11-15 | 2.3 | 2 | Enhancement | Medium | TBD | Open | Add explicit network path testing and documentation to validate cross-platform network path support (AC #6.3) [file: src/filesearch/core/file_utils.py:274-294] |
+| | 2025-11-15 | 2.3 | 2 | Enhancement | Medium | TBD | Open | Add auto-complete for common paths (home, documents, desktop) to complement recent directories (AC #2.3) [file: src/filesearch/ui/search_controls.py:705-728] |
