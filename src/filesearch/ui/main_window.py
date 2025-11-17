@@ -231,6 +231,17 @@ class MainWindow(QMainWindow):
 
         self.results_view = ResultsView()
         main_layout.addWidget(self.results_view)
+        # Set ResultsView to occupy 70% of the available space
+        main_layout.setStretchFactor(self.results_view, 7)  # 70% of space
+        # Set stretch factors for other widgets to occupy remaining 30%
+        main_layout.setStretchFactor(self.query_input, 0)  # Fixed size
+        main_layout.setStretchFactor(self.directory_selector, 0)  # Fixed size
+        main_layout.setStretchFactor(self.search_control, 0)  # Fixed size
+        main_layout.setStretchFactor(self.progress_widget, 0)  # Fixed size
+        main_layout.setStretchFactor(self.status_widget, 0)  # Fixed size
+
+        # Load and apply highlight settings from config
+        self._load_highlight_settings()
 
         # Status bar
         status_bar = self.statusBar()
@@ -339,9 +350,12 @@ class MainWindow(QMainWindow):
             self.safe_status_message(f"Directory does not exist: {directory}")
             return
 
+        # Set the query for highlighting (pass to results view)
+        self.results_view.set_query(query)
+
         # Clear previous results
         self.search_results.clear()
-        self.results_view.clear_results()
+        self.results_view.set_searching_state()
 
         # Record search start time
         self.search_start_time = time.time()
@@ -355,6 +369,19 @@ class MainWindow(QMainWindow):
         self.setCursor(Qt.CursorShape.WaitCursor)  # Change cursor to wait
         self.safe_status_message(f"Searching in {directory}...")
         logger.info(f"Search started: '{query}' in {directory}")
+
+        # Create and start search worker
+        self.search_worker = SearchWorker(self.search_engine, directory, query)
+
+        # Connect search worker signals to slots
+        self.search_worker.result_found.connect(self.on_result_found)
+        self.search_worker.progress_update.connect(self.on_progress_update)
+        self.search_worker.search_complete.connect(self.on_search_complete)
+        self.search_worker.error_occurred.connect(self.on_search_error)
+        self.search_worker.search_stopped.connect(self.on_search_stopped)
+
+        # Start the search in background thread
+        self.search_worker.start()
 
     def stop_search(self) -> None:
         """Stop the current search operation."""
@@ -425,6 +452,13 @@ class MainWindow(QMainWindow):
         self.safe_status_message(
             "Found {} results in {:.1f}s".format(total_files, duration)
         )
+        # Auto-scroll to first result when search completes
+        if (
+            hasattr(self.results_view, "_results_model")
+            and self.results_view._results_model
+            and self.results_view._results_model.rowCount() > 0
+        ):
+            self.results_view.scrollTo(self.results_view._results_model.index(0, 0))
         logger.info(
             f"Search completed: {total_files} files in {total_dirs} directories"
         )
@@ -506,6 +540,29 @@ class MainWindow(QMainWindow):
         except FileSearchError as e:
             self.safe_status_message(f"Error opening folder: {e}")
             logger.error(f"Error opening folder for {file_path}: {e}")
+
+    def _load_highlight_settings(self) -> None:
+        """Load highlighting settings from config and apply to results view."""
+        try:
+            # Load highlight settings from config
+            highlight_enabled = self.config_manager.get("highlighting.enabled", True)
+            highlight_color = self.config_manager.get("highlighting.color", "#FFFF99")
+            highlight_style = self.config_manager.get(
+                "highlighting.style", "background"
+            )
+
+            # Apply to results view
+            self.results_view.set_highlight_enabled(highlight_enabled)
+            self.results_view.set_highlight_color(highlight_color)
+            self.results_view.set_highlight_style(highlight_style)
+
+            logger.debug(
+                f"Highlight settings loaded: enabled={highlight_enabled}, "
+                f"color={highlight_color}, style={highlight_style}"
+            )
+
+        except Exception as e:
+            logger.error(f"Error loading highlight settings: {e}")
 
     def show_settings_dialog(self) -> None:
         """Show the settings dialog."""

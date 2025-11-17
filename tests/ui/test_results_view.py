@@ -137,7 +137,10 @@ def test_performance_large_result_set(results_view):
 
     duration = end_time - start_time
     assert duration < 0.1  # Less than 100ms
-    assert results_view.model().rowCount() == 1000
+    # With virtual scrolling, only first batch should be loaded initially
+    assert results_view.model().rowCount() == 100  # Initial batch size
+    # But all results should be stored in the model
+    assert len(results_view.model().get_all_results()) == 1000
 
 
 def test_search_result_display_methods(sample_results):

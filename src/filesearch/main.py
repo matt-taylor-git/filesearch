@@ -44,7 +44,12 @@ def setup_logging(log_level: str = "INFO") -> None:
         rotation="5 MB",
         retention="10 days",
         compression="zip",
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+        format=(
+            "{time:YYYY-MM-DD HH:mm:ss} | "
+            "{level: <8} | "
+            "{name}:{function}:{line} | "
+            "{message}"
+        ),
     )
 
     logger.info("Logging initialized with level: {}", log_level)
@@ -132,9 +137,6 @@ def main() -> int:
 
         logger.info("Application initialized successfully")
         return app.exec()
-
-        logger.info("Application shutdown complete")
-        return 0
 
     except Exception as e:
         logger.exception("Fatal error in main application: {}", e)

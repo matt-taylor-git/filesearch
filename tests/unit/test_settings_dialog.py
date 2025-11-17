@@ -50,7 +50,9 @@ class TestSettingsDialog:
         """Test dialog initialization."""
         assert settings_dialog.config_manager == config_manager
         assert settings_dialog.windowTitle() == "Settings"
-        assert settings_dialog.tabs.count() == 3  # Search, UI, Performance
+        assert (
+            settings_dialog.tabs.count() == 4
+        )  # Search, UI, Performance, Highlighting
 
     def test_search_tab_ui(self, settings_dialog):
         """Test search tab UI components."""

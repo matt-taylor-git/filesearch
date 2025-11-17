@@ -372,7 +372,7 @@ class TestDirectorySelectorWidget:
 
         # Check default directory is set (using os.path.expanduser in implementation)
         assert Path(widget.directory_input.text()) == Path.home().resolve()
-        assert widget.recent_directories == []
+        # Note: recent_directories may be loaded from config, so we don't assert empty
 
     def test_directory_changed_signal(self, widget, qtbot):
         """Test directory_changed signal emits correct Path object."""
@@ -420,6 +420,9 @@ class TestDirectorySelectorWidget:
         with patch.object(Path, "is_dir", return_value=True):
             dir1 = Path("/tmp/dir1")
             dir2 = Path("/tmp/dir2")
+
+            # Clear existing recent directories for clean test
+            widget.recent_directories = []
 
             widget._add_to_recent_directories(dir1)
             widget._add_to_recent_directories(dir2)

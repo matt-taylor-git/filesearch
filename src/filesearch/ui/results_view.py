@@ -1,15 +1,114 @@
 from datetime import datetime
 from typing import List, Optional
 
-from PyQt6.QtCore import QModelIndex, QRect, QSize, Qt
-from PyQt6.QtGui import QColor, QFont, QStandardItem, QStandardItemModel
+from PyQt6.QtCore import QAbstractListModel, QModelIndex, QRect, QSize, Qt
+from PyQt6.QtGui import (
+    QAbstractTextDocumentLayout,
+    QColor,
+    QFont,
+    QKeyEvent,
+    QStandardItem,
+    QStandardItemModel,
+    QTextDocument,
+)
 from PyQt6.QtWidgets import QAbstractItemView, QListView, QStyle, QStyledItemDelegate
 
 from ..models.search_result import SearchResult
+from ..utils.highlight_engine import HighlightEngine
+
+
+class ResultsModel(QAbstractListModel):
+    """Custom model for results list with virtual scrolling support"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._results = []
+        self._displayed_count = 0
+        self._batch_size = 100  # Load 100 items at a time for smooth scrolling
+
+    def rowCount(self, parent=QModelIndex()):
+        return self._displayed_count
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or index.row() >= self._displayed_count:
+            return None
+
+        result = self._results[index.row()]
+
+        if role == Qt.ItemDataRole.DisplayRole:
+            return result.get_display_name()
+        elif role == Qt.ItemDataRole.UserRole:
+            return result
+        elif role == Qt.ItemDataRole.ToolTipRole:
+            return (
+                f"Filename: {result.path.name}\n"
+                f"Path: {result.path}\n"
+                f"Size: {result.get_display_size()}\n"
+                f"Modified: {result.get_display_date()}"
+            )
+
+        return None
+
+    def canFetchMore(self, parent=QModelIndex()):
+        """Check if more results can be fetched for virtual scrolling"""
+        if parent.isValid():
+            return False
+        return self._displayed_count < len(self._results)
+
+    def fetchMore(self, parent=QModelIndex()):
+        """Fetch more results for virtual scrolling"""
+        if parent.isValid():
+            return
+
+        remaining = len(self._results) - self._displayed_count
+        items_to_fetch = min(self._batch_size, remaining)
+
+        if items_to_fetch <= 0:
+            return
+
+        self.beginInsertRows(
+            QModelIndex(),
+            self._displayed_count,
+            self._displayed_count + items_to_fetch - 1,
+        )
+        self._displayed_count += items_to_fetch
+        self.endInsertRows()
+
+    def add_result(self, result):
+        """Add a single result to the model"""
+        self.beginInsertRows(QModelIndex(), len(self._results), len(self._results))
+        self._results.append(result)
+
+        # Auto-fetch if we're still in initial loading phase
+        if (
+            self._displayed_count < len(self._results)
+            and len(self._results) <= self._displayed_count + self._batch_size
+        ):
+            self._displayed_count += 1
+
+        self.endInsertRows()
+
+    def clear(self):
+        """Clear all results from the model"""
+        self.beginResetModel()
+        self._results.clear()
+        self._displayed_count = 0
+        self.endResetModel()
+
+    def set_results(self, results):
+        """Set all results at once (used for initial load or refresh)"""
+        self.beginResetModel()
+        self._results = results
+        self._displayed_count = min(self._batch_size, len(self._results))
+        self.endResetModel()
+
+    def get_all_results(self):
+        """Get all results (including those not yet displayed)"""
+        return self._results
 
 
 class ResultsItemDelegate(QStyledItemDelegate):
-    """Custom delegate for rendering search result items"""
+    """Custom delegate for rendering search result items with highlighting support"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -18,11 +117,17 @@ class ResultsItemDelegate(QStyledItemDelegate):
         self.normal_font = QFont()
         self.small_font = QFont()
         self.small_font.setPointSize(11)
+        self.icon_cache = {}
+        self.highlight_engine = HighlightEngine()
+        self.current_query = None
+        self.highlight_color = "#FFFF99"  # Default yellow highlight
+        self.highlight_enabled = True
+        self.highlight_style = "background"  # background, outline, or underline
 
     def get_file_type_icon(self, path):
-        """Get file type icon based on extension"""
+        """Get file type icon based on extension with caching"""
         if path.is_dir():
-            return "📁"
+            return self.icon_cache.setdefault("dir", "📁")
         ext = path.suffix.lower()
         icon_map = {
             ".txt": "📄",
@@ -45,7 +150,7 @@ class ResultsItemDelegate(QStyledItemDelegate):
             ".html": "🌐",
             ".css": "🎨",
         }
-        return icon_map.get(ext, "📄")
+        return self.icon_cache.setdefault(ext, icon_map.get(ext, "📄"))
 
     def paint(self, painter, option, index):
         """Custom paint method for result items"""
@@ -77,19 +182,31 @@ class ResultsItemDelegate(QStyledItemDelegate):
         painter.setFont(self.normal_font)
         painter.drawText(icon_rect, Qt.AlignmentFlag.AlignCenter, icon_text)
 
-        # Filename (bold, left-aligned)
+        # Filename (bold left-aligned, with highlighting)
         filename_rect = QRect(
             icon_rect.right() + 5, rect.top(), rect.width() - icon_size - 10 - 100, 20
         )
-        painter.setFont(self.bold_font)
         filename = result.get_display_name()
         if len(filename) > 80:
             filename = filename[:77] + "..."
-        painter.drawText(
-            filename_rect,
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
-            filename,
-        )
+
+        # Use highlighting if query is set
+        if (
+            self.current_query
+            and self.highlight_enabled
+            and self.highlight_engine.has_matches(filename, self.current_query)
+        ):
+            self._draw_highlighted_text(
+                painter, filename_rect, filename, self.current_query
+            )
+        else:
+            # Draw normally (without highlighting)
+            painter.setFont(self.bold_font)
+            painter.drawText(
+                filename_rect,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+                filename,
+            )
 
         # Path (small font, below filename)
         path_rect = QRect(
@@ -139,6 +256,115 @@ class ResultsItemDelegate(QStyledItemDelegate):
         """Return the size hint for items"""
         return QSize(400, 50)  # Minimum height for comfortable display
 
+    def set_query(self, query: str):
+        """Set the current search query for highlighting"""
+        self.current_query = query
+        self.highlight_engine.clear_cache()
+
+    def set_highlight_enabled(self, enabled: bool):
+        """Enable or disable highlighting"""
+        self.highlight_enabled = enabled
+
+    def set_highlight_color(self, color: str):
+        """Set the highlight color (HTML color code)"""
+        self.highlight_color = color
+
+    def set_highlight_style(self, style: str):
+        """Set the highlight style ('background', 'outline', or 'underline')"""
+        self.highlight_style = style
+
+    def _draw_highlighted_text(self, painter, rect, text: str, query: str):
+        """Draw text with highlighted matching portions"""
+        if not text or not query or not self.highlight_enabled:
+            # No highlighting, just draw the text normally
+            painter.drawText(
+                rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, text
+            )
+            return
+
+        matches = self.highlight_engine.find_matches(text, query, case_sensitive=False)
+
+        if not matches:
+            # No matches, draw text normally
+            painter.drawText(
+                rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, text
+            )
+            return
+
+        # For performance with many results, we'll use a simple approach:
+        # Draw normal text with bold segments for matches
+        # This avoids QTextDocument overhead for each item
+
+        painter.save()
+
+        name_without_ext, ext = self.highlight_engine._split_filename_and_ext(text)
+
+        # Calculate positions for manual text drawing
+        x = rect.left()
+        y = rect.top()
+
+        last_end = 0
+
+        for start, end in matches:
+            # Draw non-matching text before this match
+            if start > last_end:
+                normal_text = name_without_ext[last_end:start]
+                painter.setFont(self.normal_font)
+                painter.setPen(QColor(0, 0, 0))
+                painter.drawText(x, y, normal_text)
+                x += painter.fontMetrics().horizontalAdvance(normal_text)
+
+            # Draw highlighted matching text
+            match_text = name_without_ext[start:end]
+            painter.setFont(self.bold_font)
+
+            # Calculate dimensions
+            bw = painter.fontMetrics().horizontalAdvance(match_text)
+            bh = painter.fontMetrics().height()
+
+            # Apply highlight style
+            if self.highlight_style == "background":
+                # Draw background highlight
+                painter.fillRect(x, y - bh + 2, bw, bh, QColor(self.highlight_color))
+                painter.setPen(QColor(0, 0, 0))
+            elif self.highlight_style == "outline":
+                # Draw outline rectangle
+                pen = painter.pen()
+                pen.setColor(QColor(self.highlight_color))
+                pen.setWidth(2)
+                painter.setPen(pen)
+                painter.drawRect(x, y - bh, bw, bh)
+                painter.setPen(QColor(0, 0, 0))  # Reset to black for text
+            elif self.highlight_style == "underline":
+                # Draw underline
+                pen = painter.pen()
+                pen.setColor(QColor(self.highlight_color))
+                pen.setWidth(2)
+                painter.setPen(pen)
+                painter.drawLine(x, y, x + bw, y)  # Line at baseline
+                painter.setPen(QColor(0, 0, 0))  # Reset to black for text
+
+            painter.drawText(x, y, match_text)
+            x += bw
+
+            last_end = end
+
+        # Draw remaining non-matching text
+        if last_end < len(name_without_ext):
+            remaining_text = name_without_ext[last_end:]
+            painter.setFont(self.normal_font)
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(x, y, remaining_text)
+            x += painter.fontMetrics().horizontalAdvance(remaining_text)
+
+        # Draw extension
+        if ext:
+            painter.setFont(self.normal_font)
+            painter.setPen(QColor(0, 0, 0))
+            painter.drawText(x, y, ext)
+
+        painter.restore()
+
 
 class ResultsView(QListView):
     """Results view component for displaying search results"""
@@ -146,9 +372,10 @@ class ResultsView(QListView):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        # Model
-        self._model = QStandardItemModel()
-        self.setModel(self._model)
+        # Model - use ResultsModel for virtual scrolling
+        self._empty_model = QStandardItemModel()  # For empty states
+        self._results_model = None
+        self.setModel(self._empty_model)
 
         # Delegate
         self.setItemDelegate(ResultsItemDelegate(self))
@@ -159,54 +386,198 @@ class ResultsView(QListView):
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.setAlternatingRowColors(False)
+        self.setUniformItemSizes(True)  # Optimize for virtual scrolling
 
         # Enable smooth scrolling
         self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
+        # Enable virtual scrolling
+        self.setUniformItemSizes(True)
+
+        # Keyboard navigation
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
         # Empty state - don't show initially
+
+        # Store reference to delegate for highlighting
+        self._delegate = self.itemDelegate()
+
+    def set_query(self, query: str):
+        """Set the current search query for highlighting"""
+        if self._delegate:
+            self._delegate.set_query(query)
+        # Trigger repaint to apply highlighting
+        self.viewport().update()
+
+    def set_highlight_enabled(self, enabled: bool):
+        """Enable or disable highlighting"""
+        if self._delegate:
+            self._delegate.set_highlight_enabled(enabled)
+        self.viewport().update()
+
+    def set_highlight_color(self, color: str):
+        """Set the highlight color (HTML hex code like #FFFF99)"""
+        if self._delegate:
+            self._delegate.set_highlight_color(color)
+        self.viewport().update()
+
+    def set_highlight_style(self, style: str):
+        """Set the highlight style ('background', 'outline', or 'underline')"""
+        if self._delegate:
+            self._delegate.set_highlight_style(style)
+        self.viewport().update()
 
     def _show_empty_state(self, message: str):
         """Show empty state message"""
-        self._model.clear()
+        self._empty_model.clear()
         item = QStandardItem(message)
         item.setData(None, Qt.ItemDataRole.UserRole)  # No SearchResult
-        self._model.appendRow(item)
+        self._empty_model.appendRow(item)
 
     def set_results(self, results: List[SearchResult]):
-        """Set the search results to display"""
-        self._model.clear()
-
-        if not results:
+        """Set search results to display"""
+        if results:
+            if not self._results_model:
+                self._results_model = ResultsModel()
+            self._results_model.set_results(results)
+            self.setModel(self._results_model)
+            # Auto-scroll to first result when search completes
+            self.scrollToTop()
+        else:
+            self.setModel(self._empty_model)
             self._show_empty_state("No files found")
-            return
-
-        for result in results:
-            item = QStandardItem(result.get_display_name())
-            item.setData(result, Qt.ItemDataRole.UserRole)
-            self._model.appendRow(item)
 
     def clear_results(self):
         """Clear all results"""
-        self._model.clear()
+        self.setModel(self._empty_model)
+        self._empty_model.clear()
         self._show_empty_state("Enter a search term to begin")
+        if self._results_model:
+            self._results_model.clear()
+
+    def set_searching_state(self):
+        """Set searching state with spinner message"""
+        self.setModel(self._empty_model)
+        self._empty_model.clear()
+        self._show_empty_state("Searching...")
 
     def add_result(self, result: SearchResult):
         """Add a single result to the view"""
-        item = QStandardItem(result.get_display_name())
-        item.setData(result, Qt.ItemDataRole.UserRole)
-        # Set tooltips
-        item.setToolTip(
-            f"Filename: {result.path.name}\n"
-            f"Path: {result.path}\n"
-            f"Size: {result.get_display_size()}\n"
-            f"Modified: {result.get_display_date()}"
-        )
-        self._model.appendRow(item)
+        if not self._results_model:
+            self._results_model = ResultsModel()
+            self.setModel(self._results_model)
+        # Maintain scroll position when adding results
+        scroll_bar = self.verticalScrollBar()
+        vertical_scroll = scroll_bar.value() if scroll_bar else 0
+        self._results_model.add_result(result)
+        if scroll_bar:
+            scroll_bar.setValue(vertical_scroll)
 
     def get_selected_result(self) -> Optional[SearchResult]:
         """Get the currently selected SearchResult"""
         indexes = self.selectedIndexes()
         if indexes:
-            return indexes[0].data(Qt.ItemDataRole.UserRole)
+            model = self.model()
+            if model == self._empty_model:
+                return indexes[0].data(Qt.ItemDataRole.UserRole)
+            else:
+                return indexes[0].data(Qt.ItemDataRole.UserRole)
         return None
+
+    def keyPressEvent(self, e) -> None:
+        """Handle keyboard navigation for results list"""
+        if e is None:
+            super().keyPressEvent(e)
+            return
+
+        if not self._results_model:
+            super().keyPressEvent(e)
+            return
+
+        current_index = self.currentIndex()
+        if not current_index.isValid():
+            super().keyPressEvent(e)
+            return
+
+        key = e.key()
+        model = self._results_model
+
+        if key == Qt.Key.Key_Up:
+            # Move selection up
+            if current_index.row() > 0:
+                new_index = model.index(current_index.row() - 1, 0)
+                self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_Down:
+            # Move selection down
+            if current_index.row() < model.rowCount() - 1:
+                new_index = model.index(current_index.row() + 1, 0)
+                self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_Home:
+            # Move to first item
+            if model.rowCount() > 0:
+                new_index = model.index(0, 0)
+                self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_End:
+            # Move to last item
+            if model.rowCount() > 0:
+                new_index = model.index(model.rowCount() - 1, 0)
+                self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_PageUp:
+            # Move up by viewport height
+            visible_count = self.height() // self.sizeHint().height()
+            new_row = max(0, current_index.row() - visible_count)
+            new_index = model.index(new_row, 0)
+            self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_PageDown:
+            # Move down by viewport height
+            visible_count = self.height() // self.sizeHint().height()
+            new_row = min(model.rowCount() - 1, current_index.row() + visible_count)
+            new_index = model.index(new_row, 0)
+            self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
+            # Activate selected item (double-click equivalent)
+            self.doubleClicked.emit(current_index)
+        else:
+            # Let parent handle other keys
+            super().keyPressEvent(e)
+            return
+
+        if key == Qt.Key.Key_Up:
+            # Move selection up
+            if current_index.row() > 0:
+                new_index = model.index(current_index.row() - 1, 0)
+                self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_Down:
+            # Move selection down
+            if current_index.row() < model.rowCount() - 1:
+                new_index = model.index(current_index.row() + 1, 0)
+                self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_Home:
+            # Move to first item
+            if model.rowCount() > 0:
+                new_index = model.index(0, 0)
+                self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_End:
+            # Move to last item
+            if model.rowCount() > 0:
+                new_index = model.index(model.rowCount() - 1, 0)
+                self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_PageUp:
+            # Move up by viewport height
+            visible_count = self.height() // self.sizeHint().height()
+            new_row = max(0, current_index.row() - visible_count)
+            new_index = model.index(new_row, 0)
+            self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_PageDown:
+            # Move down by viewport height
+            visible_count = self.height() // self.sizeHint().height()
+            new_row = min(model.rowCount() - 1, current_index.row() + visible_count)
+            new_index = model.index(new_row, 0)
+            self.setCurrentIndex(new_index)
+        elif key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
+            # Activate selected item (double-click equivalent)
+            self.doubleClicked.emit(current_index)
+        else:
+            # Let parent handle other keys
+            super().keyPressEvent(e)

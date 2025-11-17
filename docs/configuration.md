@@ -61,6 +61,50 @@ The configuration is organized into three main sections:
 
 ## UI Preferences
 
+## Highlighting Settings
+
+Controls how search result highlighting appears in the results list.
+
+### `enabled`
+- **Type**: Boolean
+- **Default**: `true`
+- **Description**: Whether search result highlighting is enabled
+- **Note**: Disabling can improve performance on slower systems
+
+### `color`
+- **Type**: String (hex color code)
+- **Default**: `"#FFFF99"` (light yellow)
+- **Description**: Color used to highlight matching text in search results
+- **Example**: `"#90EE90"` (light green), `"#FFB6C1"` (light pink)
+
+### `case_sensitive`
+- **Type**: Boolean
+- **Default**: `false`
+- **Description**: Whether highlighting matching should be case-sensitive
+- **Note**: This is independent of the search case sensitivity setting
+
+### `style`
+- **Type**: String
+- **Default**: `"background"`
+- **Options**: `"background"`, `"outline"`, `"underline"`
+- **Description**: Style of highlighting applied to matching text
+- **Examples**:
+  - `"background"`: Fills matching text with highlight color
+  - `"outline"`: Draws a rectangle around matching text
+  - `"underline"`: Draws a line under matching text
+
+**Example:**
+```json
+"highlighting": {
+  "enabled": true,
+  "color": "#FFFF99",
+  "case_sensitive": false,
+  "style": "background"
+}
+```
+
+## UI Preferences
+
 ### `window_geometry`
 - **Type**: Object with x, y, width, height
 - **Default**: `{"x": 100, "y": 100, "width": 800, "height": 600}`
@@ -189,6 +233,7 @@ The easiest way to configure the application is through the built-in Settings di
    - **Search**: Configure search behavior and filters
    - **UI**: Configure appearance and layout
    - **Performance**: Configure performance-related options
+   - **Highlighting**: Configure search result highlighting appearance
 4. Click **Apply** or **OK** to save changes
 5. Click **Reset** to restore default values
 

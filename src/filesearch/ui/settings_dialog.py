@@ -91,6 +91,7 @@ class SettingsDialog(QDialog):
         self.search_tab = self._create_search_tab()
         self.ui_tab = self._create_ui_tab()
         self.performance_tab = self._create_performance_tab()
+        self.highlight_tab = self._create_highlight_tab()
         if self.plugin_manager:
             self.plugin_tab = self._create_plugin_tab()
 
@@ -98,6 +99,7 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self.search_tab, "Search")
         self.tabs.addTab(self.ui_tab, "UI")
         self.tabs.addTab(self.performance_tab, "Performance")
+        self.tabs.addTab(self.highlight_tab, "Highlighting")
         if self.plugin_manager:
             self.tabs.addTab(self.plugin_tab, "Plugins")
 
@@ -293,6 +295,83 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         return tab
 
+    def _create_highlight_tab(self) -> QWidget:
+        """Create the highlighting preferences tab."""
+        tab = QWidget()
+        layout = QVBoxLayout()
+        tab.setLayout(layout)
+
+        # Highlighting options
+        highlight_group = QGroupBox("Highlighting Options")
+        highlight_layout = QVBoxLayout()
+
+        self.highlight_enabled_check = QCheckBox("Enable search result highlighting")
+        highlight_layout.addWidget(self.highlight_enabled_check)
+
+        self.highlight_case_sensitive_check = QCheckBox("Case-sensitive highlighting")
+        highlight_layout.addWidget(self.highlight_case_sensitive_check)
+
+        highlight_group.setLayout(highlight_layout)
+        layout.addWidget(highlight_group)
+
+        # Highlight color
+        color_group = QGroupBox("Highlight Color")
+        color_layout = QHBoxLayout()
+
+        self.highlight_color_input = QLineEdit()
+        self.highlight_color_input.setPlaceholderText("#FFFF99")
+        self.highlight_color_input.setMaximumWidth(100)
+
+        self.highlight_color_button = QPushButton("Choose Color...")
+        self.highlight_color_button.clicked.connect(self.choose_highlight_color)
+
+        color_layout.addWidget(QLabel("Color (hex):"))
+        color_layout.addWidget(self.highlight_color_input)
+        color_layout.addWidget(self.highlight_color_button)
+        color_layout.addStretch()
+
+        color_group.setLayout(color_layout)
+        layout.addWidget(color_group)
+
+        # Highlight style
+        style_group = QGroupBox("Highlight Style")
+        style_layout = QVBoxLayout()
+
+        self.highlight_style_combo = QComboBox()
+        self.highlight_style_combo.addItems(["Background", "Outline", "Underline"])
+        self.highlight_style_combo.setToolTip(
+            "Choose how matching text is highlighted in search results"
+        )
+
+        style_layout.addWidget(QLabel("Style:"))
+        style_layout.addWidget(self.highlight_style_combo)
+
+        style_group.setLayout(style_layout)
+        layout.addWidget(style_group)
+
+        # Preview
+        preview_group = QGroupBox("Preview")
+        preview_layout = QVBoxLayout()
+
+        self.highlight_preview_label = QLabel("Example: MonthlyReport.pdf")
+        self.highlight_preview_label.setStyleSheet("padding: 10px; background: white;")
+        self.highlight_preview_label.setMinimumHeight(40)
+
+        preview_layout.addWidget(self.highlight_preview_label)
+
+        preview_group.setLayout(preview_layout)
+        layout.addWidget(preview_group)
+
+        # Connect signals for live preview
+        self.highlight_enabled_check.toggled.connect(self.update_highlight_preview)
+        self.highlight_case_sensitive_check.toggled.connect(
+            self.update_highlight_preview
+        )
+        self.highlight_color_input.textChanged.connect(self.update_highlight_preview)
+
+        layout.addStretch()
+        return tab
+
     def _create_plugin_tab(self) -> QWidget:
         """Create the plugin management tab."""
         tab = QWidget()
@@ -404,6 +483,27 @@ class SettingsDialog(QDialog):
             if self.plugin_manager:
                 self.load_plugin_settings()
 
+            # Load highlight settings
+            self.highlight_enabled_check.setChecked(
+                self.config_manager.get("highlighting.enabled", True)
+            )
+            self.highlight_case_sensitive_check.setChecked(
+                self.config_manager.get("highlighting.case_sensitive", False)
+            )
+            self.highlight_color_input.setText(
+                self.config_manager.get("highlighting.color", "#FFFF99")
+            )
+            highlight_style = self.config_manager.get(
+                "highlighting.style", "background"
+            )
+            style_index = {"background": 0, "outline": 1, "underline": 2}.get(
+                highlight_style, 0
+            )
+            self.highlight_style_combo.setCurrentIndex(style_index)
+
+            # Update preview after loading
+            self.update_highlight_preview()
+
             logger.debug("Settings loaded successfully")
 
         except Exception as e:
@@ -469,6 +569,25 @@ class SettingsDialog(QDialog):
             self.config_manager.set(
                 "performance_settings.cache_ttl_minutes", self.cache_ttl_spin.value()
             )
+
+            # Save highlight settings
+            self.config_manager.set(
+                "highlighting.enabled", self.highlight_enabled_check.isChecked()
+            )
+            self.config_manager.set(
+                "highlighting.case_sensitive",
+                self.highlight_case_sensitive_check.isChecked(),
+            )
+            self.config_manager.set(
+                "highlighting.color", self.highlight_color_input.text()
+            )
+
+            # Map combo box index to style string
+            style_map = {0: "background", 1: "outline", 2: "underline"}
+            highlight_style = style_map.get(
+                self.highlight_style_combo.currentIndex(), "background"
+            )
+            self.config_manager.set("highlighting.style", highlight_style)
 
             # Save configuration
             self.config_manager.save()
@@ -641,3 +760,62 @@ class SettingsDialog(QDialog):
                 QMessageBox.warning(
                     self, "Plugin Not Loaded", f"Plugin {plugin_name} is not loaded"
                 )
+
+    def choose_highlight_color(self) -> None:
+        """Open color picker dialog for highlight color."""
+        try:
+            from PyQt6.QtGui import QColor
+            from PyQt6.QtWidgets import QColorDialog
+
+            current_color = self.highlight_color_input.text()
+            if not current_color.startswith("#") or len(current_color) != 7:
+                current_color = "#FFFF99"  # Default yellow
+
+            color = QColorDialog.getColor(
+                QColor(current_color), self, "Choose Highlight Color"
+            )
+
+            if color.isValid():
+                self.highlight_color_input.setText(color.name())
+
+        except Exception as e:
+            logger.error(f"Error choosing highlight color: {e}")
+            QMessageBox.warning(
+                self, "Color Picker Error", f"Error choosing color: {e}"
+            )
+
+    def update_highlight_preview(self) -> None:
+        """Update the highlight preview label."""
+        try:
+            enabled = self.highlight_enabled_check.isChecked()
+            color = self.highlight_color_input.text()
+
+            if not enabled:
+                self.highlight_preview_label.setText("Example: MonthlyReport.pdf")
+                self.highlight_preview_label.setStyleSheet(
+                    "padding: 10px; background: white;"
+                )
+                return
+
+            # Validate color
+            if not color.startswith("#") or len(color) != 7:
+                color = "#FFFF99"
+
+            # Use HTML to show highlighted text
+            html_template = """
+            <html>
+            <body style="padding: 10px;">
+                Example: Monthly<span style="background-color: {color};">
+                Report</span>.pdf
+            </body>
+            </html>
+            """
+            preview_html = html_template.format(color=color)
+
+            self.highlight_preview_label.setText(preview_html)
+            self.highlight_preview_label.setStyleSheet(
+                "padding: 10px; background: white;"
+            )
+
+        except Exception as e:
+            logger.error(f"Error updating highlight preview: {e}")

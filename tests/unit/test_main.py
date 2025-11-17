@@ -33,7 +33,9 @@ class TestVersionInfo:
         assert isinstance(root, Path)
         assert root.is_absolute()
         # Should point to project root, not src directory
-        assert (root / "src" / "filesearch").exists() or (root / "pyproject.toml").exists()
+        assert (root / "src" / "filesearch").exists() or (
+            root / "pyproject.toml"
+        ).exists()
 
 
 class TestArgumentParsing:
@@ -162,21 +164,60 @@ class TestMainFunction:
         """Test successful main execution."""
         with patch.object(sys, "argv", ["filesearch"]):
             with patch("filesearch.main.get_project_root", return_value=tmp_path):
-                result = main()
-                assert result == 0
+                with patch("PyQt6.QtWidgets.QApplication") as mock_app:
+                    # Mock components to avoid GUI creation issues
+                    with patch(
+                        "filesearch.core.config_manager.ConfigManager"
+                    ) as mock_config:
+                        with patch(
+                            "filesearch.plugins.plugin_manager.PluginManager"
+                        ) as mock_plugin_mgr:
+                            with patch(
+                                "filesearch.ui.main_window.MainWindow"
+                            ) as mock_main_window:
+                                mock_app.return_value.exec.return_value = 0
+                                mock_config.return_value = None
+                                mock_plugin_mgr.return_value.load_plugins.return_value = (
+                                    []
+                                )
+                                mock_window = mock_main_window.return_value
+                                mock_window.show.return_value = None
+                                result = main()
+                                assert result == 0
+                                mock_main_window.assert_called_once()
 
     def test_main_with_debug_logging(self, tmp_path):
         """Test main with debug logging."""
         with patch.object(sys, "argv", ["filesearch", "--debug"]):
             with patch("filesearch.main.get_project_root", return_value=tmp_path):
-                result = main()
-                assert result == 0
+                with patch("PyQt6.QtWidgets.QApplication") as mock_app:
+                    with patch(
+                        "filesearch.core.config_manager.ConfigManager"
+                    ) as mock_config:
+                        with patch(
+                            "filesearch.plugins.plugin_manager.PluginManager"
+                        ) as mock_plugin_mgr:
+                            with patch(
+                                "filesearch.ui.main_window.MainWindow"
+                            ) as mock_main_window:
+                                mock_app.return_value.exec.return_value = 0
+                                mock_config.return_value = None
+                                mock_plugin_mgr.return_value.load_plugins.return_value = (
+                                    []
+                                )
+                                mock_window = mock_main_window.return_value
+                                mock_window.show.return_value = None
+                                result = main()
+                                assert result == 0
+                                mock_main_window.assert_called_once()
 
     def test_main_error_handling(self, tmp_path):
         """Test main error handling."""
         with patch.object(sys, "argv", ["filesearch"]):
             with patch("filesearch.main.get_project_root", return_value=tmp_path):
-                with patch("filesearch.main.setup_logging", side_effect=Exception("Test error")):
+                with patch(
+                    "filesearch.main.setup_logging", side_effect=Exception("Test error")
+                ):
                     result = main()
                     assert result == 1
 
@@ -187,12 +228,14 @@ class TestPathHandling:
     def test_pathlib_usage_in_init(self):
         """Test that pathlib.Path is used in __init__.py."""
         from filesearch import get_project_root
+
         result = get_project_root()
         assert isinstance(result, Path)
 
     def test_pathlib_usage_in_main(self):
         """Test that pathlib.Path is used in main.py."""
         from filesearch.main import setup_logging
+
         # The function should use pathlib internally
         # This test ensures no ImportError occurs
 

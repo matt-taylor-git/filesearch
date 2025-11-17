@@ -1,0 +1,338 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>2</storyId>
+    <title>Search Result Highlighting</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-17</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/3-2-implement-search-result-highlighting.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>As a user,</asA>
+    <iWant>I want matching text highlighted in search results,</iWant>
+    <soThat>so that I can quickly see why each file matched my query.</soThat>
+    <tasks>- [ ] **Enhance ResultsItemDelegate with Highlighting Support**
+  - [ ] Modify `ResultsItemDelegate.paint()` method to accept query parameter
+  - [ ] Implement text parsing to identify matching substrings in filename
+  - [ ] Apply bold font weight to matching text segments
+  - [ ] Apply background color highlighting to matching segments (default: yellow #FFFF99)
+  - [ ] Preserve original text case in display
+  - [ ] Ensure extension portion never gets highlighted (parse filename vs extension)
+
+- [ ] **Implement Highlighting Logic**
+  - [ ] Create `HighlightEngine` class in `src/filesearch/utils/highlight_engine.py`
+  - [ ] Implement case-insensitive matching using `re.IGNORECASE` flag
+  - [ ] Escape regex metacharacters before applying highlight patterns
+  - [ ] Support multiple match highlighting within single filename
+  - [ ] Implement query pattern parsing (handle wildcards *)
+  - [ ] Cache compiled regex patterns for performance
+
+- [ ] **Integrate Highlighting with ResultsView**
+  - [ ] Pass search query from MainWindow to ResultsView
+  - [ ] Store current query in ResultsView for highlighting reference
+  - [ ] Trigger highlight re-computation when query changes
+  - [ ] Update ResultsItemDelegate to receive query during paint operations
+  - [ ] Connect query change signals to ResultsView update slots
+
+- [ ] **Implement Virtual Scrolling Optimization**
+  - [ ] Compute highlights only for visible items (virtual scrolling awareness)
+  - [ ] Cache highlighted text for items in scroll buffer (+/- 20 items)
+  - [ ] Clear cache when query changes or scroll position moves significantly
+  - [ ] Measure performance: ensure <10ms per 100 visible items
+  - [ ] Profile with large datasets (10,000+ results) to verify performance target
+
+- [ ] **Add Configuration Options**
+  - [ ] Add highlight settings to config schema: color, enabled, style
+  - [ ] Implement settings dialog panel for highlight preferences
+  - [ ] Load highlight preferences on application startup
+  - [ ] Apply highlight configuration dynamically without restart
+  - [ ] Add default settings: enabled=true, color=#FFFF99, style=background
+
+- [ ] **Handle Special Cases**
+  - [ ] Skip highlighting when query is empty or wildcards-only
+  - [ ] Handle special regex characters safely (escape metacharacters)
+  - [ ] Support Unicode and international character sets
+  - [ ] Preserve text selection and clipboard copy functionality
+  - [ ] Handle filenames with multiple matches correctly
+
+- [ ] **Add Visual Feedback**
+  - [ ] Add subtle animation when highlights first appear
+  - [ ] Update highlight color immediately when changed in settings
+  - [ ] Show tooltip: "Matching text highlighted" (first few searches)
+
+- [ ] **Implement Comprehensive Tests**
+  - [ ] Unit tests for HighlightEngine with various query patterns
+  - [ ] Unit tests for regex escaping and case-insensitive matching
+  - [ ] Performance tests: verify <10ms per 100 items
+  - [ ] UI tests: verify highlights render correctly in delegate
+  - [ ] Integration tests: verify query changes trigger highlight updates
+  - [ ] Test special characters and edge cases (Unicode, spaces, dots)
+  - [ ] Test wildcard patterns and multiple matches
+  - [ ] Test configuration persistence and dynamic updates
+
+- [ ] **Update Documentation**
+  - [ ] Update user guide with highlighting feature explanation
+  - [ ] Document configuration options in settings documentation
+  - [ ] Add highlighting examples to UI documentation
+  - [ ] Update architecture diagram to include HighlightEngine</tasks>
+  </story>
+
+  <acceptanceCriteria>**Given** search results are displayed and a search query is active
+**When** I view each result in the results list
+**Then** matching text in filenames should be highlighted with:
+- Matching substring shown in **bold** font weight
+- Background color applied: yellow (#FFFF99) or accent color (configurable via settings)
+- Case-insensitive matching (Query="report" matches "Report.pdf", "MyReport.txt")
+- Partial matching support (query="rep" matches "report", "reputation", "good_rep")
+- All occurrences highlighted if multiple matches exist in a single filename
+- Highlighting applied to filename only (not path, not file extension)
+- Original text case preserved in display ("Report" not converted to "report")
+- Highlighting works with wildcard patterns from search (e.g., "*report*" highlights the "report" portion)
+- Safe handling of special characters in query (regex metacharacters escaped before highlighting)
+- No highlighting applied if query is empty or contains only wildcards
+
+**Given** highlighted search results are displayed
+**When** I scroll through a large result set with 10,000+ items
+**Then** highlighting should:
+- Render in under 10ms per 100 visible items
+- Not block UI thread or cause scrolling lag
+- Work seamlessly with virtual scrolling (highlights computed only for visible items, not entire dataset)
+- Cache highlighted text for items that remain visible during scroll operations
+
+**Given** the search application
+**When** I access the settings or preferences
+**Then** I should be able to:
+- Configure highlight color (choose from preset colors or custom color picker)
+- Enable/disable highlighting feature (toggle for performance on slower systems)
+- Select highlighting style: background color, outline, or underline
+- Choose case sensitivity for highlighting (independent of search case sensitivity)
+
+**Given** various filename patterns and search queries
+**When** highlighting is applied
+**Then** examples should render correctly:
+- Query: "report" → File: "MonthlyReport.pdf" → Shows: "Monthly**report**.pdf" (case-insensitive, extension not highlighted)
+- Query: "test" → File: "test_document.txt" → Shows: "**test**_document.txt"
+- Query: "file" → File: "MyFile.txt" → Shows: "My**File**.txt" (preserves original case)
+- Query: "doc" → File: "doc_document.docx" → Shows: "**doc**_**doc**ument.docx" (multiple matches)
+- Query: "." → File: "my.file.txt" → Shows: "my.file.txt" (no highlight for single dot)
+- Query: "*" → File: "anyfile.txt" → Shows: "anyfile.txt" (no highlight for wildcard-only query)
+
+**Given** highlighting is active
+**When** I perform a new search with a different query
+**Then** highlighting should:
+- Update dynamically to match the new search terms
+- Clear previous highlights before applying new ones
+- Re-compute highlights only for currently visible items
+- Trigger re-render of visible results pane
+
+**Given** files with special naming conventions
+**When** highlighting is applied
+**Then** it should:
+- Work correctly with Unicode characters and international filenames
+- Handle files with multiple periods (e.g., "archive.tar.gz")
+- Support filenames with spaces, hyphens, and underscores
+- Properly escape regex special characters in queries (*, ., ?, +, etc.)
+- Not interfere with text selection or copying operations</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Technology Stack Details</section>
+        <snippet>PyQt6 provides rich text rendering capabilities through QTextDocument for mixed formatting support needed for highlighting. The framework supports QTextCharFormat with background color and font weight for implementing bold highlighting with custom colors.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Performance Considerations</section>
+        <snippet>Result highlighting must render in under 10ms per 100 visible items to meet performance targets. Virtual scrolling ensures highlights are computed only for visible items, with caching for items in scroll buffer to avoid re-computation during scroll operations.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>UI Performance</section>
+        <snippet>Highlighting computation should be optimized to not block UI rendering. Regex patterns should be pre-compiled once per search, and highlighted text cached when items scroll into view to prevent re-computation.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>ADR-001: PyQt6 as GUI Framework</section>
+        <snippet>PyQt6 chosen for cross-platform native UI with excellent threading support. Provides QTextDocument for rich text rendering needed for search result highlighting with mixed bold/normal formatting and background colors.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>File Search - Epic Breakdown</title>
+        <section>Story 3.2: Implement Search Result Highlighting</section>
+        <snippet>Complete story definition including acceptance criteria for highlighting matching text in filenames with bold formatting and background colors. Specifies case-insensitive matching, partial matching support, and performance requirements of under 10ms per 100 items.</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/filesearch/ui/results_view.py</path>
+        <kind>ui component</kind>
+        <symbol>ResultsItemDelegate</symbol>
+        <lines>91-222</lines>
+        <reason>Custom delegate for rendering search result items, needs enhancement to support highlighting with mixed bold/normal formatting and background colors</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/results_view.py</path>
+        <kind>ui component</kind>
+        <symbol>ResultsView</symbol>
+        <lines>224-412</lines>
+        <reason>Main results display component using QListView with virtual scrolling, needs to pass search query to delegate for highlighting</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/main_window.py</path>
+        <kind>ui controller</kind>
+        <symbol>MainWindow</symbol>
+        <lines>130-581</lines>
+        <reason>Main application window coordinating search operations, needs to pass current query from search input to ResultsView for highlighting updates</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/utils/highlight_engine.py</path>
+        <kind>utility</kind>
+        <symbol>HighlightEngine</symbol>
+        <lines>1-150</lines>
+        <reason>New utility class for highlight logic including case-insensitive matching, regex escaping, multiple match highlighting, and pattern caching for performance</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/core/config_manager.py</path>
+        <kind>configuration</kind>
+        <symbol>ConfigManager</symbol>
+        <lines>60-84</lines>
+        <reason>Configuration manager needs highlight settings added: color, enabled, style preferences with defaults (enabled=true, color=#FFFF99, style=background)</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/settings_dialog.py</path>
+        <kind>ui component</kind>
+        <symbol>SettingsDialog</symbol>
+        <lines>1-200</lines>
+        <reason>Settings dialog needs highlight preferences panel for configuring color, enabling/disabling, and style selection</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <ecosystem>python</ecosystem>
+      <packages>
+        <package>
+          <name>PyQt6</name>
+          <version_range>&gt;=6.6.0</version_range>
+          <purpose>GUI framework providing QTextDocument for rich text rendering with mixed formatting (bold/normal) and background colors for highlighting</purpose>
+        </package>
+        <package>
+          <name>loguru</name>
+          <version_range>&gt;=0.7.2</version_range>
+          <purpose>Structured logging for highlight engine operations and performance monitoring</purpose>
+        </package>
+        <package>
+          <name>re</name>
+          <version_range>Python stdlib</version_range>
+          <purpose>Regular expression engine for case-insensitive pattern matching, metacharacter escaping, and multiple occurrence highlighting</purpose>
+        </package>
+      </packages>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <type>performance</type>
+      <description>Highlighting must render in under 10ms per 100 visible items to meet architecture performance targets</description>
+      <source>docs/architecture.md#Performance-Considerations</source>
+    </constraint>
+    <constraint>
+      <type>compatibility</type>
+      <description>Highlighting must work seamlessly with virtual scrolling - highlights computed only for visible items, cached for scroll buffer</description>
+      <source>docs/architecture.md#UI-Performance</source>
+    </constraint>
+    <constraint>
+      <type>functionality</type>
+      <description>Case-insensitive matching with partial support (query="rep" matches "report", "reputation", "good_rep")</description>
+      <source>docs/sprint-artifacts/stories/3-2-implement-search-result-highlighting.md#Acceptance-Criteria</source>
+    </constraint>
+    <constraint>
+      <type>functionality</type>
+      <description>Safe handling of special characters in query - regex metacharacters must be escaped before highlighting</description>
+      <source>docs/sprint-artifacts/stories/3-2-implement-search-result-highlighting.md#Acceptance-Criteria</source>
+    </constraint>
+    <constraint>
+      <type>functionality</type>
+      <description>Highlighting applied to filename only (not path, not file extension) with original case preserved</description>
+      <source>docs/sprint-artifacts/stories/3-2-implement-search-result-highlighting.md#Acceptance-Criteria</source>
+    </constraint>
+    <constraint>
+      <type>compatibility</type>
+      <description>Support for Unicode characters and international filenames with proper text encoding</description>
+      <source>docs/sprint-artifacts/stories/3-2-implement-search-result-highlighting.md#Acceptance-Criteria</source>
+    </constraint>
+    <constraint>
+      <type>usability</type>
+      <description>Highlighting must not interfere with text selection or copying operations in the results list</description>
+      <source>docs/sprint-artifacts/stories/3-2-implement-search-result-highlighting.md#Acceptance-Criteria</source>
+    </constraint>
+    <constraint>
+      <type>configuration</type>
+      <description>Highlight color, enable/disable toggle, and style (background/outline/underline) configurable via settings</description>
+      <source>docs/sprint-artifacts/stories/3-2-implement-search-result-highlighting.md#Acceptance-Criteria</source>
+    </constraint>
+    <constraint>
+      <type>threading</type>
+      <description>Highlight computation happens in UI thread but must be optimized to not block during scroll operations</description>
+      <source>docs/architecture.md#Threading-Contract</source>
+    </constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>HighlightEngine.search()</name>
+      <kind>utility method</kind>
+      <signature>def search(self, text: str, query: str, case_sensitive: bool = False) -> List[Tuple[str, bool]]</signature>
+      <path>src/filesearch/utils/highlight_engine.py</path>
+    </interface>
+    <interface>
+      <name>ResultsItemDelegate.set_query()</name>
+      <kind>ui delegate method</kind>
+      <signature>def set_query(self, query: str) -> None</signature>
+      <path>src/filesearch/ui/results_view.py</path>
+    </interface>
+    <interface>
+      <name>ResultsView.update_highlighting()</name>
+      <kind>ui component method</kind>
+      <signature>def update_highlighting(self, query: str) -> None</signature>
+      <path>src/filesearch/ui/results_view.py</path>
+    </interface>
+    <interface>
+      <name>ConfigManager.get_highlight_settings()</name>
+      <kind>configuration method</kind>
+      <signature>def get_highlight_settings(self) -> Dict[str, Any]</signature>
+      <path>src/filesearch/core/config_manager.py</path>
+    </interface>
+    <interface>
+      <name>SettingsDialog.add_highlight_panel()</name>
+      <kind>ui dialog method</kind>
+      <signature>def add_highlight_panel(self, layout: QVBoxLayout) -> None</signature>
+      <path>src/filesearch/ui/settings_dialog.py</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>Unit tests with >80% coverage using pytest, UI tests with pytest-qt for Qt event loop handling, performance tests measuring render time under 10ms per 100 items, integration tests verifying query changes trigger highlight updates, accessibility tests ensuring screen reader compatibility</standards>
+    <locations>
+      <location>tests/unit/test_highlight_engine.py</location>
+      <location>tests/ui/test_results_view_highlighting.py</location>
+      <location>tests/integration/test_search_highlight_integration.py</location>
+      <location>tests/performance/test_highlight_performance.py</location>
+    </locations>
+    <ideas>
+      <idea>HighlightEngine regex escaping handles special characters (*, ., ?, +, etc.) correctly</idea>
+      <idea>Case-insensitive matching preserves original text case in display</idea>
+      <idea>Multiple matches in single filename all get highlighted (e.g., "doc" in "doc_document.docx")</idea>
+      <idea>Performance test: 10,000 results with highlighting render in under 1 second total</idea>
+      <idea>Virtual scrolling: highlights computed only for visible items, cached during scroll</idea>
+      <idea>Configuration: highlight color changes apply immediately without restart</idea>
+      <idea>Edge cases: empty query, wildcard-only query, Unicode filenames, very long filenames</idea>
+      <idea>UI integration: query changes during search update highlights dynamically</idea>
+      <idea>Accessibility: highlighted text announced correctly by screen readers</idea>
+      <idea>Memory usage: highlight caching doesn't cause memory leaks during long sessions</idea>
+    </ideas>
+  </tests>
+</story-context>

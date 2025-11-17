@@ -73,6 +73,11 @@ class ConfigManager:
                 "auto_expand_results": False,
                 "audio_notification_on_search_complete": False,
             },
+            "highlighting": {
+                "enabled": True,
+                "color": "#FFFF99",
+                "case_sensitive": False,
+            },
             "performance_settings": {
                 "search_thread_count": os.cpu_count() or 4,
                 "enable_search_cache": False,

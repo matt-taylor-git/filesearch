@@ -10,6 +10,11 @@ Routing guidance:
 
 | Date | Story | Epic | Type | Severity | Owner | Status | Notes |
 | ---- | ----- | ---- | ---- | -------- | ----- | ------ | ----- |
+| 2025-11-17 | 3.1 | 3 | Bug | High | TBD | Open | CRITICAL: Complete start_search method - Create SearchWorker and connect signals [file: src/filesearch/ui/main_window.py:324-358] |
+| 2025-11-17 | 3.1 | 3 | Enhancement | High | TBD | Open | Implement virtual scrolling in ResultsModel for performance requirements [file: src/filesearch/ui/results_view.py:11-50] |
+| 2025-11-17 | 3.1 | 3 | Enhancement | High | TBD | Open | Add keyboard navigation (Up/Down, Page Up/Down, Home/End) to ResultsView [file: src/filesearch/ui/results_view.py:185-265] |
+| 2025-11-17 | 3.1 | 3 | Enhancement | Med | TBD | Open | Configure ResultsView to occupy bottom 70% of MainWindow layout [file: src/filesearch/ui/main_window.py:232-234] |
+| 2025-11-17 | 3.1 | 3 | Enhancement | Med | TBD | Open | Add auto-scroll to first result when search completes [file: src/filesearch/ui/results_view.py:245-254] |
 | 2025-11-15 | 2.6 | 2 | Bug | High | TBD | Open | Add QApplication import to search_controls.py to fix runtime crashes [file: src/filesearch/ui/search_controls.py:16-35] |
 | 2025-11-15 | 2.6 | 2 | Enhancement | Med | TBD | Open | Add audio_notification_on_search_complete to ConfigManager defaults [file: src/filesearch/core/config_manager.py:61-83] |
 | 2025-11-14 | 1.4 | 1 | Enhancement | High | TBD | Open | Implement entry point plugin discovery (AC1) [file: src/filesearch/plugins/plugin_manager.py] |
@@ -29,3 +34,11 @@ Routing guidance:
 | | 2025-11-15 | 2.3 | 2 | Enhancement | Medium | TBD | Open | Verify and enhance right-click dropdown behavior to match left-click dropdown functionality (AC #4.2) [file: src/filesearch/ui/search_controls.py:585-601] |
 | | 2025-11-15 | 2.3 | 2 | Enhancement | Medium | TBD | Open | Add explicit network path testing and documentation to validate cross-platform network path support (AC #6.3) [file: src/filesearch/core/file_utils.py:274-294] |
 | | 2025-11-15 | 2.3 | 2 | Enhancement | Medium | TBD | Open | Add auto-complete for common paths (home, documents, desktop) to complement recent directories (AC #2.3) [file: src/filesearch/ui/search_controls.py:705-728] |
+| | 2025-11-17 | 3.1 | 3 | Bug | High | TBD | Open | Implement virtual scrolling in QListView to render only visible items (AC #1, AC #5) [file: src/filesearch/ui/results_view.py:143-213] |
+| | 2025-11-17 | 3.1 | 3 | Bug | High | TBD | Open | Connect ResultsView.add_result to SearchEngine.result_found signal for real-time updates (AC "real-time updates") [file: src/filesearch/ui/main_window.py:255-275] |
+| | 2025-11-17 | 3.1 | 3 | Bug | High | TBD | Open | Implement keyboard navigation (Up/Down, Page Up/Down, Home/End) in ResultsView (AC #3) [file: src/filesearch/ui/results_view.py:143-213] |
+| | 2025-11-17 | 3.1 | 3 | Enhancement | High | TBD | Open | Add lazy loading for file metadata when items become visible (AC #5) [file: src/filesearch/ui/results_view.py:143-213] |
+| | 2025-11-17 | 3.1 | 3 | Enhancement | High | TBD | Open | Implement icon caching by extension to minimize disk I/O (AC #5) [file: src/filesearch/ui/results_view.py:22-48] |
+| | 2025-11-17 | 3.1 | 3 | Enhancement | Medium | TBD | Open | Configure ResultsView to occupy bottom 70% of MainWindow (AC #1) [file: src/filesearch/ui/main_window.py:200-240] |
+| | 2025-11-17 | 3.1 | 3 | Bug | Medium | TBD | Open | Fix file size formatting to use binary prefixes (KiB, MiB, GiB) instead of decimal (AC #2) [file: src/filesearch/models/search_result.py:26-36] |
+| | 2025-11-17 | 3.1 | 3 | Enhancement | Medium | TBD | Open | Add "Searching..." empty state during search operations (AC #4) [file: src/filesearch/ui/results_view.py:169-174] |

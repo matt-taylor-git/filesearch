@@ -490,11 +490,29 @@ def validate_file_access(path: Path) -> bool:
 - Very large files (size display formatting)
 - Symlinks and circular directory references
 
+## Post-Review Follow-ups
+
+### Story 3.1 Critical Issues (2025-11-17)
+
+**Blocking Issues:**
+- **SearchWorker Creation Missing**: start_search method doesn't create SearchWorker instance or connect signals, breaking search functionality completely
+- **Virtual Scrolling Not Implemented**: ResultsModel doesn't implement virtual scrolling, preventing performance requirements from being met
+- **Keyboard Navigation Missing**: No implementation for Up/Down, Page Up/Down, Home/End keys
+
+**Action Items:**
+1. Complete start_search method implementation with SearchWorker creation and signal connections
+2. Implement proper virtual scrolling in ResultsModel for performance targets
+3. Add keyboard navigation support to ResultsView
+4. Configure 70% layout for ResultsView in MainWindow
+5. Add auto-scroll functionality when search completes
+
+**Impact:** Story 3.1 is BLOCKED until critical search functionality is implemented.
+
 ---
 
 **Document Status:** Draft - Ready for Review
 **Next Steps:**
-1. Review and validate technical approach
-2. Identify any missing requirements or constraints
-3. Proceed to Story 3.1 implementation planning
-4. Set up performance benchmarking environment
+1. **BLOCKED**: Address Story 3.1 critical implementation gaps
+2. Review and validate technical approach for remaining stories
+3. Proceed to Story 3.2 implementation only after 3.1 unblocked
+4. Set up performance benchmarking environment for virtual scrolling validation
