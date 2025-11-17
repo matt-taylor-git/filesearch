@@ -178,7 +178,7 @@ class SearchInputWidget(QWidget):
             QLineEdit.search-input {
                 font-size: 14px;
                 font-family: system-ui, -apple-system, sans-serif;
-                padding: 8px;
+                padding: 4px 8px;
                 border: 2px solid #cccccc;
                 border-radius: 4px;
                 background: rgba(255, 255, 255, 0.95);
@@ -710,7 +710,7 @@ class DirectorySelectorWidget(QWidget):
             QLineEdit.directory-input {
                 font-size: 14px;
                 font-family: system-ui, -apple-system, sans-serif;
-                padding: 8px;
+                padding: 4px 8px;
                 border: 2px solid #cccccc;
                 border-radius: 4px;
                 background: rgba(255, 255, 255, 0.95);
