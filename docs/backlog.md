@@ -10,6 +10,8 @@ Routing guidance:
 
 | Date | Story | Epic | Type | Severity | Owner | Status | Notes |
 | ---- | ----- | ---- | ---- | -------- | ----- | ------ | ----- |
+| 2025-11-15 | 2.6 | 2 | Bug | High | TBD | Open | Add QApplication import to search_controls.py to fix runtime crashes [file: src/filesearch/ui/search_controls.py:16-35] |
+| 2025-11-15 | 2.6 | 2 | Enhancement | Med | TBD | Open | Add audio_notification_on_search_complete to ConfigManager defaults [file: src/filesearch/core/config_manager.py:61-83] |
 | 2025-11-14 | 1.4 | 1 | Enhancement | High | TBD | Open | Implement entry point plugin discovery (AC1) [file: src/filesearch/plugins/plugin_manager.py] |
 | 2025-11-14 | 1.4 | 1 | Enhancement | High | TBD | Open | Load plugin metadata from plugin.json files (AC1) [file: src/filesearch/plugins/plugin_base.py] |
 | 2025-11-14 | 1.4 | 1 | Enhancement | Med | TBD | Open | Add plugin dependency resolution support [file: src/filesearch/plugins/plugin_manager.py] |

@@ -1,0 +1,219 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>5</storyId>
+    <title>Add Progress Indication During Search</title>
+    <status>drafted</status>
+    <generatedAt>Sat Nov 15 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/2-5-add-progress-indication-during-search.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>As a user</asA>
+    <iWant>I want visual feedback during search operations</iWant>
+    <soThat>so that I know the application is working and can estimate remaining time.</soThat>
+    <tasks>- [ ] **Create Progress Widget**
+  - [ ] Create `ProgressWidget` class in `src/filesearch/ui/search_controls.py`
+  - [ ] Add horizontal progress bar with indeterminate/determinate modes
+  - [ ] Add progress text label with dynamic formatting
+  - [ ] Add animated spinner/activity indicator
+  - [ ] Add file scan counter with thousands separator
+- [ ] **Implement Progress Callback System**
+  - [ ] Add progress callback to SearchEngine: `progress_callback(files_scanned, current_dir)`
+  - [ ] Use `collections.deque` for thread-safe progress message queue
+  - [ ] Implement progress throttling (max 5-10 updates per second)
+  - [ ] Add atomic counter operations for thread safety
+- [ ] **Implement Progress Display Logic**
+  - [ ] Calculate progress percentage for determinate mode
+  - [ ] Estimate total files using quick pre-scan or cached stats
+  - [ ] Handle indeterminate mode with pulsing animation
+  - [ ] Show current directory being scanned (truncated)
+  - [ ] Estimate remaining time when possible
+- [ ] **Add Progress State Management**
+  - [ ] Show progress within 200ms of search starting
+  - [ ] Hide progress with smooth fade out on completion
+  - [ ] Handle error states with red X indicator
+  - [ ] Update progress for search stop events
+- [ ] **Handle Performance and Edge Cases**
+  - [ ] Ensure <5% overhead on search speed
+  - [ ] Skip progress for very fast searches (<500ms)
+  - [ ] Show special messages for network drives
+  - [ ] Handle permission errors and symlink loops gracefully
+- [ ] **Integrate into Main Window**
+  - [ ] Add `ProgressWidget` to `MainWindow` layout below search controls
+  - [ ] Connect SearchEngine progress signals to ProgressWidget
+  - [ ] Connect SearchControlWidget state changes to ProgressWidget
+  - [ ] Update MainWindow to show/hide progress as needed
+- [ ] **Add Comprehensive Tests**
+  - [ ] Unit tests for `ProgressWidget` in `tests/unit/test_search_controls.py`
+  - [ ] Integration tests with SearchEngine progress callbacks
+  - [ ] Performance tests for progress update overhead
+  - [ ] Tests for thread safety and concurrent updates</tasks>
+  </story>
+
+  <acceptanceCriteria>**Given** an active search operation
+**When** the search is in progress
+**Then** I should see:
+
+1. **Progress Bar:**
+   - Horizontal bar below search controls
+   - Indeterminate mode (pulsing) when total file count unknown
+   - Determinate mode (0-100%) when directory size pre-scanned
+   - Color: Primary theme color (blue)
+   - Height: 6px (thin, unobtrusive)
+   - Smooth animation, not jerky
+
+2. **Progress Text:**
+   - Format: "Scanning {N} files... | Found {M} matches"
+   - Updates every 200ms (not on every file to avoid UI lag)
+   - Shows current directory being scanned (truncated if long)
+   - Estimates remaining time if possible: "About {time} remaining"
+   - If stopped: "Search stopped at {N} files scanned"
+
+3. **Spinner/Activity Indicator:**
+   - Animated icon next to progress text
+   - Rotating circle or dots animation
+   - Stops when search completes
+   - Different icon for error state (red X)
+
+4. **File Scan Counter:**
+   - Incremental count of files scanned
+   - Format: "12,345 files scanned" (with thousands separator)
+   - Updates in batches (every 100 files) for performance
+   - Shows final count: "Search completed: {N} files scanned"
+
+**And** progress should be:
+- Accurate within ±10% if determinate mode
+- Responsive (updates don't block search thread)
+- Visible within 200ms of search starting
+- Hidden when search completes (smooth fade out)
+
+**And** performance considerations:
+- Progress updates don't significantly impact search speed (<5% overhead)
+- UI updates throttled to 5-10 per second maximum
+- Progress callback from search engine to UI uses thread-safe queue
+- Counter variables use atomic operations or locks
+
+**And** edge cases:
+- Very fast searches (<500ms): progress may not appear (acceptable)
+- Very slow directories (network drives): show "Scanning may take a while..."
+- Permission errors: show "Skipping inaccessible directory: {path}"
+- Symlink loops: show "Detected circular reference, skipping"</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <entry>
+        <path>docs/PRD.md</path>
+        <title>File Search - Product Requirements Document</title>
+        <section>Functional Requirements</section>
+        <snippet>FR15: Progress indicator during search operations</snippet>
+      </entry>
+      <entry>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>UI Performance</section>
+        <snippet>Progress Updates: Throttled to 5-10 updates per second maximum</snippet>
+      </entry>
+      <entry>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Threading Contract</section>
+        <snippet>Signal Safety: All signal emissions include search_id for correlation</snippet>
+      </entry>
+      <entry>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Integration Points</section>
+        <snippet>SearchEngine.result_found → MainWindow.on_result_found</snippet>
+      </entry>
+    </docs>
+    <code>
+      <entry>
+        <path>src/filesearch/ui/main_window.py</path>
+        <kind>controller</kind>
+        <symbol>progress_update</symbol>
+        <lines>41-50</lines>
+        <reason>Existing progress signal definition for UI updates</reason>
+      </entry>
+      <entry>
+        <path>src/filesearch/core/search_engine.py</path>
+        <kind>service</kind>
+        <symbol>progress_callback</symbol>
+        <lines>40,78,174-177</lines>
+        <reason>Progress callback mechanism for search thread to UI communication</reason>
+      </entry>
+      <entry>
+        <path>src/filesearch/ui/search_controls.py</path>
+        <kind>component</kind>
+        <symbol>SearchControlWidget</symbol>
+        <lines>916-1141</lines>
+        <reason>Search control widget with state management for progress integration</reason>
+      </entry>
+    </code>
+    <dependencies>
+      <python>
+        <PyQt6>6.6.0</PyQt6>
+        <loguru>0.7.2</loguru>
+      </python>
+      <dev>
+        <pytest>7.4.0</pytest>
+        <pytest-qt>4.2.0</pytest-qt>
+      </dev>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - PyQt6 QProgressBar for progress bar with indeterminate/determinate modes
+    - Multi-threaded search architecture for background progress updates
+    - Signal/slot pattern for thread-safe progress communication
+    - Progress updates throttled to prevent UI lag during search operations
+    - Thread-safe progress message queue between search thread and UI
+    - Atomic operations for counter variables
+    - <5% overhead on search speed from progress updates
+    - Progress visible within 200ms of search starting
+    - Smooth fade out on completion
+  </constraints>
+  <interfaces>
+    <entry>
+      <name>SearchEngine.progress_callback</name>
+      <kind>function signature</kind>
+      <signature>progress_callback(files_scanned: int, current_dir: str) -> None</signature>
+      <path>src/filesearch/core/search_engine.py</path>
+    </entry>
+    <entry>
+      <name>MainWindow.progress_update</name>
+      <kind>signal</kind>
+      <signature>progress_update = pyqtSignal(int, str, int)</signature>
+      <path>src/filesearch/ui/main_window.py</path>
+    </entry>
+    <entry>
+      <name>SearchControlWidget.search_requested</name>
+      <kind>signal</kind>
+      <signature>search_requested = pyqtSignal()</signature>
+      <path>src/filesearch/ui/search_controls.py</path>
+    </entry>
+    <entry>
+      <name>SearchControlWidget.search_stopped</name>
+      <kind>signal</kind>
+      <signature>search_stopped = pyqtSignal()</signature>
+      <path>src/filesearch/ui/search_controls.py</path>
+    </entry>
+  </interfaces>
+  <tests>
+    <standards>pytest with pytest-qt for Qt testing, unit tests for components, integration tests for workflows, UI tests for widgets</standards>
+    <locations>tests/unit/ for unit tests, tests/integration/ for integration tests, tests/ui/ for UI tests</locations>
+    <ideas>
+      - Test progress bar indeterminate/determinate modes
+      - Test progress text formatting and updates
+      - Test spinner animation during search
+      - Test file scan counter with thousands separator
+      - Test progress visibility timing (within 200ms)
+      - Test smooth fade out on completion
+      - Test error state indicator
+      - Test thread safety of progress updates
+      - Test performance overhead <5%
+      - Test edge cases: fast searches, permission errors, symlinks
+    </ideas>
+  </tests>
+</story-context>

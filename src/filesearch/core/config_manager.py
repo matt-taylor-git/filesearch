@@ -71,6 +71,7 @@ class ConfigManager:
                 "result_font_size": 12,
                 "show_file_icons": True,
                 "auto_expand_results": False,
+                "audio_notification_on_search_complete": False,
             },
             "performance_settings": {
                 "search_thread_count": os.cpu_count() or 4,

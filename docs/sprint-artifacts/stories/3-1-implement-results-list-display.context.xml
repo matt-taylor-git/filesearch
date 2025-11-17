@@ -1,0 +1,170 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>1</storyId>
+    <title>Implement Results List Display</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-17</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/3-1-implement-results-list-display.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>search results displayed in a clean, scrollable list</iWant>
+    <soThat>I can browse through found files and folders efficiently</soThat>
+    <tasks>- [ ] **Create Results View Component**
+  - [ ] Create `ResultsView` class in `src/filesearch/ui/results_view.py`
+  - [ ] Implement QListView with custom model for virtual scrolling
+  - [ ] Configure view to occupy bottom 70% of main window
+  - [ ] Set minimum visible items to 10 with adjustable height
+  - [ ] Enable smooth scrolling with mouse wheel and touchpad support
+  - [ ] Add scrollbar that appears when content exceeds viewport
+
+- [ ] **Implement Result Item Display**
+  - [ ] Create custom delegate for rendering result items
+  - [ ] Display filename in bold, primary color, left-aligned
+  - [ ] Truncate filenames with ellipsis at 80 characters max
+  - [ ] Show full filename in tooltip on hover
+  - [ ] Display full path in smaller gray text (11px) below filename
+  - [ ] Truncate long paths from left using `.../parent/filename.ext` format
+  - [ ] Show full path in tooltip on hover
+  - [ ] Right-align file size with binary prefixes (KiB, MiB, GiB)
+  - [ ] Display file type icons based on extension
+  - [ ] Show modified date in subtext with locale-appropriate formatting
+
+- [ ] **Implement List Behavior**
+  - [ ] Enable single item selection with highlighted background
+  - [ ] Add hover effect with light gray background
+  - [ ] Implement keyboard navigation (Up/Down, Page Up/Down, Home/End)
+  - [ ] Preserve selection state when sorting results
+  - [ ] Add empty state messages for different scenarios
+
+- [ ] **Implement Real-time Updates**
+  - [ ] Connect to SearchEngine result_found signals
+  - [ ] Update list in real-time as results stream in
+  - [ ] Maintain scroll position when adding new results
+  - [ ] Auto-scroll to first result when search completes (configurable)
+  - [ ] Clear previous results when new search starts
+  - [ ] Show "Loading more results..." indicator during streaming
+
+- [ ] **Implement Performance Optimizations**
+  - [ ] Use virtual scrolling to render only visible items
+  - [ ] Lazy load file metadata until items become visible
+  - [ ] Cache file icons by extension to minimize disk I/O
+  - [ ] Optimize rendering to achieve <100ms for 1,000 results
+  - [ ] Ensure 60fps scrolling with 10,000+ results
+  - [ ] Keep memory usage under 100MB for large result sets
+
+- [ ] **Add Integration with Main Window**
+  - [ ] Add ResultsView to MainWindow layout
+  - [ ] Connect SearchEngine signals to ResultsView slots
+  - [ ] Coordinate with ProgressWidget and StatusWidget
+  - [ ] Ensure proper widget sizing and layout management
+
+- [ ] **Add Comprehensive Tests**
+  - [ ] Unit tests for ResultsView rendering logic
+  - [ ] Tests for virtual scrolling performance
+  - [ ] Tests for selection and keyboard navigation
+  - [ ] Tests for real-time result updates
+  - [ ] Integration tests with SearchEngine signals
+  - [ ] UI tests for visual rendering and interactions</tasks>
+  </story>
+
+  <acceptanceCriteria>**Given** search results are available
+**When** I view the results pane
+**Then** I should see:
+
+1. **Results List Component:**
+   - Scrollable list occupying bottom 70% of window
+   - Virtual scrolling for performance (renders only visible items)
+   - Minimum 10 items visible without scrolling (adjustable height)
+   - Smooth scrolling with mouse wheel and touchpad gestures
+   - Scrollbar appears when content exceeds viewport
+
+2. **Result Item Display (each row shows):**
+   - **File name:** Bold text, primary color, left-aligned
+     - Truncated with ellipsis if too long (max 80 characters)
+     - Shows full name on hover in tooltip
+   - **Full path:** Smaller text (11px), gray color, below file name
+     - Truncated from left for long paths: `.../parent/filename.ext`
+     - Full path in tooltip on hover
+   - **File size:** Right-aligned, formatted (e.g., "2.4 MB", "15 KB", "1.2 GB")
+     - Uses 1024-based binary prefixes (KiB, MiB, GiB)
+   - **File type:** Icon or small label (e.g., 📄, 📁, 📷, 📽️)
+     - Determined by extension: .txt, .pdf, .jpg, .mp4, etc.
+     - Default icon for unknown types
+   - **Modified date:** "Modified: {date}" in subtext (if space available)
+     - Format: "Jan 15, 2024" or "15/01/2024" based on locale
+
+3. **List Behavior:**
+   - Items selectable (single selection by default)
+   - Highlighted background for selected item (blue/light blue)
+   - Hover effect (light gray background) for better UX
+   - Keyboard navigation: Up/Down arrows, Page Up/Down, Home/End
+   - Selection persists when sorting (maintains selected item)
+
+4. **Empty State:**
+   - Before first search: "Enter a search term to begin"
+   - During search: "Searching..." with spinner
+   - No results: "No files found" with magnifying glass icon
+   - Friendly messaging with suggestions
+
+5. **Performance Requirements:**
+   - Renders 1,000 results in under 100ms
+   - Smooth scrolling at 60fps with 10,000 results
+   - Memory efficient: doesn't load all file metadata at once
+   - Virtual scrolling loads items on-demand as user scrolls
+
+**And** the results list should:
+- Update in real-time as search results stream in
+- Maintain scroll position when new results added
+- Auto-scroll to first result when search completes (configurable)
+- Clear previous results when new search starts
+- Show "Loading more results..." at bottom if incremental loading</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/PRD.md" title="File Search - Product Requirements Document" section="Results Display" snippet="Search results shown in clean, scrollable list. Each result shows filename, full path, and file size." />
+      <doc path="docs/architecture.md" title="File Search - Architecture" section="Technology Stack Details" snippet="PyQt6 (6.6.0) - Cross-platform GUI framework with native look and feel. Provides QListView, QThread, QSettings." />
+      <doc path="docs/architecture.md" title="File Search - Architecture" section="Epic to Architecture Mapping" snippet="ui/results_view.py | 3.1, 3.2, 3.3 | QListView with virtual scrolling, highlighting, sorting" />
+      <doc path="docs/architecture.md" title="File Search - Architecture" section="Performance Considerations" snippet="Result rendering: &lt;100ms for 1,000 visible results. Virtual scrolling: 60fps with 10,000+ results." />
+      <doc path="docs/epics.md" title="File Search - Epic Breakdown" section="Story 3.1: Implement Results List Display" snippet="As a user, I want search results displayed in a clean, scrollable list, so that I can browse through found files and folders efficiently." />
+    </docs>
+    <code>
+      <artifact path="src/filesearch/core/search_engine.py" kind="class" symbol="SearchEngine" lines="" reason="Provides result_found signal for real-time result streaming to UI" />
+      <artifact path="src/filesearch/models/search_result.py" kind="dataclass" symbol="SearchResult" lines="" reason="Defines SearchResult dataclass with path, size, modified fields for result display" />
+      <artifact path="src/filesearch/ui/main_window.py" kind="class" symbol="MainWindow" lines="" reason="Main window class that will integrate ResultsView component" />
+    </code>
+    <dependencies>
+      <package name="PyQt6" version="6.6.0" ecosystem="python" />
+      <package name="loguru" version="0.7.2" ecosystem="python" />
+      <package name="pytest" version="7.4+" ecosystem="python" />
+      <package name="pytest-qt" version="4.2+" ecosystem="python" />
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>PyQt6 GUI framework for cross-platform UI implementation</constraint>
+    <constraint>Virtual scrolling required to meet performance targets (&lt;100ms for 1000 results, 60fps scrolling)</constraint>
+    <constraint>Thread-safe signal/slot communication between search thread and UI thread</constraint>
+    <constraint>SearchResult dataclass as uniform data format for all results</constraint>
+    <constraint>Memory usage under 100MB during normal operation</constraint>
+    <constraint>Real-time result streaming via signals as results are found</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="SearchEngine.result_found" kind="signal" signature="result_found = pyqtSignal(Path, int)" path="src/filesearch/core/search_engine.py" />
+    <interface name="SearchResult" kind="dataclass" signature="@dataclass class SearchResult: path: Path, size: int, modified: float, plugin_source: Optional[str] = None" path="src/filesearch/models/search_result.py" />
+  </interfaces>
+  <tests>
+    <standards>Use pytest with pytest-qt for Qt-specific testing. Unit tests for rendering logic, integration tests for SearchEngine signals, UI tests for visual rendering and interactions.</standards>
+    <locations>tests/unit/test_results_view.py, tests/integration/test_search_workflow.py, tests/ui/test_results_view.py</locations>
+    <ideas>
+      <idea ac="1">Test virtual scrolling renders only visible items with buffer</idea>
+      <idea ac="2">Test filename truncation at 80 characters with ellipsis</idea>
+      <idea ac="3">Test single item selection with highlighted background</idea>
+      <idea ac="4">Test empty state messages for different scenarios</idea>
+      <idea ac="5">Test rendering performance under 100ms for 1000 results</idea>
+    </ideas>
+  </tests>
+</story-context>

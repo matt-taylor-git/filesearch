@@ -4,11 +4,12 @@ This module provides the MainWindow class that implements the main user interfac
 with search input, directory selection, and results display functionality.
 """
 
+import time
 from pathlib import Path
 from typing import Optional
 
 from loguru import logger
-from PyQt6.QtCore import Qt, QThread, pyqtSignal  # noqa: F401
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal  # noqa: F401
 from PyQt6.QtWidgets import QApplication  # noqa: F401
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -26,8 +27,16 @@ from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import open_containing_folder, safe_open
 from filesearch.core.search_engine import FileSearchEngine
+from filesearch.models.search_result import SearchResult
 from filesearch.plugins.plugin_manager import PluginManager
-from filesearch.ui.search_controls import SearchInputWidget
+from filesearch.ui.results_view import ResultsView
+from filesearch.ui.search_controls import (
+    ProgressWidget,
+    SearchControlWidget,
+    SearchInputWidget,
+    SearchState,
+    StatusWidget,
+)
 
 
 class SearchWorker(QThread):
@@ -52,18 +61,26 @@ class SearchWorker(QThread):
     error_occurred = pyqtSignal(str, int)  # error_message, error_code
     search_stopped = pyqtSignal(int, int)  # files_found, dirs_searched
 
-    def __init__(self, search_engine: FileSearchEngine, directory: Path, query: str):
+    def __init__(
+        self,
+        search_engine: FileSearchEngine,
+        directory: Path,
+        query: str,
+        progress_callback=None,
+    ):
         """Initialize the search worker.
 
         Args:
             search_engine: FileSearchEngine instance
             directory: Directory to search in
             query: Search pattern
+            progress_callback: Callback for progress updates
         """
         super().__init__()
         self.search_engine = search_engine
         self.directory = directory
         self.query = query
+        self.progress_callback = progress_callback
         self._is_running = False
 
         logger.debug(f"SearchWorker initialized for {directory} with query '{query}'")
@@ -137,6 +154,11 @@ class MainWindow(QMainWindow):
         """
         super().__init__()
 
+        # Ensure menu and status bars are created early to prevent
+        # None returns during initialization
+        self.menuBar()
+        self.statusBar()
+
         # Initialize components
         self.config_manager = config_manager or ConfigManager()
         self.plugin_manager = plugin_manager or PluginManager(self.config_manager)
@@ -146,6 +168,7 @@ class MainWindow(QMainWindow):
         self.search_results = []
         self.plugin_results = []
         self.current_directory = Path.home()  # Initialize current directory state
+        self.search_start_time = 0.0
 
         # Setup UI
         self.setup_ui()
@@ -164,8 +187,11 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(600, 400)
 
         # Create menu bar
-        settings_menu = self.menuBar().addMenu("Settings")
-        settings_menu.addAction("Preferences...", self.show_settings_dialog)
+        menu_bar = self.menuBar()
+        if menu_bar is not None:
+            settings_menu = menu_bar.addMenu("Settings")
+            if settings_menu is not None:
+                settings_menu.addAction("Preferences...", self.show_settings_dialog)
 
         # Create central widget
         central_widget = QWidget()
@@ -187,43 +213,72 @@ class MainWindow(QMainWindow):
         self.directory_selector.set_directory(self.current_directory)
         main_layout.addWidget(self.directory_selector)
 
-        # Search control buttons
-        button_layout = QHBoxLayout()
-        self.search_button = QPushButton("Search")
-        self.stop_button = QPushButton("Stop")
-        self.stop_button.setEnabled(False)
+        # Search control widget
+        self.search_control = SearchControlWidget()
+        main_layout.addWidget(self.search_control)
 
-        button_layout.addStretch()  # Push buttons to right
-        button_layout.addWidget(self.search_button)
-        button_layout.addWidget(self.stop_button)
+        # Progress widget
+        self.progress_widget = ProgressWidget()
+        main_layout.addWidget(self.progress_widget)
 
-        main_layout.addLayout(button_layout)
+        # Status widget
+        self.status_widget = StatusWidget()
+        main_layout.addWidget(self.status_widget)
 
         # Results area
         self.results_label = QLabel("Results:")
         main_layout.addWidget(self.results_label)
 
-        self.results_list = QListWidget()
-        main_layout.addWidget(self.results_list)
+        self.results_view = ResultsView()
+        main_layout.addWidget(self.results_view)
 
         # Status bar
-        self.statusBar().showMessage("Ready")
+        status_bar = self.statusBar()
+        if status_bar is not None:
+            status_bar.showMessage("Ready")
+
+            # Add time label to status bar
+            self.time_label = QLabel()
+            status_bar.addPermanentWidget(self.time_label)
+
+            # Add line/column label to status bar
+            self.line_col_label = QLabel("Ln 1, Col 1")
+            status_bar.addPermanentWidget(self.line_col_label)
+
+        # Timer for updating time
+        self.time_update_timer = QTimer()
+        self.time_update_timer.timeout.connect(self._update_status_time)
+        self.time_update_timer.start(1000)  # Update every second
 
         logger.debug("UI setup completed")
 
     def connect_signals(self) -> None:
         """Connect signals and slots for event handling."""
-        # Search controls
-        self.search_button.clicked.connect(self.start_search)
-        self.stop_button.clicked.connect(self.stop_search)
+        # Search control widget signals
+        self.search_control.search_requested.connect(self.start_search)
+        self.search_control.search_stopped.connect(self.stop_search)
 
         # Search input widget signals
         self.query_input.search_initiated.connect(self.start_search)
+        self.query_input.query_empty_changed.connect(
+            self.search_control.set_query_empty
+        )
 
         # Directory selector signals
         self.directory_selector.directory_changed.connect(self._on_directory_changed)
+        self.directory_selector.enter_pressed.connect(self.start_search)
+
+        # Search engine status signals
+        self.search_engine.status_update.connect(self.status_widget.update_status)
+        self.search_engine.results_count_update.connect(self._on_results_count_update)
 
         logger.debug("Signals connected")
+
+    def safe_status_message(self, message: str) -> None:
+        """Safely show message on status bar, handling potential None return."""
+        status_bar = self.statusBar()
+        if status_bar is not None:
+            status_bar.showMessage(message)
 
     def load_window_settings(self) -> None:
         """Load window settings from configuration."""
@@ -237,6 +292,15 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             logger.error(f"Error loading window settings: {e}")
+
+    def _update_status_time(self) -> None:
+        """Update the current time display in status bar."""
+        current_time = time.strftime("%H:%M:%S")
+        self.time_label.setText(current_time)
+
+    def _on_results_count_update(self, increment: int, total: int) -> None:
+        """Handle results count update from search engine."""
+        self.status_widget.update_status("searching", total)
 
     def save_window_settings(self) -> None:
         """Save window settings to configuration."""
@@ -268,40 +332,28 @@ class MainWindow(QMainWindow):
 
         # Validate inputs
         if not directory or not query:
-            self.statusBar().showMessage(
-                "Please enter both directory and search pattern"
-            )
+            self.safe_status_message("Please enter both directory and search pattern")
             return
 
         if not directory.exists():
-            self.statusBar().showMessage(f"Directory does not exist: {directory}")
+            self.safe_status_message(f"Directory does not exist: {directory}")
             return
 
         # Clear previous results
         self.search_results.clear()
-        self.results_list.clear()
+        self.results_view.clear_results()
+
+        # Record search start time
+        self.search_start_time = time.time()
 
         # Update UI state
         self.is_searching = True
-        self.search_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
+        self.search_control.set_state(SearchState.RUNNING)
         self.query_input.set_loading_state(True)
         self.query_input.set_error_state(False)
         self.directory_selector.set_read_only(True)
-        self.statusBar().showMessage(f"Searching for '{query}' in {directory}...")
-
-        # Create and start search worker
-        self.search_worker = SearchWorker(self.search_engine, directory, query)
-
-        # Connect worker signals
-        self.search_worker.result_found.connect(self.on_result_found)
-        self.search_worker.progress_update.connect(self.on_progress_update)
-        self.search_worker.search_complete.connect(self.on_search_complete)
-        self.search_worker.error_occurred.connect(self.on_search_error)
-        self.search_worker.search_stopped.connect(self.on_search_stopped)
-
-        # Start search
-        self.search_worker.start()
+        self.setCursor(Qt.CursorShape.WaitCursor)  # Change cursor to wait
+        self.safe_status_message(f"Searching in {directory}...")
         logger.info(f"Search started: '{query}' in {directory}")
 
     def stop_search(self) -> None:
@@ -310,7 +362,7 @@ class MainWindow(QMainWindow):
             return
 
         self.search_worker.stop()
-        self.statusBar().showMessage("Stopping search...")
+        self.safe_status_message("Stopping search...")
         logger.info("Search stop requested")
 
     def on_result_found(self, result: dict, result_number: int) -> None:
@@ -322,16 +374,18 @@ class MainWindow(QMainWindow):
         """
         self.search_results.append(result)
 
-        # Add to results list
-        source = result.get("source", "filesystem")
-        display_text = f"{result['name']} ({source})"
-        item = QListWidgetItem(display_text)
-        item.setData(Qt.ItemDataRole.UserRole, result)
-        self.results_list.addItem(item)
+        # Create SearchResult and add to results view
+        search_result = SearchResult(
+            path=Path(result["path"]),
+            size=result["size"],
+            modified=result["modified"],
+            plugin_source=result.get("source"),
+        )
+        self.results_view.add_result(search_result)
 
         # Update status periodically
         if result_number % 10 == 0:
-            self.statusBar().showMessage(f"Found {result_number} files...")
+            self.safe_status_message(f"Found {result_number} files...")
 
         logger.debug(f"Result found: {result} (#{result_number})")
 
@@ -345,7 +399,7 @@ class MainWindow(QMainWindow):
             current_dir: Current directory being searched
             files_found: Number of files found so far
         """
-        self.statusBar().showMessage(
+        self.safe_status_message(
             f"Searching {current_dir}... Found {files_found} files"
         )
         logger.debug(f"Progress: {progress}% in {current_dir}, {files_found} files")
@@ -357,8 +411,20 @@ class MainWindow(QMainWindow):
             total_files: Total files found
             total_dirs: Total directories searched
         """
+        duration = time.time() - self.search_start_time
+        self.progress_widget.set_completed_state(total_files)
+        self.progress_widget.hide_progress()
         self.reset_search_ui()
-        self.statusBar().showMessage(f"Search complete: {total_files} files found")
+        self.status_widget.update_status(
+            "completed",
+            total_files,
+            query=self.query_input.get_text(),
+            directory=str(self.current_directory),
+            duration=duration,
+        )
+        self.safe_status_message(
+            "Found {} results in {:.1f}s".format(total_files, duration)
+        )
         logger.info(
             f"Search completed: {total_files} files in {total_dirs} directories"
         )
@@ -370,8 +436,17 @@ class MainWindow(QMainWindow):
             files_found: Files found before stopping
             dirs_searched: Directories searched before stopping
         """
+        duration = time.time() - self.search_start_time
+        self.progress_widget.hide_progress()
         self.reset_search_ui()
-        self.statusBar().showMessage(f"Search stopped: {files_found} files found")
+        self.status_widget.update_status(
+            "completed",
+            files_found,
+            query=self.query_input.get_text(),
+            directory=str(self.current_directory),
+            duration=duration,
+        )
+        self.safe_status_message(f"Search stopped: {files_found} files found")
         logger.info(
             f"Search stopped: {files_found} files in {dirs_searched} directories"
         )
@@ -383,18 +458,21 @@ class MainWindow(QMainWindow):
             error_message: Error message
             error_code: Error code
         """
+        self.progress_widget.set_error_state(error_message)
+        self.progress_widget.hide_progress()
         self.reset_search_ui()
         self.query_input.set_error_state(True)
-        self.statusBar().showMessage(f"Search error: {error_message}")
+        self.status_widget.set_error_message(error_message)
+        self.safe_status_message(f"Error: {error_message}")
         logger.error(f"Search error {error_code}: {error_message}")
 
     def reset_search_ui(self) -> None:
         """Reset UI to ready state after search completes."""
         self.is_searching = False
-        self.search_button.setEnabled(True)
-        self.stop_button.setEnabled(False)
+        self.search_control.set_state(SearchState.IDLE)
         self.query_input.set_loading_state(False)
         self.directory_selector.set_read_only(False)
+        self.setCursor(Qt.CursorShape.ArrowCursor)  # Reset cursor to normal
 
         if self.search_worker:
             self.search_worker = None
@@ -409,10 +487,10 @@ class MainWindow(QMainWindow):
         """
         try:
             safe_open(file_path)
-            self.statusBar().showMessage(f"Opened: {file_path.name}")
+            self.safe_status_message(f"Opened: {file_path.name}")
             logger.info(f"Opened file: {file_path}")
         except FileSearchError as e:
-            self.statusBar().showMessage(f"Error opening file: {e}")
+            self.safe_status_message(f"Error opening file: {e}")
             logger.error(f"Error opening file {file_path}: {e}")
 
     def open_selected_folder(self, file_path: Path) -> None:
@@ -423,10 +501,10 @@ class MainWindow(QMainWindow):
         """
         try:
             open_containing_folder(file_path)
-            self.statusBar().showMessage(f"Opened folder: {file_path.parent}")
+            self.safe_status_message(f"Opened folder: {file_path.parent}")
             logger.info(f"Opened folder: {file_path.parent}")
         except FileSearchError as e:
-            self.statusBar().showMessage(f"Error opening folder: {e}")
+            self.safe_status_message(f"Error opening folder: {e}")
             logger.error(f"Error opening folder for {file_path}: {e}")
 
     def show_settings_dialog(self) -> None:
@@ -438,7 +516,7 @@ class MainWindow(QMainWindow):
             dialog.exec()
             logger.info("Settings dialog shown")
         except Exception as e:
-            self.statusBar().showMessage(f"Error opening settings: {e}")
+            self.safe_status_message(f"Error opening settings: {e}")
             logger.error(f"Error opening settings dialog: {e}")
 
     def closeEvent(self, event) -> None:

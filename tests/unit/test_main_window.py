@@ -1,6 +1,7 @@
 """Unit tests for the main window module."""
 
 import sys
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
@@ -89,8 +90,7 @@ class TestMainWindowInitialization:
         """Test that MainWindow has required UI components."""
         assert hasattr(main_window, "directory_selector")
         assert hasattr(main_window, "query_input")
-        assert hasattr(main_window, "search_button")
-        assert hasattr(main_window, "stop_button")
+        assert hasattr(main_window, "search_control")
         assert hasattr(main_window, "results_label")
 
     def test_main_window_title(self, main_window):
@@ -109,8 +109,8 @@ class TestMainWindowUIState:
 
     def test_initial_ui_state(self, main_window):
         """Test initial UI state."""
-        assert main_window.search_button.isEnabled() is True
-        assert main_window.stop_button.isEnabled() is False
+        # Search control button is disabled when query is empty
+        assert main_window.search_control.search_button.isEnabled() is False
         assert main_window.query_input.isEnabled() is True
         assert str(main_window.directory_selector.get_directory()) != ""
 
@@ -169,7 +169,7 @@ class TestMainWindowSearchControls:
         assert "Directory does not exist" in status_message
 
     def test_start_search_enables_stop_button(self, main_window):
-        """Test that starting search enables stop button."""
+        """Test that starting search changes control state."""
         with tempfile.TemporaryDirectory() as tmpdir:
             main_window.directory_selector.set_directory(Path(tmpdir))
             main_window.query_input.set_text("*.txt")
@@ -181,9 +181,10 @@ class TestMainWindowSearchControls:
 
                 main_window.start_search()
 
-                # In a real scenario, this would be True during search
-                # But with mocking, we just verify the method runs
-                assert main_window.search_button.isEnabled() is False
+                # Check that search control is in RUNNING state
+                from filesearch.ui.search_controls import SearchState
+
+                assert main_window.search_control.get_state() == SearchState.RUNNING
 
     def test_stop_search_when_not_searching(self, main_window):
         """Test stopping search when not currently searching."""
@@ -193,17 +194,17 @@ class TestMainWindowSearchControls:
 
     def test_reset_search_ui(self, main_window):
         """Test resetting search UI."""
+        from filesearch.ui.search_controls import SearchState
+
         # Set searching state
         main_window.is_searching = True
-        main_window.search_button.setEnabled(False)
-        main_window.stop_button.setEnabled(True)
+        main_window.search_control.set_state(SearchState.RUNNING)
 
         # Reset UI
         main_window.reset_search_ui()
 
         assert main_window.is_searching is False
-        assert main_window.search_button.isEnabled() is True
-        assert main_window.stop_button.isEnabled() is False
+        assert main_window.search_control.get_state() == SearchState.IDLE
 
 
 class TestMainWindowSignals:
@@ -222,13 +223,13 @@ class TestMainWindowSignals:
             main_window.activateWindow()
             QApplication.processEvents()
 
-            # Test search button click
+            # Test search control signals
             main_window.query_input.set_text("test")
-            main_window.search_button.clicked.emit()
+            main_window.search_control.search_requested.emit()
             mock_start.assert_called_once()
 
-            # Test stop button click
-            main_window.stop_button.clicked.emit()
+            # Test stop control signal
+            main_window.search_control.search_stopped.emit()
             mock_stop.assert_called_once()
 
     def test_query_input_return_pressed(self, qtbot, config_manager):
@@ -272,18 +273,18 @@ class TestMainWindowResultHandling:
 
     def test_on_search_complete(self, main_window):
         """Test handling search completion."""
+        from filesearch.ui.search_controls import SearchState
+
         main_window.is_searching = True
-        main_window.search_button.setEnabled(False)
-        main_window.stop_button.setEnabled(True)
+        main_window.search_control.set_state(SearchState.RUNNING)
 
         main_window.on_search_complete(5, 2)
 
         assert main_window.is_searching is False
-        assert main_window.search_button.isEnabled() is True
-        assert main_window.stop_button.isEnabled() is False
+        assert main_window.search_control.get_state() == SearchState.IDLE
 
         status_message = main_window.statusBar().currentMessage()
-        assert "Search complete: 5 files found" in status_message
+        assert "Found 5 results" in status_message
 
     def test_on_search_stopped(self, main_window):
         """Test handling search stop."""
@@ -303,7 +304,7 @@ class TestMainWindowResultHandling:
 
         assert main_window.is_searching is False
         status_message = main_window.statusBar().currentMessage()
-        assert "Search error: Test error" in status_message
+        assert "Error: Test error" in status_message
 
 
 class TestMainWindowFileOperations:
@@ -423,7 +424,3 @@ class TestCreateMainWindowFunction:
         assert window.config_manager == config_manager
 
         window.close()
-
-
-# Import tempfile for file operations
-import tempfile

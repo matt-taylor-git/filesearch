@@ -5,30 +5,25 @@ input field with history, auto-complete, visual feedback, and comprehensive
 keyboard support.
 """
 
+import locale
 import os
+import time
+from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-import platformdirs
 from loguru import logger
 from PyQt6.QtCore import QEvent, QSize, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import (
-    QAction,
-    QDragEnterEvent,
-    QDropEvent,
-    QKeyEvent,
-    QKeySequence,
-    QMouseEvent,
-    QPalette,
-    QShortcut,
-)
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
+    QApplication,
     QCompleter,
     QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMenu,
+    QProgressBar,
     QPushButton,
     QToolButton,
     QVBoxLayout,
@@ -38,6 +33,16 @@ from PyQt6.QtWidgets import (
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import SearchError
 from filesearch.core.file_utils import normalize_path, validate_directory
+
+
+class SearchState(Enum):
+    """Enumeration of possible search control states."""
+
+    IDLE = "idle"
+    RUNNING = "running"
+    STOPPING = "stopping"
+    COMPLETED = "completed"
+    ERROR = "error"
 
 
 class SearchInputWidget(QWidget):
@@ -61,11 +66,12 @@ class SearchInputWidget(QWidget):
     escape_pressed = pyqtSignal()
     focus_gained = pyqtSignal()
     focus_lost = pyqtSignal()
+    query_empty_changed = pyqtSignal(bool)
 
     # Constants for styling and behavior
     MAX_SEARCH_LENGTH = 255
     SEARCH_HISTORY_SIZE = 10
-    DEBOUNCE_DELAY_MS = 300
+    DEFAULT_AUTO_SEARCH_DELAY_MS = 500
 
     def __init__(
         self,
@@ -86,6 +92,10 @@ class SearchInputWidget(QWidget):
         self.is_loading = False
         self.has_error = False
 
+        # Auto-search configuration
+        self.auto_search_enabled = True
+        self.auto_search_delay_ms = self.DEFAULT_AUTO_SEARCH_DELAY_MS
+
         # Debounce timer for auto-search
         self._debounce_timer = QTimer()
         self._debounce_timer.setSingleShot(True)
@@ -95,6 +105,7 @@ class SearchInputWidget(QWidget):
         self._setup_ui()
         self._setup_style()
         self._load_search_history()
+        self._load_auto_search_config()
 
         logger.debug("SearchInputWidget initialized")
 
@@ -245,6 +256,27 @@ class SearchInputWidget(QWidget):
 
         logger.debug("Auto-completer setup completed")
 
+    def _load_auto_search_config(self) -> None:
+        """Load auto-search configuration."""
+        if not self.config_manager:
+            return
+
+        try:
+            self.auto_search_enabled = self.config_manager.get(
+                "search.auto_search_enabled", True
+            )
+            self.auto_search_delay_ms = self.config_manager.get(
+                "search.auto_search_delay_ms", self.DEFAULT_AUTO_SEARCH_DELAY_MS
+            )
+            logger.debug(
+                f"Auto-search config loaded: enabled={self.auto_search_enabled}, "
+                f"delay={self.auto_search_delay_ms}ms"
+            )
+        except Exception as e:
+            logger.error(f"Error loading auto-search config: {e}")
+            self.auto_search_enabled = True
+            self.auto_search_delay_ms = self.DEFAULT_AUTO_SEARCH_DELAY_MS
+
     def _save_search_history(self) -> None:
         """Save search history to configuration."""
         if not self.config_manager:
@@ -337,6 +369,7 @@ class SearchInputWidget(QWidget):
         self.search_input.clear()
         self.clear_button.setVisible(False)
         self.text_changed.emit("")
+        self.query_empty_changed.emit(True)
         logger.debug("Search input cleared")
 
     def get_text(self) -> str:
@@ -356,6 +389,7 @@ class SearchInputWidget(QWidget):
         self.search_input.setText(text)
         self._update_clear_button_visibility()
         self.text_changed.emit(text)
+        self.query_empty_changed.emit(not bool(text.strip()))
 
     def set_focus(self) -> None:
         """Set focus to the search input."""
@@ -459,10 +493,14 @@ class SearchInputWidget(QWidget):
         # Emit text changed signal
         self.text_changed.emit(text)
 
+        # Emit query empty state
+        is_empty = not bool(text.strip())
+        self.query_empty_changed.emit(is_empty)
+
         # Restart debounce timer for auto-search
         self._debounce_timer.stop()
-        if text.strip():
-            self._debounce_timer.start(self.DEBOUNCE_DELAY_MS)
+        if self.auto_search_enabled and text.strip():
+            self._debounce_timer.start(self.auto_search_delay_ms)
 
     def sizeHint(self) -> QSize:
         """Get recommended size for the widget.
@@ -496,10 +534,12 @@ class DirectorySelectorWidget(QWidget):
     Signals:
         directory_changed(Path): Emitted when the directory path is updated.
         browse_clicked(): Emitted when the browse button is clicked.
+        enter_pressed(): Emitted when Enter key is pressed in directory input.
     """
 
     directory_changed = pyqtSignal(Path)
     browse_clicked = pyqtSignal()
+    enter_pressed = pyqtSignal()
 
     def __init__(
         self,
@@ -572,6 +612,9 @@ class DirectorySelectorWidget(QWidget):
         )
         self.directory_input.customContextMenuRequested.connect(self._show_context_menu)
 
+        # Install event filter for Enter key detection
+        self.directory_input.installEventFilter(self)
+
         # Keyboard shortcuts
         self.shortcut_browse = QShortcut(QKeySequence("Ctrl+O"), self)
         self.shortcut_browse.activated.connect(self._on_browse_clicked)
@@ -633,8 +676,6 @@ class DirectorySelectorWidget(QWidget):
 
     def _on_browse_clicked(self) -> None:
         """Handle browse button click to open native directory selection dialog."""
-        from PyQt6.QtWidgets import QFileDialog
-
         logger.debug("Browse button clicked - opening QFileDialog")
 
         dialog_title = "Select Search Directory"
@@ -718,7 +759,8 @@ class DirectorySelectorWidget(QWidget):
             return
 
         try:
-            # Constraint: Store and retrieve recent directories from ConfigManager (max 5)
+            # Constraint: Store and retrieve recent directories from
+            # ConfigManager (max 5)
             self.recent_directories = self.config_manager.get("recent.directories", [])[
                 :5
             ]
@@ -863,6 +905,254 @@ class DirectorySelectorWidget(QWidget):
                 if path.is_dir():
                     event.acceptProposedAction()
 
+    def eventFilter(self, obj, event):
+        """Event filter to detect Enter key in directory input."""
+        if obj == self.directory_input and event.type() == QEvent.Type.KeyPress:
+            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                self.enter_pressed.emit()
+                return True  # Consume the event
+        return super().eventFilter(obj, event)
+
+
+class SearchControlWidget(QWidget):
+    """Widget providing search initiation and control buttons.
+
+    This widget provides a search/stop button with state management and
+    keyboard shortcuts for controlling search operations.
+
+    Signals:
+        search_requested(): Emitted when search is initiated
+        search_stopped(): Emitted when search is stopped
+    """
+
+    # Signals
+    search_requested = pyqtSignal()
+    search_stopped = pyqtSignal()
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        """Initialize search control widget.
+
+        Args:
+            parent: Parent widget (optional)
+        """
+        super().__init__(parent)
+
+        # State
+        self._state = SearchState.IDLE
+        self._query_empty = True
+
+        # Setup UI
+        self._setup_ui()
+        self._setup_style()
+        self._setup_shortcuts()
+
+        # Update initial state
+        self._update_button_state()
+
+        logger.debug("SearchControlWidget initialized")
+
+    def _setup_ui(self) -> None:
+        """Setup user interface components."""
+        # Main layout
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.setLayout(layout)
+
+        # Search control button
+        self.search_button = QPushButton("Search")
+        self.search_button.setProperty("class", "search-control-button")
+        self.search_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.search_button.setFixedSize(QSize(80, 32))  # AC: 80px wide, 32px height
+        self.search_button.clicked.connect(self._on_button_clicked)
+
+        layout.addWidget(self.search_button)
+
+        # Set widget size policy
+        self.setFixedSize(QSize(80, 32))
+
+    def _setup_style(self) -> None:
+        """Setup widget styling."""
+        self.setStyleSheet(
+            """
+            QPushButton.search-control-button {
+                font-size: 14px;
+                font-weight: bold;
+                border: 2px solid #0078d4;
+                border-radius: 4px;
+                background-color: #0078d4;
+                color: white;
+                padding: 4px 8px;
+            }
+
+            QPushButton.search-control-button:hover {
+                background-color: #005a9e;
+                border-color: #005a9e;
+            }
+
+            QPushButton.search-control-button:pressed {
+                background-color: #004578;
+                border-color: #004578;
+            }
+
+            QPushButton.search-control-button:disabled {
+                background-color: #cccccc;
+                border-color: #cccccc;
+                color: #666666;
+            }
+
+            QPushButton.search-control-button[state="stop"] {
+                background-color: #d13438;
+                border-color: #d13438;
+            }
+
+            QPushButton.search-control-button[state="stop"]:hover {
+                background-color: #b91c1c;
+                border-color: #b91c1c;
+            }
+
+            QPushButton.search-control-button[state="stop"]:pressed {
+                background-color: #991b1b;
+                border-color: #991b1b;
+            }
+        """
+        )
+
+        self.setObjectName("searchControlWidget")
+
+    def _setup_shortcuts(self) -> None:
+        """Setup keyboard shortcuts via key press event handling."""
+        # Shortcuts are handled in keyPressEvent for better testability
+        pass
+
+    def _on_button_clicked(self) -> None:
+        """Handle search button click."""
+        if (
+            self._state == SearchState.IDLE
+            or self._state == SearchState.COMPLETED
+            or self._state == SearchState.ERROR
+        ):
+            self._on_search_shortcut()
+        elif self._state == SearchState.RUNNING:
+            self._on_stop_shortcut()
+
+    def _on_search_shortcut(self) -> None:
+        """Handle search initiation."""
+        if self._can_start_search():
+            self.search_requested.emit()
+            logger.debug("Search requested via button/shortcut")
+
+    def _on_stop_shortcut(self) -> None:
+        """Handle search stop."""
+        if self._state == SearchState.RUNNING:
+            self.search_stopped.emit()
+            logger.debug("Search stop requested via button/shortcut")
+
+    def _focus_button(self) -> None:
+        """Focus the search button."""
+        self.search_button.setFocus()
+        logger.debug("Search button focused via Ctrl+S")
+
+    def _can_start_search(self) -> bool:
+        """Check if search can be started."""
+        return not self._query_empty and self._state in (
+            SearchState.IDLE,
+            SearchState.COMPLETED,
+            SearchState.ERROR,
+        )
+
+    def _update_button_state(self) -> None:
+        """Update button text, style, and enabled state based on current state."""
+        if self._state == SearchState.IDLE:
+            self.search_button.setText("Search")
+            self.search_button.setProperty("state", "search")
+            self.search_button.setEnabled(self._can_start_search())
+
+        elif self._state == SearchState.RUNNING:
+            self.search_button.setText("Stop")
+            self.search_button.setProperty("state", "stop")
+            self.search_button.setEnabled(True)
+
+        elif self._state == SearchState.STOPPING:
+            self.search_button.setText("Stop")
+            self.search_button.setProperty("state", "stop")
+            self.search_button.setEnabled(False)
+
+        elif self._state == SearchState.COMPLETED:
+            self.search_button.setText("Search")
+            self.search_button.setProperty("state", "search")
+            self.search_button.setEnabled(self._can_start_search())
+
+        elif self._state == SearchState.ERROR:
+            self.search_button.setText("Search")
+            self.search_button.setProperty("state", "search")
+            self.search_button.setEnabled(self._can_start_search())
+
+        # Apply style changes
+        style = self.search_button.style()
+        if style:
+            style.unpolish(self.search_button)
+            style.polish(self.search_button)
+
+    def set_state(self, state: SearchState) -> None:
+        """Set the search control state.
+
+        Args:
+            state: New search state
+        """
+        if self._state != state:
+            old_state = self._state
+            self._state = state
+            self._update_button_state()
+            logger.debug(f"Search state changed: {old_state.value} → {state.value}")
+
+    def set_query_empty(self, is_empty: bool) -> None:
+        """Set whether the search query is empty.
+
+        Args:
+            is_empty: True if query is empty, False otherwise
+        """
+        if self._query_empty != is_empty:
+            self._query_empty = is_empty
+            self._update_button_state()
+            logger.debug(f"Query empty state changed: {is_empty}")
+
+    def get_state(self) -> SearchState:
+        """Get current search state.
+
+        Returns:
+            Current SearchState
+        """
+        return self._state
+
+    def keyPressEvent(self, event) -> None:
+        """Handle key press events for shortcuts."""
+        # Ctrl+Enter: Start search
+        if (
+            event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter
+        ) and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            self._on_search_shortcut()
+            event.accept()
+            return
+
+        # Escape: Stop search if running
+        if event.key() == Qt.Key.Key_Escape:
+            self._on_stop_shortcut()
+            event.accept()
+            return
+
+        # Ctrl+S: Focus search button
+        if (
+            event.key() == Qt.Key.Key_S
+            and event.modifiers() == Qt.KeyboardModifier.ControlModifier
+        ):
+            self._focus_button()
+            event.accept()
+            return
+
+        # Pass other events to parent
+        super().keyPressEvent(event)
+
     def dropEvent(self, event: QDropEvent) -> None:
         """Handle drop event to set the directory path."""
         if event.mimeData().hasUrls():
@@ -873,3 +1163,647 @@ class DirectorySelectorWidget(QWidget):
                     self.set_directory(path)
                     self._add_to_recent_directories(path)
                     event.acceptProposedAction()
+
+
+class ProgressWidget(QWidget):
+    """Widget displaying search progress with bar, text, spinner, and counter.
+
+    This widget provides visual feedback during search operations including
+    progress bar, status text, animated spinner, and file scan counter.
+
+    Signals:
+        progress_updated(int, str): Emitted when progress is updated
+    """
+
+    # Signals
+    progress_updated = pyqtSignal(int, str)  # files_scanned, current_dir
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        """Initialize progress widget.
+
+        Args:
+            parent: Parent widget (optional)
+        """
+        super().__init__(parent)
+
+        # Progress state
+        self.files_scanned = 0
+        self.current_dir = ""
+        self.is_visible = False
+        self.is_determinate = False
+        self.total_files_estimate = 0
+        self.start_time = 0
+
+        # Animation state
+        self.spinner_angle = 0
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(self._animate_spinner)
+
+        # Setup UI
+        self._setup_ui()
+        self._setup_style()
+
+        # Initially hidden
+        self.setVisible(False)
+
+        logger.debug("ProgressWidget initialized")
+
+    def _setup_ui(self) -> None:
+        """Setup user interface components."""
+        # Main layout
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        self.setLayout(layout)
+
+        # Progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0)  # Indeterminate by default
+        self.progress_bar.setFixedHeight(6)  # Thin progress bar
+        self.progress_bar.setTextVisible(False)
+        layout.addWidget(self.progress_bar)
+
+        # Bottom row: spinner + text + counter
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(8)
+
+        # Spinner
+        self.spinner_label = QLabel("⟳")
+        self.spinner_label.setProperty("class", "spinner")
+        self.spinner_label.setFixedSize(QSize(16, 16))
+        bottom_layout.addWidget(self.spinner_label)
+
+        # Progress text
+        self.progress_text = QLabel("Initializing search...")
+        self.progress_text.setProperty("class", "progress-text")
+        bottom_layout.addWidget(self.progress_text, 1)  # Stretch
+
+        # File counter
+        self.file_counter = QLabel("0 files scanned")
+        self.file_counter.setProperty("class", "file-counter")
+        bottom_layout.addWidget(self.file_counter)
+
+        layout.addLayout(bottom_layout)
+
+    def _setup_style(self) -> None:
+        """Setup widget styling."""
+        self.setStyleSheet(
+            """
+            QWidget#progressWidget {
+                background: transparent;
+            }
+
+            QProgressBar {
+                border: none;
+                border-radius: 3px;
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            QProgressBar::chunk {
+                background: #0078d4;
+                border-radius: 3px;
+            }
+
+            QLabel.spinner {
+                color: #0078d4;
+                font-size: 14px;
+                font-weight: bold;
+            }
+
+            QLabel.progress-text {
+                color: #666666;
+                font-size: 12px;
+                font-family: system-ui, -apple-system, sans-serif;
+            }
+
+            QLabel.file-counter {
+                color: #666666;
+                font-size: 12px;
+                font-family: system-ui, -apple-system, sans-serif;
+                font-weight: bold;
+            }
+        """
+        )
+        self.setObjectName("progressWidget")
+
+    def _animate_spinner(self) -> None:
+        """Animate the spinner by rotating through characters."""
+        spinner_chars = ["⟳", "⟲", "⟱", "⟰"]
+        self.spinner_angle = (self.spinner_angle + 1) % len(spinner_chars)
+        self.spinner_label.setText(spinner_chars[self.spinner_angle])
+
+    def _format_file_count(self, count: int) -> str:
+        """Format file count with thousands separator.
+
+        Args:
+            count: Number of files
+
+        Returns:
+            Formatted string
+        """
+        return "{:,} files scanned".format(count)
+
+    def _truncate_path(self, path: str, max_length: int = 40) -> str:
+        """Truncate path if too long.
+
+        Args:
+            path: Path to truncate
+            max_length: Maximum length
+
+        Returns:
+            Truncated path
+        """
+        if len(path) <= max_length:
+            return path
+        start = -(max_length - 3)
+        return "..." + path[start:]
+
+    def _estimate_remaining_time(self, files_scanned: int) -> str:
+        """Estimate remaining time based on progress.
+
+        Args:
+            files_scanned: Number of files scanned so far
+
+        Returns:
+            Formatted remaining time string or empty if not estimable
+        """
+        if (
+            not self.is_determinate
+            or self.total_files_estimate == 0
+            or files_scanned == 0
+        ):
+            return ""
+
+        elapsed = time.time() - self.start_time
+        if elapsed < 1:
+            return ""
+
+        progress_ratio = files_scanned / self.total_files_estimate
+        if progress_ratio < 0.1:  # Need some progress to estimate
+            return ""
+
+        total_estimated = elapsed / progress_ratio
+        remaining = total_estimated - elapsed
+
+        if remaining < 60:
+            return f"About {int(remaining)}s remaining"
+        elif remaining < 3600:
+            return f"About {int(remaining / 60)}m remaining"
+        else:
+            return f"About {int(remaining / 3600)}h remaining"
+
+    def update_progress(self, files_scanned: int, current_dir: str) -> None:
+        """Update progress display.
+
+        Args:
+            files_scanned: Number of files scanned so far
+            current_dir: Current directory being scanned
+        """
+        self.files_scanned = files_scanned
+        self.current_dir = current_dir
+
+        # Update file counter
+        self.file_counter.setText(self._format_file_count(files_scanned))
+
+        # Update progress text
+        truncated_dir = self._truncate_path(current_dir)
+        remaining_time = self._estimate_remaining_time(files_scanned)
+
+        if self.is_determinate and self.total_files_estimate > 0:
+            percentage = min(
+                100, int((files_scanned / self.total_files_estimate) * 100)
+            )
+            self.progress_bar.setValue(percentage)
+            time_str = f" | {remaining_time}" if remaining_time else ""
+            self.progress_text.setText(
+                f"Scanning {truncated_dir}... ({percentage}%){time_str}"
+            )
+        else:
+            self.progress_text.setText(f"Scanning {truncated_dir}...")
+
+        # Emit signal
+        self.progress_updated.emit(files_scanned, current_dir)
+
+        logger.debug(f"Progress updated: {files_scanned} files, dir: {current_dir}")
+
+    def set_determinate_mode(self, total_files: int) -> None:
+        """Set progress bar to determinate mode.
+
+        Args:
+            total_files: Estimated total number of files
+        """
+        self.is_determinate = True
+        self.total_files_estimate = total_files
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setValue(0)
+        logger.debug(f"Set determinate mode with {total_files} total files")
+
+    def set_indeterminate_mode(self) -> None:
+        """Set progress bar to indeterminate mode."""
+        self.is_determinate = False
+        self.total_files_estimate = 0
+        self.progress_bar.setRange(0, 0)  # Indeterminate
+        logger.debug("Set indeterminate mode")
+
+    def show_progress(self) -> None:
+        """Show the progress widget with animation."""
+        if not self.is_visible:
+            self.is_visible = True
+            self.start_time = time.time()
+            self.setVisible(True)
+            self.animation_timer.start(200)  # 200ms animation interval
+            logger.debug("Progress widget shown")
+
+    def hide_progress(self) -> None:
+        """Hide the progress widget with fade out."""
+        if self.is_visible:
+            self.is_visible = False
+            self.animation_timer.stop()
+            self.setVisible(False)
+            # Reset state
+            self.files_scanned = 0
+            self.current_dir = ""
+            self.progress_text.setText("Search completed")
+            self.file_counter.setText("0 files scanned")
+            logger.debug("Progress widget hidden")
+
+    def set_error_state(self, error_message: str) -> None:
+        """Set error state display.
+
+        Args:
+            error_message: Error message to display
+        """
+        self.progress_text.setText(f"Error: {error_message}")
+        self.spinner_label.setText("❌")
+        self.animation_timer.stop()
+        logger.debug(f"Error state set: {error_message}")
+
+    def set_total_estimate(self, total_files: int) -> None:
+        """Set total file estimate for determinate progress.
+
+        Args:
+            total_files: Estimated total number of files
+        """
+        if total_files > 0:
+            self.set_determinate_mode(total_files)
+        else:
+            self.set_indeterminate_mode()
+        logger.debug(f"Total estimate set: {total_files} files")
+
+    def set_completed_state(self, total_files: int) -> None:
+        """Set completed state display.
+
+        Args:
+            total_files: Total number of files scanned
+        """
+        self.progress_text.setText("Search completed")
+        self.file_counter.setText(self._format_file_count(total_files))
+        self.spinner_label.setText("✅")
+        self.animation_timer.stop()
+        if self.is_determinate:
+            self.progress_bar.setValue(100)
+        logger.debug(f"Completed state set: {total_files} files")
+
+
+class StatusWidget(QWidget):
+    """Widget displaying search status information including results count,
+    summary, and error states.
+
+    This widget provides clear status information about search results, including
+    results count with color coding, search summary with duration, zero results state
+    with suggestions, and error states with recovery suggestions.
+
+    Signals:
+        status_updated(str, int): Emitted when status is updated
+    """
+
+    # Signals
+    status_updated = pyqtSignal(str, int)  # status_message, result_count
+
+    def __init__(self, parent: Optional[QWidget] = None):
+        """Initialize status widget.
+
+        Args:
+            parent: Parent widget (optional)
+        """
+        super().__init__(parent)
+
+        # Status state
+        self.result_count = 0
+        self.search_query = ""
+        self.search_directory = ""
+        self.search_duration = 0.0
+        self.current_status = "ready"  # ready, searching, completed, error
+
+        # Setup UI
+        self._setup_ui()
+        self._setup_style()
+
+        # Set initial status
+        # Status history for debug mode (last 100 messages)
+        self.status_history: list[str] = []
+
+        self.update_status("ready", 0)
+
+        logger.debug("StatusWidget initialized")
+
+    def _setup_ui(self) -> None:
+        """Setup user interface components."""
+        # Main layout
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        self.setLayout(layout)
+
+        # Results count label (prominent)
+        self.results_count_label = QLabel("Ready")
+        self.results_count_label.setProperty("class", "results-count")
+        layout.addWidget(self.results_count_label)
+
+        # Search summary label
+        self.summary_label = QLabel("")
+        self.summary_label.setProperty("class", "status-summary")
+        layout.addWidget(self.summary_label)
+
+    def _setup_style(self) -> None:
+        """Setup widget styling."""
+        self.setStyleSheet(
+            """
+            QWidget#statusWidget {
+                background: transparent;
+            }
+
+            QLabel.results-count {
+                font-size: 16px;
+                font-weight: bold;
+                color: #666666;
+                margin-bottom: 4px;
+            }
+
+            QLabel.results-count[state="success"] {
+                color: #107c10;
+            }
+
+            QLabel.results-count[state="zero"] {
+                color: #ff8c00;
+            }
+
+            QLabel.results-count[state="error"] {
+                color: #d13438;
+            }
+
+            QLabel.status-summary {
+                font-size: 12px;
+                color: #666666;
+                font-family: system-ui, -apple-system, sans-serif;
+            }
+        """
+        )
+        self.setObjectName("statusWidget")
+
+    def _format_result_count(self, count: int) -> str:
+        """Format result count with thousands separator.
+
+        Args:
+            count: Number of results
+
+        Returns:
+            Formatted string
+        """
+        # Use Python's built-in thousands separator
+        return "{:,} files found".format(count)
+
+    def _format_duration(self, duration: float) -> str:
+        """Format duration in human-readable format.
+
+        Args:
+            duration: Duration in seconds
+
+        Returns:
+            Formatted duration string
+        """
+        return "{:.1f}s".format(duration)
+
+    def update_status(
+        self,
+        status: str,
+        result_count: int = 0,
+        query: str = "",
+        directory: str = "",
+        duration: float = 0.0,
+    ) -> None:
+        """Update status display.
+
+        Args:
+            status: Status type (ready, searching, completed, error)
+            result_count: Number of results found
+            query: Search query
+            directory: Search directory
+            duration: Search duration in seconds
+        """
+        self.current_status = status
+        self.result_count = result_count
+        self.search_query = query
+        self.search_directory = directory
+        self.search_duration = duration
+
+        # Update results count label
+        if status == "ready":
+            self.results_count_label.setText(self.tr("Ready"))
+            self.results_count_label.setProperty("state", "normal")
+        elif status == "searching":
+            self.results_count_label.setText(self.tr("Searching..."))
+            self.results_count_label.setProperty("state", "normal")
+        elif status == "completed":
+            if result_count == 0:
+                self.results_count_label.setText(self.tr("No files found"))
+                self.results_count_label.setProperty("state", "zero")
+            elif result_count > 0:
+                count_text = self._format_result_count(result_count)
+                self.results_count_label.setText(count_text)
+                self.results_count_label.setProperty("state", "success")
+            else:
+                self.results_count_label.setText(self.tr("Search completed"))
+                self.results_count_label.setProperty("state", "normal")
+        elif status == "error":
+            self.results_count_label.setText(self.tr("Error"))
+            self.results_count_label.setProperty("state", "error")
+        else:
+            self.results_count_label.setText(status)
+            self.results_count_label.setProperty("state", "normal")
+
+        # Apply style changes
+        style = self.results_count_label.style()
+        if style:
+            style.unpolish(self.results_count_label)
+            style.polish(self.results_count_label)
+
+        # Update summary label
+        summary_text = self._get_summary_text(
+            status, result_count, query, directory, duration
+        )
+        self.summary_label.setText(summary_text)
+
+        # Audio notification for search completion if enabled
+        if status == "completed":
+            try:
+                from filesearch.core.config_manager import ConfigManager
+
+                config = ConfigManager()
+                if config.get("ui.audio_notification_on_search_complete", False):
+                    QApplication.beep()
+                # Persist last search summary
+                config.set("ui.last_search_summary", summary_text)
+                config.save()
+            except Exception as e:
+                logger.warning(f"Search completion handling failed: {e}")
+
+        # Emit signal
+        self.status_updated.emit(status, result_count)
+
+        # Add to status history for debug mode (last 100 messages)
+        message = (
+            f"{status}: {self.results_count_label.text()} - {summary_text}".strip()
+        )
+        self.status_history.append(message)
+        if len(self.status_history) > 100:
+            self.status_history.pop(0)
+
+        logger.debug(f"Status updated: {status}, {result_count} results")
+
+    def get_status_history(self) -> list[str]:
+        """Get status history for debug mode.
+
+        Returns:
+            List of last 100 status messages
+        """
+        return self.status_history.copy()
+
+    def copy_status_to_clipboard(self) -> None:
+        """Copy current status message to clipboard."""
+        status_text = (
+            f"{self.results_count_label.text()} {self.summary_label.text()}".strip()
+        )
+        clipboard = QApplication.clipboard()
+        if clipboard:
+            clipboard.setText(status_text)
+
+    def contextMenuEvent(self, event) -> None:
+        """Show context menu on right-click."""
+        menu = QMenu(self)
+        copy_action = menu.addAction("Copy Status")
+        copy_action.triggered.connect(self.copy_status_to_clipboard)
+        menu.exec(event.globalPos())
+
+    def _get_summary_text(
+        self,
+        status: str,
+        result_count: int,
+        query: str,
+        directory: str,
+        duration: float,
+    ) -> str:
+        """Get summary text based on status.
+
+        Args:
+            status: Status type
+            result_count: Number of results
+            query: Search query
+            directory: Search directory
+            duration: Search duration
+
+        Returns:
+            Summary text
+        """
+        if status == "ready":
+            return ""
+        elif status == "searching":
+            if directory:
+                return self.tr("Searching in {directory}...").format(
+                    directory=directory
+                )
+            return self.tr("Initializing search...")
+        elif status == "completed":
+            if result_count == 0:
+                if query:
+                    return self.tr(
+                        "No files found matching '{query}'. Try a broader search "
+                        "term or different directory."
+                    ).format(query=query)
+                return self.tr("No files found.")
+            elif result_count > 0:
+                duration_str = self._format_duration(duration)
+                if directory and query:
+                    return self.tr(
+                        "Found {result_count} matches in {directory} for "
+                        "'{query}' ({duration_str})"
+                    ).format(
+                        result_count=result_count,
+                        directory=directory,
+                        query=query,
+                        duration_str=duration_str,
+                    )
+                elif directory:
+                    return self.tr(
+                        "Found {result_count} matches in {directory} ({duration_str})"
+                    ).format(
+                        result_count=result_count,
+                        directory=directory,
+                        duration_str=duration_str,
+                    )
+                elif query:
+                    return self.tr(
+                        "Found {result_count} matches for '{query}' ({duration_str})"
+                    ).format(
+                        result_count=result_count,
+                        query=query,
+                        duration_str=duration_str,
+                    )
+                else:
+                    return self.tr("Search completed in {duration_str}").format(
+                        duration_str=duration_str
+                    )
+        elif status == "error":
+            return self.tr("Please select a different directory and try again.")
+        else:
+            return ""
+
+    def set_error_message(self, error_message: str) -> None:
+        """Set error message display.
+
+        Args:
+            error_message: Error message to display
+        """
+        self.results_count_label.setText("Error")
+        self.results_count_label.setProperty("state", "error")
+
+        # Apply style changes
+        style = self.results_count_label.style()
+        if style:
+            style.unpolish(self.results_count_label)
+            style.polish(self.results_count_label)
+
+        self.summary_label.setText(error_message)
+
+        logger.debug(f"Error message set: {error_message}")
+
+    def clear_status(self) -> None:
+        """Clear status display."""
+        self.update_status("ready", 0)
+
+    def get_current_status(self) -> str:
+        """Get current status.
+
+        Returns:
+            Current status string
+        """
+        return self.current_status
+
+    def get_result_count(self) -> int:
+        """Get current result count.
+
+        Returns:
+            Current result count
+        """
+        return self.result_count

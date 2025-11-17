@@ -1,0 +1,209 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>4</storyId>
+    <title>Add Search Initiation and Control</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-15</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/2-4-add-search-initiation-and-control.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>As a user,</asA>
+    <iWant>I want clear controls to start, stop, and monitor searches,</iWant>
+    <soThat>so that I have full control over the search operation.</soThat>
+    <tasks>- [ ] **Create Search Control Widget**
+  - [ ] Create `SearchControlWidget` class in `src/filesearch/ui/search_controls.py`
+  - [ ] Add search/stop button with proper styling and positioning
+  - [ ] Implement SearchState enum (IDLE, RUNNING, STOPPING, COMPLETED, ERROR)
+  - [ ] Add button state management (search/stop toggle)
+- [ ] **Implement Search Initiation**
+  - [ ] Connect button click to start search
+  - [ ] Handle Enter key in search input field
+  - [ ] Handle Enter key in directory field
+  - [ ] Implement auto-search after 500ms delay (configurable)
+  - [ ] Validate query before starting search
+- [ ] **Implement Stop Functionality**
+  - [ ] Change button to "Stop" during active search
+  - [ ] Handle stop button click to cancel search
+  - [ ] Implement Escape key to stop search
+  - [ ] Graceful search termination with partial results
+- [ ] **Implement Search State Management**
+  - [ ] Disable search input during search
+  - [ ] Disable directory selector during search
+  - [ ] Change cursor to wait cursor during search
+  - [ ] Update status bar with search progress
+  - [ ] Handle search completion and error states
+- [ ] **Add Keyboard Shortcuts**
+  - [ ] Implement Ctrl+Enter for search start
+  - [ ] Implement Escape for search stop/clear
+  - [ ] Implement Ctrl+S to focus search button
+- [ ] **Integrate into Main Window**
+  - [ ] Add `SearchControlWidget` to `MainWindow` layout
+  - [ ] Connect widget signals to `SearchEngine` methods
+  - [ ] Connect SearchEngine signals to widget state updates
+  - [ ] Update MainWindow to handle search state changes
+- [ ] **Add Comprehensive Tests**
+  - [ ] Unit tests for `SearchControlWidget` in `tests/unit/test_search_controls.py`
+  - [ ] Integration tests with `MainWindow` in `tests/unit/test_main_window.py`
+  - [ ] Test search state transitions and UI updates
+  - [ ] Test keyboard shortcuts and button interactions</tasks>
+  </story>
+
+  <acceptanceCriteria>**Given** search query and directory are specified
+**When** I initiate a search
+**Then** I should see:
+- **Search button:** Labeled "Search" or with magnifying glass icon
+  - Position: Right of search input field
+  - Size: 80px wide, same height as input (32px)
+  - Color: Primary action color (blue/green)
+  - Disabled state: Grayed out when query is empty
+  - Changes to "Stop" during active search
+
+**And** search initiation methods:
+- Clicking Search button
+- Pressing Enter key in search input field
+- Pressing Enter key in directory field (if focused)
+- Automatic search after 500ms of typing (configurable, can be disabled)
+
+**And** stop functionality:
+- **Stop button:** Appears in place of Search button during active search
+- Clicking stops search immediately
+- Keyboard shortcut: **Escape** key stops search
+- Search stops gracefully, showing results found so far
+- Stop button label: "Stop" with square icon or red color
+
+**And** search state indicators:
+- Button state changes (Search → Stop → Search)
+- Search input disabled during search (prevents modification)
+- Directory selector disabled during search
+- Cursor changes to wait cursor (hourglass/spinner) during search
+- Status bar shows: "Searching in {directory}..." with animated ellipsis
+
+**And** search completion:
+- Button returns to "Search" state
+- Input fields re-enabled
+- Cursor returns to normal
+- Status shows: "Found {N} results in {time}s"
+- If stopped early: "Search stopped. Found {N} results before stopping."
+- If error occurs: "Search failed: {error_message}"
+
+**And** keyboard shortcuts:
+- **Ctrl+Enter:** Start search (alternative to Enter)
+- **Escape:** Stop search (if running) or clear input (if idle)
+- **Ctrl+S:** Focus search button (mnemonic)</acceptanceCriteria>
+
+  <artifacts>
+    <docs>- path: docs/architecture.md
+  title: Architecture
+  section: Epic to Architecture Mapping
+  snippet: Story 2.4: Search input, directory selector, buttons - Search initiation, directory selection, search initiation, partial matching, performance, UI elements, progress, status
+- path: docs/architecture.md
+  title: Architecture
+  section: Integration Points
+  snippet: UI → Core Communication: SearchEngine moved to QThread for background execution, signal connections for thread-safe communication between search thread and UI
+- path: docs/epics.md
+  title: Epic Breakdown
+  section: Story 2.4: Add Search Initiation and Control
+  snippet: As a user, I want clear controls to start, stop, and monitor searches, so that I have full control over the search operation. Acceptance criteria include search button, stop functionality, search state indicators, and keyboard shortcuts.
+- path: docs/PRD.md
+  title: Product Requirements Document
+  section: Functional Requirements
+  snippet: FR3: Users can initiate search with Enter key or Search button</docs>
+    <code>- path: src/filesearch/core/search_engine.py
+  kind: class
+  symbol: FileSearchEngine
+  lines: 85-88
+  reason: Provides cancel() method to stop ongoing search operations
+- path: src/filesearch/ui/main_window.py
+  kind: class
+  symbol: SearchWorker
+  lines: 33-53
+  reason: Background thread for search execution with signals for UI updates and search control
+- path: src/filesearch/ui/search_controls.py
+  kind: class
+  symbol: SearchInputWidget
+  lines: 43-63
+  reason: Existing search input widget with signals for search initiation and state management
+- path: src/filesearch/ui/search_controls.py
+  kind: class
+  symbol: DirectorySelectorWidget
+  lines: 493-502
+  reason: Directory selection widget that needs to be disabled during search
+- path: src/filesearch/ui/main_window.py
+  kind: method
+  symbol: start_search
+  lines: 259-305
+  reason: Existing search initiation logic that needs integration with new SearchControlWidget
+- path: src/filesearch/ui/main_window.py
+  kind: method
+  symbol: stop_search
+  lines: 307-314
+  reason: Existing search stop logic that needs to be connected to new widget</code>
+    <dependencies>- ecosystem: python
+  packages:
+    - name: PyQt6
+      version: 6.6.0
+      reason: GUI framework for QPushButton, QThread, signals/slots, QTimer
+    - name: loguru
+      version: 0.7.2
+      reason: Structured logging for search state changes and errors
+    - name: pytest
+      version: 7.4+
+      reason: Testing framework for unit tests of SearchControlWidget
+    - name: pytest-qt
+      version: 4.2+
+      reason: Qt-specific testing utilities for UI component tests</dependencies>
+  </artifacts>
+
+  <constraints>- Use PyQt6 QPushButton for search/stop button with signal/slot pattern
+- Search runs in background QThread with thread-safe signals for UI updates
+- Signal/slot pattern for communication between search thread and UI
+- ConfigManager for storing auto-search delay setting
+- QTimer for auto-search delay (500ms configurable)
+- SearchState enum to track current search state and manage UI accordingly
+- Connect to existing SearchEngine signals: search_started, search_finished, search_error, results_found
+- Unit tests follow existing patterns in test_search_controls.py
+- Integration with existing MainWindow layout and signal connections</constraints>
+  <interfaces>- name: FileSearchEngine.search
+    kind: method
+    signature: search(directory: Path, query: str) -> Generator[Dict[str, Any], None, None]
+    path: src/filesearch/core/search_engine.py
+- name: FileSearchEngine.cancel
+    kind: method
+    signature: cancel() -> None
+    path: src/filesearch/core/search_engine.py
+- name: SearchWorker.result_found
+    kind: signal
+    signature: result_found(dict, int)
+    path: src/filesearch/ui/main_window.py
+- name: SearchWorker.progress_update
+    kind: signal
+    signature: progress_update(int, str, int)
+    path: src/filesearch/ui/main_window.py
+- name: SearchWorker.search_complete
+    kind: signal
+    signature: search_complete(int, int)
+    path: src/filesearch/ui/main_window.py
+- name: SearchWorker.error_occurred
+    kind: signal
+    signature: error_occurred(str, int)
+    path: src/filesearch/ui/main_window.py
+- name: SearchWorker.search_stopped
+    kind: signal
+    signature: search_stopped(int, int)
+    path: src/filesearch/ui/main_window.py</interfaces>
+  <tests>
+    <standards>Use pytest with pytest-qt for testing Qt UI components. Follow existing patterns from test_search_controls.py with fixtures for qapp and qtbot. Test signal emissions, UI state changes, and keyboard interactions.</standards>
+    <locations>- tests/unit/test_search_controls.py (unit tests for SearchControlWidget)
+- tests/unit/test_main_window.py (integration tests with MainWindow)</locations>
+    <ideas>- Test SearchState enum transitions (IDLE → RUNNING → COMPLETED)
+- Test button text changes (Search ↔ Stop) during state transitions
+- Test keyboard shortcuts (Ctrl+Enter, Escape, Ctrl+S)
+- Test auto-search delay with QTimer
+- Test UI disabling/enabling during search states
+- Test signal connections to SearchEngine methods
+- Test error state handling and UI updates</ideas>
+  </tests>
+</story-context>

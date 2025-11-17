@@ -7,17 +7,19 @@ result streaming.
 
 import fnmatch
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, Generator, Optional, Set
 
 from loguru import logger
+from PyQt6.QtCore import QObject, pyqtSignal
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import SearchError
 
 
-class FileSearchEngine:
+class FileSearchEngine(QObject):
     """Multi-threaded file search engine with generator-based result streaming.
 
     This class implements efficient file searching using concurrent directory
@@ -30,6 +32,10 @@ class FileSearchEngine:
         _cancelled (bool): Flag to indicate if search should be cancelled
         _executor (Optional[ThreadPoolExecutor]): Thread pool for parallel execution
     """
+
+    # Signals
+    status_update = pyqtSignal(str, int)  # status, result_count
+    results_count_update = pyqtSignal(int, int)  # current_count, total_so_far
 
     def __init__(
         self,
@@ -46,6 +52,7 @@ class FileSearchEngine:
             max_results: Maximum results to return, 0 for unlimited (default: 1000)
             config_manager: ConfigManager instance to use for settings (optional)
         """
+        super().__init__()
         self.config_manager = config_manager
 
         # Use config values if config_manager provided, otherwise use parameters
@@ -77,10 +84,27 @@ class FileSearchEngine:
         self.plugin_manager = plugin_manager
         self.progress_callback = progress_callback
 
+        # Progress throttling
+        self._last_progress_time = 0
+        self._progress_throttle_ms = 100  # 10 updates per second max
+
+        # Status update throttling
+        self._last_status_time = 0
+        self._status_throttle_ms = 200  # 5 updates per second max
+
         logger.debug(
             f"FileSearchEngine initialized with max_workers={self.max_workers}, "
             f"max_results={self.max_results}, case_sensitive={self.case_sensitive}"
         )
+
+    def set_progress_callback(self, callback) -> None:
+        """Set the progress callback function.
+
+        Args:
+            callback: Function to call for progress updates
+            (files_scanned: int, current_dir: str)
+        """
+        self.progress_callback = callback
 
     def cancel(self) -> None:
         """Cancel current search operation."""
@@ -171,29 +195,38 @@ class FileSearchEngine:
                                 results.add(Path(entry.path))
                                 logger.debug(f"Match found: {entry.path}")
 
-                                # Call progress callback if provided
+                                # Emit status update (throttled)
+                                current_time = time.time() * 1000  # milliseconds
+                                if (
+                                    current_time - self._last_status_time
+                                    >= self._status_throttle_ms
+                                ):
+                                    self.results_count_update.emit(1, len(results))
+                                    self._last_status_time = current_time
+
+                                # Call progress callback if provided (throttled)
                                 if self.progress_callback:
-                                    try:
-                                        self.progress_callback(
-                                            {
-                                                "files_scanned": len(results),
-                                                "current_file": entry.path,
-                                                "status": "scanning",
-                                            }
-                                        )
-                                    except Exception as e:
-                                        logger.warning(f"Progress callback error: {e}")
+                                    current_time = time.time() * 1000  # milliseconds
+                                    if (
+                                        current_time - self._last_progress_time
+                                        >= self._progress_throttle_ms
+                                    ):
+                                        try:
+                                            self.progress_callback(
+                                                len(results), str(directory)
+                                            )
+                                            self._last_progress_time = current_time
+                                        except Exception as e:
+                                            logger.warning(
+                                                f"Progress callback error: {e}"
+                                            )
 
                                 # Check if we've reached max results
                                 if (
                                     self.max_results > 0
                                     and len(results) >= self.max_results
                                 ):
-                                    logger.info(
-                                        f"Max results ({self.max_results}) reached, "
-                                        f"stopping search"
-                                    )
-                                    self.cancel()  # Signal other threads to stop
+                                    self._cancelled = True
                                     break
 
                         elif entry.is_dir():
@@ -206,10 +239,12 @@ class FileSearchEngine:
                                 try:
                                     # Resolve symlink and check if it creates a cycle
                                     resolved_path = Path(entry.path).resolve()
-                                    # Simple cycle detection by checking if resolved path is within current path
+                                    # Simple cycle detection by checking if
+                                    # resolved path is within current path
                                     if directory in resolved_path.parents:
                                         logger.warning(
-                                            f"Symlink cycle detected: {entry.path} -> {resolved_path}"
+                                            f"Symlink cycle detected: {entry.path} -> "
+                                            f"{resolved_path}"
                                         )
                                         continue
                                     # Recursively scan resolved symlink directory
@@ -239,6 +274,31 @@ class FileSearchEngine:
             logger.error(f"Unexpected error scanning {directory}: {e}")
             raise SearchError(f"Error scanning directory {directory}: {e}")
 
+    def estimate_total_files(self, directory: Path) -> int:
+        """Estimate total number of files in directory for progress calculation.
+
+        Args:
+            directory: Directory to scan
+
+        Returns:
+            Estimated total file count
+        """
+        try:
+            total = 0
+            for root, dirs, files in os.walk(directory):
+                # Skip hidden directories
+                dirs[:] = [
+                    d for d in dirs if not d.startswith(".") or self.include_hidden
+                ]
+                total += len(files)
+                # Limit depth for performance
+                if root.count(os.sep) - directory.as_posix().count(os.sep) > 3:
+                    break
+            return total
+        except Exception as e:
+            logger.warning(f"Error estimating total files: {e}")
+            return 0
+
     def search(
         self, directory: Path, query: str
     ) -> Generator[Dict[str, Any], None, None]:
@@ -249,7 +309,8 @@ class FileSearchEngine:
             query: Search pattern (supports wildcards with fnmatch syntax)
 
         Yields:
-            Dict objects for matching files/results with keys: 'path', 'name', 'source', etc.
+            Dict objects for matching files/results with keys:
+            'path', 'name', 'source', etc.
 
         Raises:
             SearchError: If directory doesn't exist or is not accessible
@@ -282,6 +343,9 @@ class FileSearchEngine:
         results: Set[Path] = set()
 
         try:
+            # Emit searching status
+            self.status_update.emit("searching", 0)
+
             # Use ThreadPoolExecutor for parallel directory scanning
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 self._executor = executor
@@ -297,6 +361,9 @@ class FileSearchEngine:
                 except Exception as e:
                     logger.error(f"Error in search execution: {e}")
                     raise SearchError(f"Search execution failed: {e}")
+
+                # Emit completed status
+                self.status_update.emit("completed", len(results))
 
                 # Yield all results found (even if cancelled due to max results)
                 for path in results:
@@ -333,6 +400,7 @@ class FileSearchEngine:
 
         except Exception as e:
             logger.error(f"Search failed: {e}")
+            self.status_update.emit("error", 0)
             raise SearchError(f"Search operation failed: {e}")
         finally:
             self._executor = None

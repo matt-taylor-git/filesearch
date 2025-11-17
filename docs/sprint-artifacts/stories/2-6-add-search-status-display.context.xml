@@ -1,0 +1,158 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>6</storyId>
+    <title>Add Search Status Display</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-15</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/2-6-add-search-status-display.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>As a user,</asA>
+    <iWant>I want clear status information about search results,</iWant>
+    <soThat>so that I understand what was found and can adjust my query if needed.</soThat>
+    <tasks>- [ ] **Create Status Display Widget**
+  - [ ] Create `StatusWidget` class in `src/filesearch/ui/search_controls.py`
+  - [ ] Add results count display with color coding (green/orange/red)
+  - [ ] Add search summary display with duration and query info
+  - [ ] Add zero results state with friendly messages and suggestions
+  - [ ] Add error state display with recovery suggestions
+- [ ] **Implement Status Bar Integration**
+  - [ ] Add persistent status bar at bottom of MainWindow
+  - [ ] Implement ready/searching/completed/error states
+  - [ ] Add current time display
+  - [ ] Connect status bar to search lifecycle events
+- [ ] **Implement Status Update System**
+  - [ ] Add status update signals from SearchEngine to UI
+  - [ ] Use thread-safe counter for results found (atomic increment)
+  - [ ] Format numbers using locale formatting for thousands separators
+  - [ ] Implement real-time status updates as results stream in
+- [ ] **Add Status State Management**
+  - [ ] Clear previous results count when new search starts
+  - [ ] Increment counter as results are found
+  - [ ] Show final count and duration when search completes
+  - [ ] Handle stopped search with partial results message
+  - [ ] Display error messages with recovery suggestions
+- [ ] **Implement Status Persistence**
+  - [ ] Store last search summary in config for persistence
+  - [ ] Keep results count visible when browsing results
+  - [ ] Persist error messages until user action
+  - [ ] Maintain always-visible status bar state
+- [ ] **Add Enhanced Features**
+  - [ ] Add status history/log in debug mode (last 100 messages)
+  - [ ] Add copy-to-clipboard functionality for status messages
+  - [ ] Consider audio notification when search completes (configurable)
+  - [ ] Prepare status messages for localization (translation strings)
+- [ ] **Integrate into Main Window**
+  - [ ] Add `StatusWidget` to MainWindow layout above results
+  - [ ] Add status bar to MainWindow bottom area
+  - [ ] Connect SearchEngine status signals to both widgets
+  - [ ] Coordinate status updates with ProgressWidget
+- [ ] **Add Comprehensive Tests**
+  - [ ] Unit tests for `StatusWidget` in `tests/unit/test_search_controls.py`
+  - [ ] Integration tests with SearchEngine status updates
+  - [ ] Tests for thread-safe counter operations
+  - [ ] Tests for status persistence and state management</tasks>
+  </story>
+
+  <acceptanceCriteria>**Given** a completed search operation
+**When** I view status area
+**Then** I should see:
+
+1. **Results Count:**
+   - Prominent display: "{N} files found"
+   - Format: Large number with thousands separator
+   - Color: Green if results found, orange if zero, red if error
+   - Position: Top of results pane or status bar
+   - Updates in real-time as results stream in
+
+2. **Search Summary:**
+   - Format: "Found {N} matches in {directory}"
+   - Shows search duration: "Search completed in {time}s"
+   - Shows search query: "for '{query}'"
+   - Example: "Found 42 matches in /home/user/Documents for 'report' (0.8s)"
+
+3. **Zero Results State:**
+   - Friendly message: "No files found matching '{query}'"
+   - Suggestions: "Try a broader search term or different directory"
+   - Tips: "Check if 'Include hidden files' is enabled if searching for hidden files"
+   - Visual: Magnifying glass icon with question mark
+
+4. **Error States:**
+   - Directory not found: "Error: Directory '/invalid/path' does not exist"
+   - Permission denied: "Error: Permission denied for '/restricted/path'"
+   - Search failed: "Error: Search failed: {error_message}"
+   - Recovery suggestion: "Please select a different directory and try again"
+
+5. **Status Bar (persistent at bottom):**
+   - Ready state: "Ready"
+   - Searching: "Searching in {directory}..."
+   - Completed: "Found {N} results in {time}s"
+   - Error: "Error: {message}"
+   - Shows current time, line/column (if applicable)
+
+**And** status should update:
+- When search starts (clear previous results count)
+- As results stream in (increment counter)
+- When search completes (show final count and time)
+- When search is stopped (show partial results message)
+- When error occurs (show error message)
+
+**And** status persistence:
+- Last search summary remains visible until next search
+- Results count stays visible when browsing results
+- Error messages persist until user dismisses or starts new search
+- Status bar always visible showing application state</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc path="docs/PRD.md" title="Product Requirements Document" section="Functional Requirements" snippet="FR16: Status display showing number of results found" />
+      <doc path="docs/architecture.md" title="Architecture" section="Epic to Architecture Mapping" snippet="Story 2.6: Main window with status display" />
+      <doc path="docs/architecture.md" title="Architecture" section="Technology Stack Details" snippet="PyQt6 QLabel and QStatusBar for status display components" />
+      <doc path="docs/architecture.md" title="Architecture" section="Integration Points" snippet="Signal connections for thread-safe status communication" />
+      <doc path="docs/epics.md" title="Epic Breakdown" section="Story 2.6: Add Search Status Display" snippet="Comprehensive requirements for status display functionality" />
+    </docs>
+    <code>
+      <code path="src/filesearch/ui/search_controls.py" kind="class" symbol="ProgressWidget" reason="Similar pattern for StatusWidget implementation" />
+      <code path="src/filesearch/core/search_engine.py" kind="class" symbol="SearchEngine" reason="Needs extension with status update signals" />
+      <code path="src/filesearch/core/config_manager.py" kind="class" symbol="ConfigManager" reason="For persisting status preferences and last search summary" />
+      <code path="src/filesearch/ui/main_window.py" kind="class" symbol="MainWindow" reason="Integration point for status bar and status widget" />
+    </code>
+    <dependencies>
+      <dep ecosystem="python" package="PyQt6" version="6.6.0" />
+      <dep ecosystem="python" package="loguru" version="0.7.2" />
+      <dep ecosystem="python" package="pytest" version="7.4+" />
+      <dep ecosystem="python" package="pytest-qt" version="4.2+" />
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>PyQt6 framework for UI components (QLabel, QStatusBar)</constraint>
+    <constraint>Multi-threaded search with thread-safe signals for status updates</constraint>
+    <constraint>Signal/Slot pattern for communication between search thread and UI</constraint>
+    <constraint>Configuration persistence using ConfigManager</constraint>
+    <constraint>Status update throttling to prevent UI lag</constraint>
+    <constraint>Thread-safe counter for results found using atomic operations</constraint>
+    <constraint>Locale formatting for thousands separators in numbers</constraint>
+  </constraints>
+  <interfaces>
+    <interface name="SearchEngine.status_update" kind="signal" signature="status_update(str, int)" path="src/filesearch/core/search_engine.py" />
+    <interface name="SearchEngine.results_count_update" kind="signal" signature="results_count_update(int, int)" path="src/filesearch/core/search_engine.py" />
+    <interface name="StatusWidget.update_status" kind="method" signature="update_status(str, int)" path="src/filesearch/ui/search_controls.py" />
+  </interfaces>
+  <tests>
+    <standards>pytest with pytest-qt for Qt testing, >80% coverage</standards>
+    <locations>
+      <location>tests/unit/test_search_controls.py</location>
+      <location>tests/integration/test_search_workflow.py</location>
+    </locations>
+    <ideas>
+      <idea>Test StatusWidget rendering and color coding</idea>
+      <idea>Test status update signals from SearchEngine</idea>
+      <idea>Test thread-safe counter operations</idea>
+      <idea>Test status persistence across application restarts</idea>
+    </ideas>
+  </tests>
+</story-context>
