@@ -37,6 +37,7 @@ from filesearch.ui.search_controls import (
     SearchState,
     StatusWidget,
 )
+from filesearch.ui.sort_controls import SortControls
 
 
 class SearchWorker(QThread):
@@ -229,6 +230,10 @@ class MainWindow(QMainWindow):
         self.results_label = QLabel("Results:")
         main_layout.addWidget(self.results_label)
 
+        # Sort controls (AC6: UI Controls)
+        self.sort_controls = SortControls()
+        main_layout.addWidget(self.sort_controls)
+
         self.results_view = ResultsView()
         main_layout.addWidget(self.results_view)
         # Set ResultsView to occupy 70% of the available space
@@ -242,6 +247,9 @@ class MainWindow(QMainWindow):
 
         # Load and apply highlight settings from config
         self._load_highlight_settings()
+
+        # Load sort settings from config
+        self._load_sort_settings()
 
         # Status bar
         status_bar = self.statusBar()
@@ -282,6 +290,10 @@ class MainWindow(QMainWindow):
         # Search engine status signals
         self.search_engine.status_update.connect(self.status_widget.update_status)
         self.search_engine.results_count_update.connect(self._on_results_count_update)
+
+        # Sort controls signals - both save and sort
+        self.sort_controls.sortChanged.connect(self.results_view.apply_sorting)
+        self.sort_controls.sortChanged.connect(self._on_sort_criteria_changed)
 
         logger.debug("Signals connected")
 
@@ -325,6 +337,15 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             logger.error(f"Error saving window settings: {e}")
+
+    def _on_sort_criteria_changed(self, criteria) -> None:
+        """Handle sort criteria change - save to config"""
+        try:
+            self.config_manager.set("sorting.criteria", criteria.value)
+            self.config_manager.save()
+            logger.debug(f"Sort criteria saved: {criteria.value}")
+        except Exception as e:
+            logger.error(f"Error saving sort criteria: {e}")
 
     def _on_directory_changed(self, directory: Path) -> None:
         """Update the current search directory state."""
@@ -563,6 +584,36 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             logger.error(f"Error loading highlight settings: {e}")
+
+    def _load_sort_settings(self) -> None:
+        """Load sort settings from config and apply"""
+        try:
+            from ..core.sort_engine import SortCriteria
+
+            # Load saved sort criteria
+            criteria_str = self.config_manager.get("sorting.criteria", "name_asc")
+
+            # Map string to SortCriteria
+            criteria_map = {
+                "name_asc": SortCriteria.NAME_ASC,
+                "name_desc": SortCriteria.NAME_DESC,
+                "size_asc": SortCriteria.SIZE_ASC,
+                "size_desc": SortCriteria.SIZE_DESC,
+                "date_asc": SortCriteria.DATE_ASC,
+                "date_desc": SortCriteria.DATE_DESC,
+                "type_asc": SortCriteria.TYPE_ASC,
+                "relevance_desc": SortCriteria.RELEVANCE_DESC,
+            }
+
+            criteria = criteria_map.get(criteria_str, SortCriteria.NAME_ASC)
+
+            # Apply to sort controls
+            self.sort_controls.set_criteria(criteria)
+
+            logger.debug(f"Sort settings loaded: criteria={criteria_str}")
+
+        except Exception as e:
+            logger.error(f"Error loading sort settings: {e}")
 
     def show_settings_dialog(self) -> None:
         """Show the settings dialog."""

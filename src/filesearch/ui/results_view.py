@@ -13,6 +13,7 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import QAbstractItemView, QListView, QStyle, QStyledItemDelegate
 
+from ..core.sort_engine import SortCriteria, SortEngine
 from ..models.search_result import SearchResult
 from ..utils.highlight_engine import HighlightEngine
 
@@ -25,6 +26,8 @@ class ResultsModel(QAbstractListModel):
         self._results = []
         self._displayed_count = 0
         self._batch_size = 100  # Load 100 items at a time for smooth scrolling
+        self._current_sort_criteria = None
+        self._current_query = ""
 
     def rowCount(self, parent=QModelIndex()):
         return self._displayed_count
@@ -105,6 +108,37 @@ class ResultsModel(QAbstractListModel):
     def get_all_results(self):
         """Get all results (including those not yet displayed)"""
         return self._results
+
+    def sort_results(self, criteria: SortCriteria, query: str = ""):
+        """Sort results using the specified criteria.
+
+        AC3: Selection and scroll position should be preserved.
+        For now, we sort all results and reset display count.
+
+        Args:
+            criteria: SortCriteria enum value
+            query: Search query (required for relevance sorting)
+        """
+        if not self._results:
+            return
+
+        # Store current state
+        self._current_sort_criteria = criteria
+        self._current_query = query
+
+        # Sort all results
+        sorted_results = SortEngine.sort(self._results, criteria, query)
+
+        # Reset model with sorted results
+        self.set_results(sorted_results)
+
+    def get_current_sort_criteria(self) -> Optional[SortCriteria]:
+        """Get the currently applied sort criteria"""
+        return self._current_sort_criteria
+
+    def get_sort_query(self) -> str:
+        """Get the query used for relevance sorting"""
+        return self._current_query
 
 
 class ResultsItemDelegate(QStyledItemDelegate):
@@ -485,11 +519,68 @@ class ResultsView(QListView):
                 return indexes[0].data(Qt.ItemDataRole.UserRole)
         return None
 
+    def apply_sorting(self, criteria: SortCriteria):
+        """Apply sorting to current results
+
+        AC6: Sort results using specified criteria
+
+        Args:
+            criteria: SortCriteria enum value
+        """
+        if not self._results_model or not self._results_model.get_all_results():
+            return
+
+        # Get current query from delegate for relevance sorting
+        query = getattr(self._delegate, 'current_query', '') if self._delegate else ""
+
+        # Apply sorting
+        self._results_model.sort_results(criteria, query)
+
+    def get_current_sort_criteria(self) -> Optional[SortCriteria]:
+        """Get the current sort criteria"""
+        if self._results_model:
+            return self._results_model.get_current_sort_criteria()
+        return None
+
     def keyPressEvent(self, e) -> None:
         """Handle keyboard navigation for results list"""
         if e is None:
             super().keyPressEvent(e)
             return
+
+        # Handle keyboard shortcuts for sorting (Ctrl+1..5 for criteria, Ctrl+R to reverse)
+        if e.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            if e.key() == Qt.Key.Key_1:
+                self.apply_sorting(SortCriteria.NAME_ASC)
+                return
+            elif e.key() == Qt.Key.Key_2:
+                self.apply_sorting(SortCriteria.SIZE_ASC)
+                return
+            elif e.key() == Qt.Key.Key_3:
+                self.apply_sorting(SortCriteria.DATE_DESC)
+                return
+            elif e.key() == Qt.Key.Key_4:
+                self.apply_sorting(SortCriteria.TYPE_ASC)
+                return
+            elif e.key() == Qt.Key.Key_5:
+                self.apply_sorting(SortCriteria.RELEVANCE_DESC)
+                return
+            elif e.key() == Qt.Key.Key_R:
+                # Reverse current sort
+                current = self.get_current_sort_criteria()
+                if current == SortCriteria.NAME_ASC:
+                    self.apply_sorting(SortCriteria.NAME_DESC)
+                elif current == SortCriteria.NAME_DESC:
+                    self.apply_sorting(SortCriteria.NAME_ASC)
+                elif current == SortCriteria.SIZE_ASC:
+                    self.apply_sorting(SortCriteria.SIZE_DESC)
+                elif current == SortCriteria.SIZE_DESC:
+                    self.apply_sorting(SortCriteria.SIZE_ASC)
+                elif current == SortCriteria.DATE_ASC:
+                    self.apply_sorting(SortCriteria.DATE_DESC)
+                elif current == SortCriteria.DATE_DESC:
+                    self.apply_sorting(SortCriteria.DATE_ASC)
+                return
 
         if not self._results_model:
             super().keyPressEvent(e)

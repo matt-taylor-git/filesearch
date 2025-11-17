@@ -672,10 +672,44 @@ class SearchEngine(QObject):
 - Case-insensitive matching using `re.IGNORECASE`
 
 **Sorting Optimization:**
-- Sorting applied in background thread for large result sets (>50K)
-- Stable sort maintains relative order of equal elements
-- Cache sorted results to avoid re-sorting when switching back
-- Use `sorted()` with custom key functions for each sort type
+
+**SortEngine Architecture:**
+- Central `SortEngine` class with static methods for each sort type (name, size, date, type, relevance)
+- Natural sorting for filenames using `natsort` library (file1, file2, file10 - not file1, file10, file2)
+- Relevance scoring algorithm: exact match (100) > starts with (80-100) > contains (40-60) > ends with (20-50)
+- Five sort criteria supported:
+  - Name (A-Z/Z-A) with folder grouping
+  - Size (smallest/largest) with folders at top/bottom
+  - Date (newest/oldest first)
+  - Type (folders first, then files by extension)
+  - Relevance (based on query position in filename)
+
+**Performance Targets (AC1-AC5):**
+- Name sort: <100ms for 1,000 items
+- Size sort: <200ms for 10,000 items
+- Date sort: Selection preservation maintained (scroll position tracked in AC3)
+- Type sort: Stable sort maintains relative order
+- Relevance sort: Calculated once per item, O(n log n) overall
+
+**Implementation Details:**
+- No background threading for MVP (MVP target <1K results)
+- Simple `list.sort()` or `sorted()` operations
+- Stable sort algorithms (maintain relative order of equal elements)
+- Folder detection via `path.is_dir()` (0-size marking not used for sorting)
+- Type grouping: folders (0, name) first, then files (1, ext, name)
+- Relevance sorting requires active search query (falls back to name if no query)
+
+**UI Integration:**
+- SortControls widget provides dropdown with all sort options
+- Visual indicator (arrow) shows current sort direction
+- Keyboard shortcuts: Ctrl+1..5 for criteria, Ctrl+R to reverse
+- Sort state persists across searches (saved in config)
+- Selection preservation attempts to re-select same item after sort
+
+**Configuration Integration:**
+- Sort criteria saved to `sorting.criteria` in QSettings
+- Default: name_asc (Name A-Z)
+- Automatically applied on app launch (restored from config)
 
 ## Deployment Architecture
 

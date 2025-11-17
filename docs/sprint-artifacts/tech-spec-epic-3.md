@@ -332,6 +332,35 @@ def validate_file_access(path: Path) -> bool:
 
 **Test:** Sort 10,000 results by size completes in <200ms, selection state preserved
 
+---
+
+**Implementation Status: ✅ COMPLETED 2025-11-17**
+
+**What was implemented:**
+- Core `SortEngine` class with 5 sorting algorithms (name, size, date, type, relevance)
+- Natural sorting using `natsort` library for filenames
+- Relevance scoring based on query position (exact > starts > contains > ends)
+- UI controls: SortControls widget with dropdown and visual indicator
+- Keyboard shortcuts: Ctrl+1..5 for criteria, Ctrl+R to reverse
+- Configuration persistence: Sort criteria saved/restored from QSettings
+- ResultsModel integration with sort_results() method
+- Performance: Meets targets (<100ms for 1K names, <200ms for 10K sizes)
+
+**Key Technical Decisions:**
+- No background threading for MVP (target <1K results, single-threaded meets timing)
+- Stable sort algorithms maintain relative order
+- Folder detection via `path.is_dir()` not file size
+- Relevance sorting requires active query (falls back to name if none)
+- Selection preservation: Best-effort re-selection of same item post-sort
+
+**Test Coverage:**
+- 22 unit tests for SortEngine algorithms
+- 6 integration tests for end-to-end sorting flows
+- Performance tests verify timing requirements
+- All tests passing
+
+---
+
 ### AC4: Double-Click to Open Files
 **Given** a file result in the search results
 **When** user double-clicks the result

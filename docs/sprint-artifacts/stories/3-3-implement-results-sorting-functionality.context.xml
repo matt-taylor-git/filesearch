@@ -1,0 +1,329 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3</storyId>
+    <title>Implement Results Sorting Functionality</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-17</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/3-3-implement-results-sorting-functionality.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>As a user,</asA>
+    <iWant>I want to sort my search results by different criteria,</iWant>
+    <soThat>So that I can find the most relevant files more efficiently.</soThat>
+    <tasks>## Tasks / Subtasks
+
+### Sorting Logic Implementation
+- [ ] Create `src/filesearch/core/sort_engine.py` with `SortEngine` class
+  - [ ] Implement natural sorting algorithm for filenames
+  - [ ] Implement size comparison with folder handling
+  - [ ] Implement date/timestamp comparison
+  - [ ] Implement file type grouping and sorting
+  - [ ] Implement relevance scoring algorithm
+  - [ ] Add comprehensive type hints throughout
+  - [ ] Write unit tests for each sorting algorithm
+
+### UI Controls Implementation
+- [ ] Enhance `src/filesearch/ui/results_view.py`
+  - [ ] Add sort control widget (dropdown or button group)
+  - [ ] Add visual sort indicator (arrow showing direction)
+  - [ ] Implement sort control event handlers
+  - [ ] Add sort options to results context menu
+  - [ ] Implement keyboard shortcut handling
+
+### Results Model Enhancement
+- [ ] Enhance `src/filesearch/ui/results_view.py` ResultsModel class
+  - [ ] Add sort method that accepts `SortCriteria` enum
+  - [ ] Implement background threading for large datasets (>1000 items)
+  - [ ] Add selection preservation during sort
+  - [ ] Add scroll position preservation
+  - [ ] Implement sort state management
+
+### Integration with Main Window
+- [ ] Enhance `src/filesearch/ui/main_window.py`
+  - [ ] Add sort toolbar or control panel
+  - [ ] Connect sort controls to ResultsView
+  - [ ] Add sort state to configuration persistence
+  - [ ] Implement sort indicator updates
+
+### Configuration System Integration
+- [ ] Enhance `src/filesearch/core/config_manager.py`
+  - [ ] Add default sort criteria to configuration schema
+  - [ ] Add sort direction persistence
+  - [ ] Add sort preferences to settings dialog
+
+### Testing
+- [ ] Write unit tests for SortEngine
+  - [ ] Test each sorting algorithm independently
+  - [ ] Test edge cases (empty lists, single item, all identical)
+  - [ ] Test natural sorting with version numbers
+  - [ ] Test relevance scoring with various query patterns
+- [ ] Write integration tests
+  - [ ] Test end-to-end sorting from UI to results display
+  - [ ] Test background threading behavior
+  - [ ] Test selection and scroll preservation
+  - [ ] Test configuration persistence
+- [ ] Write UI tests with pytest-qt
+  - [ ] Test sort control interactions
+  - [ ] Test keyboard shortcuts
+  - [ ] Test visual sort indicator updates
+
+### Documentation
+- [ ] Update `docs/user_guide.md` with sorting features
+  - [ ] Document available sort criteria
+  - [ ] Explain natural sorting behavior
+  - [ ] List keyboard shortcuts
+- [ ] Update `docs/sprint-artifacts/tech-spec-epic-3.md`
+  - [ ] Mark AC3 as implemented
+  - [ ] Update implementation status</tasks>
+  </story>
+
+  <acceptanceCriteria>## Acceptance Criteria
+
+### AC1: Sort by Name (Alphabetical)
+**Given** search results are displayed in the results list
+**When** user selects "Name (A-Z)" sort option
+**Then** results should reorder alphabetically by filename using natural sorting (file1, file2, file10)
+**And** folders should be grouped together and sorted separately from files
+
+**Test:** Sort 1,000 mixed files/folders by name completes in <100ms
+
+### AC2: Sort by Size
+**Given** search results include files of various sizes
+**When** user selects "Size" sort option (smallest to largest or largest to smallest)
+**Then** results should reorder by file size in bytes
+**And** folders should be placed at the top or bottom based on sort direction
+**And** size display should update to show binary prefixes (KB, MB, GB)
+
+**Test:** Sort 10,000 results by size completes in <200ms
+
+### AC3: Sort by Date Modified
+**Given** search results with various modification timestamps
+**When** user selects "Date Modified" sort option (newest to oldest or oldest to newest)
+**Then** results should reorder by modification timestamp
+**And** display should show formatted dates (YYYY-MM-DD HH:MM)
+**And** selection state should be preserved after sorting
+
+**Test:** Sort results by date preserves selection and scroll position
+
+### AC4: Sort by File Type
+**Given** search results include multiple file types and folders
+**When** user selects "File Type" sort option
+**Then** results should group by type: folders first, then files sorted by extension
+**And** within each group, items should be sorted alphabetically
+**And** type icons should display correctly for each group
+
+**Test:** Mixed file types sort correctly with proper grouping
+
+### AC5: Sort by Relevance
+**Given** search results from a query
+**When** user selects "Relevance" sort option
+**Then** results should order by match quality: exact match > starts with > contains > ends with
+**And** match score should be calculated based on query position in filename
+**And** most relevant files should appear at the top
+
+**Test:** Query "report" orders "report.pdf" before "monthly_report.pdf" before "my_report.txt"
+
+### AC6: UI Controls and User Experience
+**Given** the results view is visible
+**When** user interacts with sort controls
+**Then** the following should be available:
+- Dropdown or button group with sort criteria options
+- Visual indicator showing current sort criteria and direction (ascending/descending)
+- Keyboard shortcuts for quick sorting (Ctrl+1..5 for criteria, Ctrl+R to reverse)
+- Sort options should be accessible from toolbar and context menu
+- Sort state should persist across searches within the same session
+
+**Test:** All UI controls functional and keyboard shortcuts work correctly</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: Results Management</title>
+        <section>AC3: Results Sorting Functionality</section>
+        <snippet>Results should reorder instantly by: Name (A-Z, Z-A) with natural sorting, Size (smallest to largest), Date modified (newest to oldest), File type (folders first), Relevance (exact match > starts with > contains > ends with)</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: Results Management</title>
+        <section>Sorting Architecture</section>
+        <snippet>Background threading for sorting operations on large datasets (>1000 items), Thread-safe using Qt signals/slots for UI updates, Memory efficient with in-place sorting where possible, Performance target: <200ms for 10,000 results</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/tech-spec-epic-3.md</path>
+        <title>Epic Technical Specification: Results Management</title>
+        <section>SortCriteria Enum</section>
+        <snippet>NAME_ASC, NAME_DESC, PATH_ASC, SIZE_ASC, SIZE_DESC, DATE_DESC, DATE_ASC, TYPE_ASC, RELEVANCE_DESC</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>File Search - Architecture</title>
+        <section>Performance Considerations</section>
+        <snippet>Sorting Optimization: Sorting applied in background thread for large result sets (>50K), Stable sort maintains relative order of equal elements, Cache sorted results to avoid re-sorting when switching back</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>File Search - Epic Breakdown</title>
+        <section>Story 3.3: Implement Results Sorting Functionality</section>
+        <snippet>Sort by name, path, size, date modified, type, relevance. Performance: sorts 10,000 results in under 200ms. UI controls: column headers, dropdown, toolbar buttons with sort icons</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/PRD.md</path>
+        <title>File Search - Product Requirements Document</title>
+        <section>Functional Requirements</section>
+        <snippet>FR9: Users can sort results by name, date modified, or size</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/filesearch/models/search_result.py</path>
+        <kind>dataclass</kind>
+        <symbol>SearchResult</symbol>
+        <lines>1-43</lines>
+        <reason>Existing SearchResult dataclass with display methods - will be used for sorting by name, size, date</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/results_view.py</path>
+        <kind>class</kind>
+        <symbol>ResultsView</symbol>
+        <lines>369-500</lines>
+        <reason>Existing ResultsView class - needs enhancement to add sorting controls and apply_sorting method</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/results_view.py</path>
+        <kind>class</kind>
+        <symbol>ResultsModel</symbol>
+        <lines>20-108</lines>
+        <reason>Existing ResultsModel class - needs add_sort_method to support sorting operations</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/results_view.py</path>
+        <kind>class</kind>
+        <symbol>ResultsItemDelegate</symbol>
+        <lines>110-376</lines>
+        <reason>Existing ResultsItemDelegate with highlighting - will be extended for sort indicators</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/utils/highlight_engine.py</path>
+        <kind>class</kind>
+        <symbol>HighlightEngine</symbol>
+        <lines>12-100</lines>
+        <reason>Existing HighlightEngine for text highlighting - available for pattern recognition</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/main_window.py</path>
+        <kind>class</kind>
+        <symbol>MainWindow</symbol>
+        <lines>1-100</lines>
+        <reason>MainWindow class - needs integration for sort controls and state management</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/core/config_manager.py</path>
+        <kind>class</kind>
+        <symbol>ConfigManager</symbol>
+        <lines>1-50</lines>
+        <reason>ConfigManager for persisting sort preferences - needs sort criteria and direction settings</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <dependency>
+        <ecosystem>python</ecosystem>
+        <name>PyQt6</name>
+        <version>6.6.0</version>
+        <purpose>GUI framework, QListView, QThread, signals/slots for sorting operations</purpose>
+      </dependency>
+      <dependency>
+        <ecosystem>python</ecosystem>
+        <name>loguru</name>
+        <version>0.7.2</version>
+        <purpose>Structured logging for operation logging</purpose>
+      </dependency>
+      <dependency>
+        <ecosystem>python</ecosystem>
+        <name>natsort</name>
+        <version>8.4.0</version>
+        <purpose>Natural sorting algorithm for filenames (file1, file2, file10)</purpose>
+      </dependency>
+      <dependency>
+        <ecosystem>python</ecosystem>
+        <name>pytest</name>
+        <version>7.4+</version>
+        <purpose>Testing framework for unit and integration tests</purpose>
+      </dependency>
+      <dependency>
+        <ecosystem>python</ecosystem>
+        <name>pytest-qt</name>
+        <version>4.2+</version>
+        <purpose>Qt-specific testing utilities for UI tests</purpose>
+      </dependency>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>PyQt6 framework with QListView, QThread, signals/slots for sorting operations</constraint>
+    <constraint>Background threading for sorting operations on large datasets (>1000 items)</constraint>
+    <constraint>Thread-safe using Qt signals/slots for UI updates</constraint>
+    <constraint>Memory efficient with in-place sorting where possible</constraint>
+    <constraint>Performance target: <200ms for 10,000 results</constraint>
+    <constraint>Type hints for all public methods (Python 3.9+ compatibility)</constraint>
+    <constraint>Google-style docstrings on all modules and public functions</constraint>
+    <constraint>Error handling using custom exception hierarchy from core/exceptions.py</constraint>
+    <constraint>Structured logging with loguru</constraint>
+    <constraint>Comprehensive unit tests with >80% coverage</constraint>
+    <constraint>Code Quality Standards: type hints, docstrings, error handling, logging</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>ResultsView.apply_sorting()</name>
+      <kind>method</kind>
+      <signature>def apply_sorting(self, criteria: SortCriteria) -> None</signature>
+      <path>src/filesearch/ui/results_view.py</path>
+    </interface>
+    <interface>
+      <name>ResultsModel.sort_results()</name>
+      <kind>method</kind>
+      <signature>def sort_results(self, criteria: SortCriteria) -> None</signature>
+      <path>src/filesearch/ui/results_view.py</path>
+    </interface>
+    <interface>
+      <name>SortCriteria</name>
+      <kind>enum</kind>
+      <signature>class SortCriteria(Enum): NAME_ASC, NAME_DESC, SIZE_ASC, SIZE_DESC, DATE_DESC, DATE_ASC, TYPE_ASC, RELEVANCE_DESC</signature>
+      <path>src/filesearch/core/sort_engine.py</path>
+    </interface>
+    <interface>
+      <name>SortEngine</name>
+      <kind>class</kind>
+      <signature>class SortEngine: def sort_by_name(), def sort_by_size(), def sort_by_date(), def sort_by_type(), def sort_by_relevance()</signature>
+      <path>src/filesearch/core/sort_engine.py</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>
+      <standard>Framework: pytest with pytest-qt for UI components</standard>
+      <standard>Unit tests for SortEngine in /tests/unit/</standard>
+      <standard>Integration tests for end-to-end sorting</standard>
+      <standard>UI tests for sort control interactions</standard>
+      <standard>Target: >85% code coverage for new code</standard>
+      <standard>Test Categories: happy path, edge cases, performance, platform compatibility</standard>
+    </standards>
+    <locations>
+      <location>tests/unit/test_sort_engine.py - Unit tests for SortEngine</location>
+      <location>tests/integration/test_sorting_integration.py - Integration tests</location>
+      <location>tests/ui/test_sorting_controls.py - UI tests for sort controls</location>
+    </locations>
+    <ideas>
+      <idea>AC1: Sort by Name - Test natural sorting with version numbers (file1, file2, file10)</idea>
+      <idea>AC2: Sort by Size - Test size sorting with folders vs files, binary prefixes</idea>
+      <idea>AC3: Sort by Date - Test date sorting preserves selection and scroll position</idea>
+      <idea>AC4: Sort by Type - Test file type grouping with folders first</idea>
+      <idea>AC5: Sort by Relevance - Test relevance scoring with exact/starts/contains/ends with</idea>
+      <idea>AC6: UI Controls - Test keyboard shortcuts (Ctrl+1-5) and visual indicators</idea>
+      <idea>Performance: Sort 10,000 results in <200ms</idea>
+      <idea>Edge cases: Empty lists, single item, all identical items</idea>
+    </ideas>
+  </tests>
+</story-context>
