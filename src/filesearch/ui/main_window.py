@@ -22,9 +22,8 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QMenu,      # Added for context menu
-    QAction,    # Added for context menu actions
 )
-from PyQt6.QtGui import QFont # Added for bold text in context menu
+from PyQt6.QtGui import QFont, QAction # Added for bold text in context menu, QAction moved from QtWidgets
 from enum import Enum # Added for ContextMenuAction enum
 
 from filesearch.core.config_manager import ConfigManager

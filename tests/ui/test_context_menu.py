@@ -1,5 +1,6 @@
 import pytest
-from PyQt6.QtWidgets import QApplication, QMenu, QAction
+from PyQt6.QtWidgets import QApplication, QMenu
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import Qt, QPoint
 from pytestqt.exceptions import QtTestError
 from src.filesearch.ui.main_window import MainWindow
