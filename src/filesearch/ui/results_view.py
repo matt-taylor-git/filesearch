@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from PyQt6.QtCore import QAbstractListModel, QModelIndex, QRect, QSize, Qt
+from PyQt6.QtCore import QAbstractListModel, QModelIndex, QRect, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import (
     QAbstractTextDocumentLayout,
     QColor,
@@ -10,6 +10,7 @@ from PyQt6.QtGui import (
     QStandardItem,
     QStandardItemModel,
     QTextDocument,
+    QCursor,
 )
 from PyQt6.QtWidgets import QAbstractItemView, QListView, QStyle, QStyledItemDelegate
 
@@ -403,6 +404,9 @@ class ResultsItemDelegate(QStyledItemDelegate):
 class ResultsView(QListView):
     """Results view component for displaying search results"""
 
+    # Custom signal for file opening requests
+    file_open_requested = pyqtSignal(object)  # SearchResult
+
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -431,6 +435,15 @@ class ResultsView(QListView):
 
         # Keyboard navigation
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+        # Double-click handling
+        self.doubleClicked.connect(self._on_double_clicked)
+
+        # Mouse tracking for hover cursor changes
+        self.setMouseTracking(True)
+
+        # Search state tracking
+        self._is_searching = False
 
         # Empty state - don't show initially
 
@@ -478,9 +491,13 @@ class ResultsView(QListView):
             self.setModel(self._results_model)
             # Auto-scroll to first result when search completes
             self.scrollToTop()
+            # Search is complete, enable double-click
+            self.set_search_active(False)
         else:
             self.setModel(self._empty_model)
             self._show_empty_state("No files found")
+            # Search is complete, enable double-click
+            self.set_search_active(False)
 
     def clear_results(self):
         """Clear all results"""
@@ -489,12 +506,17 @@ class ResultsView(QListView):
         self._show_empty_state("Enter a search term to begin")
         if self._results_model:
             self._results_model.clear()
+        # Reset search state
+        self.set_search_active(False)
 
     def set_searching_state(self):
         """Set searching state with spinner message"""
         self.setModel(self._empty_model)
         self._empty_model.clear()
         self._show_empty_state("Searching...")
+        # Update search state
+        self._is_searching = True
+        self.setCursor(QCursor(Qt.CursorShape.BusyCursor))
 
     def add_result(self, result: SearchResult):
         """Add a single result to the view"""
@@ -633,6 +655,102 @@ class ResultsView(QListView):
             # Let parent handle other keys
             super().keyPressEvent(e)
             return
+
+    def _on_double_clicked(self, index: QModelIndex) -> None:
+        """Handle double-click events on results.
+        
+        Args:
+            index: Model index of the double-clicked item
+        """
+        if not index.isValid():
+            return
+            
+        # Don't allow opening during search
+        if self._is_searching:
+            return
+            
+        # Get the SearchResult object
+        model = self.model()
+        if model == self._empty_model:
+            result = index.data(Qt.ItemDataRole.UserRole)
+        else:
+            result = index.data(Qt.ItemDataRole.UserRole)
+            
+        if result:
+            # Emit signal for main window to handle
+            self.file_open_requested.emit(result)
+            
+            # Add visual feedback - brief highlight flash
+            self._add_highlight_flash(index)
+
+    def _add_highlight_flash(self, index: QModelIndex) -> None:
+        """Add a brief highlight flash effect to the double-clicked item.
+        
+        Args:
+            index: Model index of the item to highlight
+        """
+        # Store original selection
+        original_selection = self.selectedIndexes()
+        
+        # Temporarily select and highlight the item
+        self.setCurrentIndex(index)
+        
+        # Force a repaint to show the highlight
+        self.viewport().update()
+        
+        # Use QTimer to restore original selection after brief delay
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(150, lambda: self._restore_selection(original_selection))
+
+    def _restore_selection(self, original_selection) -> None:
+        """Restore the original selection after highlight flash.
+        
+        Args:
+            original_selection: List of originally selected indexes
+        """
+        if original_selection:
+            self.setCurrentIndex(original_selection[0])
+        else:
+            self.clearSelection()
+
+    def mouseMoveEvent(self, e) -> None:
+        """Handle mouse move events for cursor changes.
+        
+        Args:
+            e: Mouse move event
+        """
+        # Check if mouse is over an item
+        index = self.indexAt(e.pos())
+        if index.isValid():
+            # Change to pointer hand cursor over items
+            self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        else:
+            # Restore default cursor
+            self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+            
+        super().mouseMoveEvent(e)
+
+    def set_search_active(self, is_searching: bool) -> None:
+        """Set the searching state to control double-click availability.
+        
+        Args:
+            is_searching: True if search is in progress, False otherwise
+        """
+        self._is_searching = is_searching
+        
+        # Update cursor based on search state
+        if is_searching:
+            self.setCursor(QCursor(Qt.CursorShape.BusyCursor))
+        else:
+            self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+
+    def is_search_active(self) -> bool:
+        """Check if a search is currently in progress.
+        
+        Returns:
+            True if searching, False otherwise
+        """
+        return self._is_searching
 
         if key == Qt.Key.Key_Up:
             # Move selection up

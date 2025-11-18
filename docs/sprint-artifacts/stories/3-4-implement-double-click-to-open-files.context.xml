@@ -1,0 +1,330 @@
+<story-context id="{bmad_folder}/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>4</storyId>
+    <title>Implement Double-Click to Open Files</title>
+    <status>drafted</status>
+    <generatedAt>2025-11-17</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/3-4-implement-double-click-to-open-files.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>As a user,</asA>
+    <iWant>I want to double-click a search result to open it with my system's default application,</iWant>
+    <soThat>So that I can quickly access the files I find without leaving the search application.</soThat>
+    <tasks>## Tasks / Subtasks
+
+### Core File Opening Logic
+- [ ] Create `src/filesearch/core/file_utils.py` (if not exists, add `open_file()` method)
+  - [ ] Implement platform detection using `sys.platform`
+  - [ ] Implement Windows opening: `os.startfile(path)`
+  - [ ] Implement macOS opening: `subprocess.call(['open', path])`
+  - [ ] Implement Linux opening: `subprocess.call(['xdg-open', path])`
+  - [ ] Add Qt fallback: `QDesktopServices.openUrl(QUrl.fromLocalFile(path))`
+  - [ ] Add comprehensive error handling for each platform
+  - [ ] Add type hints for all methods
+  - [ ] Add docstrings following Google style
+  - [ ] Write unit tests for each platform implementation
+
+### Security Module
+- [ ] Create `src/filesearch/core/security_manager.py` (or add to file_utils)
+  - [ ] Define executable file extensions: .exe, .bat, .sh, .cmd, .msi
+  - [ ] Implement `is_executable(path)` detection function
+  - [ ] Create warning dialog for executable files
+  - [ ] Implement user preference persistence (always allow/block)
+  - [ ] Add "Always open files of this type" option
+  - [ ] Write unit tests for security checks
+
+### UI Integration
+- [ ] Enhance `src/filesearch/ui/results_view.py`
+  - [ ] Connect `QAbstractItemView.doubleClicked` signal
+  - [ ] Implement double-click handler method
+  - [ ] Connect Enter key press handler
+  - [ ] Implement keyboard activation handler
+  - [ ] Add visual highlight flash effect
+  - [ ] Add hover cursor change (pointer hand)
+  - [ ] Disable double-click during active search
+  - [ ] Re-enable double-click when search completes
+  - [ ] Implement selection management for keyboard navigation
+
+### Main Window Status Updates
+- [ ] Enhance `src/filesearch/ui/main_window.py`
+  - [ ] Add status bar messages: "Opening: {filename}..."
+  - [ ] Add success messages: "Opened: {filename}"
+  - [ ] Add error message routing to status bar
+  - [ ] Implement status message timeouts (3-5 seconds)
+
+### Configuration Integration
+- [ ] Enhance `src/filesearch/core/config_manager.py`
+  - [ ] Add executable warning preference: `security/warn_before_executables`
+  - [ ] Add MRU (Most Recently Used) list configuration: `recent/opened_files`
+  - [ ] Store last 10 opened files in config
+  - [ ] Add persistence for "always allow" decisions per file type
+
+### Dialog Implementation
+- [ ] Create or enhance warning dialogs
+  - [ ] Executable warning dialog with checkbox "Always allow .exe files"
+  - [ ] Error dialogs: File not found, No default app, Permission denied
+  - [ ] Offer "Open Containing Folder" as fallback button
+
+### Testing
+- [ ] Write unit tests for `open_file()` function
+  - [ ] Test Windows implementation
+  - [ ] Test macOS implementation
+  - [ ] Test Linux implementation
+  - [ ] Test Qt fallback
+  - [ ] Test error handling for each platform
+  - [ ] Mock platform-specific calls
+
+- [ ] Write integration tests
+  - [ ] Test double-click triggers file opening
+  - [ ] Test Enter key triggers file opening
+  - [ ] Test visual feedback displays
+  - [ ] Test error dialog appearance
+  - [ ] Test security warning for executables
+
+- [ ] Write UI tests with pytest-qt
+  - [ ] Test double-click signal emission
+  - [ ] Test keyboard Enter key activation
+  - [ ] Test cursor changes on hover
+  - [ ] Test status bar updates
+  - [ ] Test dialog interactions
+
+### Documentation
+- [ ] Update `docs/user_guide.md`
+  - [ ] Document double-click to open files
+  - [ ] Document keyboard shortcut (Enter key)
+  - [ ] Explain security warning for executables
+  - [ ] List supported file types and behaviors
+- [ ] Update `docs/sprint-artifacts/tech-spec-epic-3.md`
+  - [ ] Mark AC4 as implemented in technical spec
+  - [ ] Update implementation status table</tasks>
+  </story>
+
+  <acceptanceCriteria>## Acceptance Criteria
+
+### AC1: Double-Click File Opening
+**Given** search results are displayed in the results list
+**When** I double-click on a file result
+**Then** the file should open using the system default application
+
+**Test:** Double-clicking a .txt file opens in default text editor, .jpg opens in image viewer
+
+### AC2: Keyboard Activation (Enter Key)
+**Given** a file result is selected in the results list
+**When** I press the Enter key
+**Then** the file should open with the system default application (same as double-click)
+
+**Test:** Select a file, press Enter, file opens correctly
+
+### AC3: Platform-Specific File Opening
+**Given** a file needs to be opened from the search results
+**When** the open operation is triggered (double-click or Enter)
+**Then** the system should use the appropriate OS mechanism:
+- **Windows:** `os.startfile(path)`
+- **macOS:** `subprocess.call(['open', path])`
+- **Linux:** `subprocess.call(['xdg-open', path])`
+- **Cross-platform fallback:** `QDesktopServices.openUrl()`
+
+**Test:** Verify opening mechanism works correctly on each supported platform
+
+### AC4: File Type Support
+**Given** search results include various file types
+**When** I double-click a file
+**Then** it should open correctly based on file type:
+- Documents (.txt, .pdf, .docx) → Open in default viewer/editor
+- Images (.jpg, .png, .gif) → Open in default image viewer
+- Videos (.mp4, .avi) → Open in default media player
+- Folders → Open in system file manager
+
+**Test:** Verify each file type opens with appropriate application
+
+### AC5: Security - Executable Warning
+**Given** I double-click an executable file (.exe, .bat, .sh)
+**When** the open operation is attempted
+**Then** a warning dialog should appear: "This is an executable file. Open anyway?"
+**And** provide options: [Open] [Cancel]
+
+**Test:** Double-clicking an executable shows security warning
+
+### AC6: Visual Feedback
+**Given** I double-click a search result
+**When** the open operation is triggered
+**Then** visual feedback should be provided:
+- Brief highlight flash on the double-clicked item
+- Cursor changes to pointer hand on hover
+- Status bar shows: "Opening: {filename}..."
+- Success: "Opened: {filename}"
+- Failure: "Failed to open: {error_message}"
+
+**Test:** All visual feedback indicators display correctly
+
+### AC7: Error Handling
+**Given** an open operation is attempted
+**When** an error occurs
+**Then** appropriate error dialogs should appear:
+- File not found: "File no longer exists: {path}"
+- No default application: "No application associated with this file type"
+- Permission denied: "Permission denied: {path}"
+- Offer to open containing folder as fallback
+
+**Test:** Each error condition triggers correct error dialog
+
+### AC8: Single-Click Selection
+**Given** search results are displayed
+**When** I single-click a result
+**Then** the item should be selected (highlighted)
+**And** the file should NOT open
+
+**Test:** Single-click selects without opening, double-click opens
+
+### AC9: State Management During Search
+**Given** a search is currently in progress
+**When** results are still streaming in
+**Then** double-click functionality should be disabled until search completes
+**And** prevent accidental opening of unstable results
+
+**Test:** Double-click disabled during active search, re-enabled when complete</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/PRD.md</path>
+        <title>Product Requirements Document</title>
+        <section>Functional Requirements - FR10</section>
+        <snippet>FR10: Users can double-click results to open files with default application</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>File Opening Architecture</section>
+        <snippet>Platform-specific implementations in file_utils.py, Cross-platform fallback using Qt's QDesktopServices</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Security Architecture</section>
+        <snippet>Safe File Opening: Executable files (.exe, .bat, .sh) show confirmation dialog</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 3.4: Implement Double-Click to Open Files</section>
+        <snippet>Complete acceptance criteria and technical implementation details for double-click functionality</snippet>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>src/filesearch/core/file_utils.py</path>
+        <kind>core</kind>
+        <symbol>safe_open</symbol>
+        <lines>68-127</lines>
+        <reason>Platform-specific file opening implementation with error handling</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/core/file_utils.py</path>
+        <kind>core</kind>
+        <symbol>open_containing_folder</symbol>
+        <lines>130-199</lines>
+        <reason>Cross-platform folder opening with file selection support</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/results_view.py</path>
+        <kind>ui</kind>
+        <symbol>ResultsView</symbol>
+        <lines>403-675</lines>
+        <reason>Results display component with double-click signal emission</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/main_window.py</path>
+        <kind>ui</kind>
+        <symbol>open_selected_file</symbol>
+        <lines>444-456</lines>
+        <reason>File opening handler with status updates</reason>
+      </artifact>
+      <artifact>
+        <path>src/filesearch/ui/main_window.py</path>
+        <kind>ui</kind>
+        <symbol>open_selected_folder</symbol>
+        <lines>458-470</lines>
+        <reason>Folder opening handler for containing folder functionality</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <python>
+        <package name="PyQt6" version="6.6.0" purpose="Cross-platform GUI framework with QDesktopServices for file opening"/>
+        <package name="pathlib" version="Python 3.9+" purpose="Modern file system path handling"/>
+        <package name="subprocess" version="stdlib" purpose="Platform-specific command execution"/>
+        <package name="os" version="stdlib" purpose="System integration for Windows os.startfile()"/>
+        <package name="platform" version="stdlib" purpose="Platform detection for OS-specific logic"/>
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>Platform-specific file opening mechanisms must be used (os.startfile on Windows, open command on macOS, xdg-open on Linux)</constraint>
+    <constraint>Qt QDesktopServices.openUrl() as cross-platform fallback for unsupported platforms</constraint>
+    <constraint>Security warning required for executable files (.exe, .bat, .sh, .cmd, .msi)</constraint>
+    <constraint>Double-click functionality disabled during active search to prevent opening unstable results</constraint>
+    <constraint>Single-click selects item, double-click opens - no accidental opening on single-click</constraint>
+    <constraint>Error handling for file not found, permission denied, no default application</constraint>
+    <constraint>Visual feedback required: highlight flash, cursor change, status bar messages</constraint>
+    <constraint>Keyboard activation (Enter key) must work same as double-click</constraint>
+    <constraint>Files and folders must open with system default applications</constraint>
+    <constraint>Containing folder opening must select/highlight the specific file when possible</constraint>
+  </constraints>
+  <interfaces>
+    <interface>
+      <name>File Opening API</name>
+      <kind>function</kind>
+      <signature>safe_open(path: Union[str, Path]) -> bool</signature>
+      <path>src/filesearch/core/file_utils.py</path>
+    </interface>
+    <interface>
+      <name>Folder Opening API</name>
+      <kind>function</kind>
+      <signature>open_containing_folder(path: Union[str, Path]) -> bool</signature>
+      <path>src/filesearch/core/file_utils.py</path>
+    </interface>
+    <interface>
+      <name>Results View Double-Click Signal</name>
+      <kind>signal</kind>
+      <signature>doubleClicked(index: QModelIndex)</signature>
+      <path>src/filesearch/ui/results_view.py</path>
+    </interface>
+    <interface>
+      <name>Main Window File Opening</name>
+      <kind>method</kind>
+      <signature>open_selected_file(file_path: Path) -> None</signature>
+      <path>src/filesearch/ui/main_window.py</path>
+    </interface>
+    <interface>
+      <name>Main Window Folder Opening</name>
+      <kind>method</kind>
+      <signature>open_selected_folder(file_path: Path) -> None</signature>
+      <path>src/filesearch/ui/main_window.py</path>
+    </interface>
+  </interfaces>
+  <tests>
+    <standards>pytest with pytest-qt for UI testing, unit tests for core functions, integration tests for end-to-end file opening workflow. Target >80% code coverage. Test platform-specific implementations on each supported OS.</standards>
+    <locations>
+      <location>tests/unit/test_file_utils.py - Unit tests for safe_open() and open_containing_folder()</location>
+      <location>tests/integration/test_file_opening.py - Integration tests for UI to file opening</location>
+      <location>tests/ui/test_double_click.py - UI tests for double-click behavior and keyboard activation</location>
+      <location>tests/ui/test_results_view.py - Results view interaction tests</location>
+    </locations>
+    <ideas>
+      <idea>Test double-click on various file types (.txt, .pdf, .jpg, .exe) opens with correct application</idea>
+      <idea>Test Enter key activation works same as double-click</idea>
+      <idea>Test security warning appears for executable files</idea>
+      <idea>Test error handling for missing files, permission denied, no default app</idea>
+      <idea>Test visual feedback: highlight flash, cursor change, status messages</idea>
+      <idea>Test double-click disabled during active search</idea>
+      <idea>Test single-click selection without opening</idea>
+      <idea>Test platform-specific opening mechanisms on Windows/macOS/Linux</idea>
+      <idea>Test containing folder opening selects the file</idea>
+      <idea>Test keyboard navigation and activation</idea>
+    </ideas>
+  </tests>
+</story-context>

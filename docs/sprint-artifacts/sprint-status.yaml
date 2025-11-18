@@ -58,12 +58,12 @@ development_status:
   2-6-add-search-status-display: done
   epic-2-retrospective: done
 
-  # Epic 3: Results Management
-  epic-3: contexted
-   3-1-implement-results-list-display: done
-   3-2-implement-search-result-highlighting: done
-   3-3-implement-results-sorting-functionality: review
-  3-4-implement-double-click-to-open-files: backlog
-  3-5-implement-right-click-context-menu: backlog
+   # Epic 3: Results Management
+   epic-3: contexted
+    3-1-implement-results-list-display: done
+    3-2-implement-search-result-highlighting: done
+    3-3-implement-results-sorting-functionality: done
+     3-4-implement-double-click-to-open-files: done
+   3-5-implement-right-click-context-menu: backlog
   3-6-implement-open-containing-folder-functionality: backlog
   epic-3-retrospective: optional

@@ -146,13 +146,17 @@ class TestSortByName:
 class TestSortBySize:
     """Test size sorting (AC2)."""
 
-    def test_size_ascending_folders_first(self):
+    def test_size_ascending_folders_first(self, tmp_path):
         """Test ascending sort puts folders first."""
         now = datetime.now().timestamp()
+        # Create actual folder
+        folder_path = tmp_path / "folder"
+        folder_path.mkdir()
+
         results = [
             SearchResult(Path("large.txt"), 10000, now, "test"),
             SearchResult(Path("small.txt"), 10, now, "test"),
-            SearchResult(Path("folder"), 0, now, "test"),
+            SearchResult(folder_path, 0, now, "test"),
         ]
 
         sorted_results = SortEngine.sort_by_size(results, reverse=False)
@@ -161,13 +165,17 @@ class TestSortBySize:
         assert sorted_results[1].filename == "small.txt"  # Smallest file
         assert sorted_results[2].filename == "large.txt"  # Largest file
 
-    def test_size_descending_folders_last(self):
+    def test_size_descending_folders_last(self, tmp_path):
         """Test descending sort puts folders last."""
         now = datetime.now().timestamp()
+        # Create actual folder
+        folder_path = tmp_path / "folder"
+        folder_path.mkdir()
+
         results = [
             SearchResult(Path("large.txt"), 10000, now, "test"),
             SearchResult(Path("small.txt"), 10, now, "test"),
-            SearchResult(Path("folder"), 0, now, "test"),
+            SearchResult(folder_path, 0, now, "test"),
         ]
 
         sorted_results = SortEngine.sort_by_size(results, reverse=True)
@@ -231,13 +239,17 @@ class TestSortByDate:
 class TestSortByType:
     """Test type sorting (AC4)."""
 
-    def test_folders_first_then_by_extension(self):
+    def test_folders_first_then_by_extension(self, tmp_path):
         """Test folders first, then files grouped by extension."""
         now = datetime.now().timestamp()
+        # Create actual folder
+        folder_path = tmp_path / "folder"
+        folder_path.mkdir()
+
         results = [
             SearchResult(Path("readme.txt"), 100, now, "test"),
             SearchResult(Path("photo.jpg"), 1000, now, "test"),
-            SearchResult(Path("folder"), 0, now, "test"),
+            SearchResult(folder_path, 0, now, "test"),
             SearchResult(Path("another.txt"), 50, now, "test"),
             SearchResult(Path("data.pdf"), 200, now, "test"),
         ]
@@ -280,10 +292,11 @@ class TestSortByRelevance:
     def test_exact_match_highest_priority(self):
         """Test exact matches get highest priority."""
         query = "report"
+        now = datetime.now().timestamp()
         results = [
-            SearchResult(Path("my_report.txt"), False, 100, datetime.now(), "Context", "my_report.txt"),
-            SearchResult(Path("report.pdf"), False, 100, datetime.now(), "Context", "report.pdf"),  # Exact match
-            SearchResult(Path("reporting.txt"), False, 100, datetime.now(), "Context", "reporting.txt"),
+            SearchResult(Path("my_report.txt"), 100, now, "test"),
+            SearchResult(Path("report.pdf"), 100, now, "test"),  # Exact match
+            SearchResult(Path("reporting.txt"), 100, now, "test"),
         ]
 
         sorted_results = SortEngine.sort_by_relevance(results, query)

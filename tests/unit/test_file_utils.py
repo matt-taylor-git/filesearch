@@ -60,7 +60,7 @@ class TestGetFileInfo:
 
         assert info["path"] == str(Path(tmpdir).resolve())
         assert info["name"] == Path(tmpdir).name
-        assert info["size"] >= 0  # Directory size varies by OS
+        assert int(info["size"]) >= 0  # Directory size varies by OS
         assert isinstance(info["modified"], float)
         assert info["type"] == "directory"
         assert info["is_directory"] is True
@@ -126,7 +126,7 @@ class TestSafeOpen:
         result = safe_open(temp_file)
 
         assert result is True
-        mock_run.assert_called_once_with(["xdg-open", str(temp_file)], check=True)
+        mock_run.assert_called_once_with(["xdg-open", str(temp_file)], check=True, capture_output=True)
 
     @patch("platform.system")
     @patch("subprocess.run")
@@ -138,7 +138,7 @@ class TestSafeOpen:
         result = safe_open(temp_file)
 
         assert result is True
-        mock_run.assert_called_once_with(["open", str(temp_file)], check=True)
+        mock_run.assert_called_once_with(["open", str(temp_file)], check=True, capture_output=True)
 
     @patch("platform.system")
     def test_safe_open_windows(self, mock_system, temp_file):

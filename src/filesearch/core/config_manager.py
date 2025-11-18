@@ -86,6 +86,12 @@ class ConfigManager:
             "config_version": "1.0",
             "plugins": {"enabled": [], "disabled": []},
             "recent": {"directories": [], "searches": [], "max_items": 10},
+            "security": {
+                "warn_before_executables": True,
+                "allowed_executable_extensions": [],
+                "blocked_executable_extensions": [],
+            },
+            "recent_files": {"opened_files": [], "max_count": 10},
         }
 
         # File watcher for auto-reload (optional, requires PyQt6)
@@ -509,6 +515,54 @@ class ConfigManager:
         if callback in self._reload_callbacks:
             self._reload_callbacks.remove(callback)
             logger.debug(f"Removed reload callback: {callback}")
+
+    def add_recent_file(self, file_path: Path) -> None:
+        """Add a file to the recently opened files list.
+        
+        Args:
+            file_path: Path to the file to add
+        """
+        try:
+            recent_files = self.get("recent_files.opened_files", [])
+            
+            # Remove if already exists (move to top)
+            recent_files = [str(f) for f in recent_files if str(f) != str(file_path)]
+            
+            # Add to beginning of list
+            recent_files.insert(0, str(file_path))
+            
+            # Limit to max count
+            max_count = self.get("recent_files.max_count", 10)
+            recent_files = recent_files[:max_count]
+            
+            # Save updated list
+            self.set("recent_files.opened_files", recent_files)
+            
+            logger.debug(f"Added to recent files: {file_path}")
+            
+        except Exception as e:
+            logger.error(f"Error adding recent file: {e}")
+
+    def get_recent_files(self) -> list[Path]:
+        """Get the list of recently opened files.
+        
+        Returns:
+            List of Path objects for recently opened files
+        """
+        try:
+            recent_files = self.get("recent_files.opened_files", [])
+            return [Path(f) for f in recent_files if Path(f).exists()]
+        except Exception as e:
+            logger.error(f"Error getting recent files: {e}")
+            return []
+
+    def clear_recent_files(self) -> None:
+        """Clear the recently opened files list."""
+        try:
+            self.set("recent_files.opened_files", [])
+            logger.debug("Cleared recent files list")
+        except Exception as e:
+            logger.error(f"Error clearing recent files: {e}")
 
 
 # Convenience function for quick config access

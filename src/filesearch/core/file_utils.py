@@ -11,11 +11,13 @@ from pathlib import Path
 from typing import Dict, Optional, Union
 
 from loguru import logger
+from PyQt6.QtCore import QUrl
+from PyQt6.QtGui import QDesktopServices
 
 from filesearch.core.exceptions import FileSearchError
 
 
-def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float]]:
+def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bool]]:
     """Get comprehensive file information.
 
     Args:
@@ -65,11 +67,13 @@ def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float]]:
         raise FileSearchError(f"Error getting file info for {path}: {e}")
 
 
-def safe_open(path: Union[str, Path]) -> bool:
+def safe_open(path: Union[str, Path], security_manager=None, force_open: bool = False) -> bool:
     """Open a file with the system default application.
 
     Args:
         path: Path to the file to open
+        security_manager: Optional security manager for executable warnings
+        force_open: If True, skip security warnings and open directly
 
     Returns:
         True if file was opened successfully, False otherwise
@@ -82,6 +86,7 @@ def safe_open(path: Union[str, Path]) -> bool:
         - Windows: os.startfile()
         - macOS: open command
         - Linux: xdg-open command
+        - Cross-platform fallback: QDesktopServices.openUrl()
 
     Example:
         >>> success = safe_open("/path/to/document.pdf")
@@ -97,31 +102,71 @@ def safe_open(path: Union[str, Path]) -> bool:
         if not file_path.is_file():
             raise FileSearchError(f"Path is not a file: {path}")
 
+        # Security check for executable files
+        if not force_open and security_manager:
+            should_warn, warning_message = security_manager.should_warn_before_opening(file_path)
+            if should_warn:
+                logger.warning(f"Security warning for executable file {path}: {warning_message}")
+                # Return a special indicator that user confirmation is needed
+                # The UI layer should handle showing the warning dialog
+                raise FileSearchError(f"SECURITY_WARNING:{warning_message}")
+
         system = platform.system()
+        success = False
 
         if system == "Windows":
-            os.startfile(str(file_path))
-            logger.info(f"Opened file with default application (Windows): {path}")
+            try:
+                # Use os.startfile for Windows (ignore linter error - it's Windows-only)
+                os.startfile(str(file_path))  # type: ignore[attr-defined]
+                logger.info(f"Opened file with default application (Windows): {path}")
+                success = True
+            except (AttributeError, OSError) as e:
+                logger.warning(f"Windows os.startfile failed, trying fallback: {e}")
+                # Fallback for when os.startfile is not available or fails
+                try:
+                    subprocess.run(["cmd", "/c", "start", "", str(file_path)], check=True, capture_output=True)
+                    logger.info(f"Opened file with cmd start (Windows fallback): {path}")
+                    success = True
+                except subprocess.CalledProcessError:
+                    logger.warning("cmd start fallback failed, trying Qt fallback")
 
         elif system == "Darwin":  # macOS
-            subprocess.run(["open", str(file_path)], check=True)
-            logger.info(f"Opened file with default application (macOS): {path}")
+            try:
+                subprocess.run(["open", str(file_path)], check=True, capture_output=True)
+                logger.info(f"Opened file with default application (macOS): {path}")
+                success = True
+            except subprocess.CalledProcessError as e:
+                logger.warning(f"macOS open command failed: {e}")
 
         else:  # Linux and other Unix-like
-            subprocess.run(["xdg-open", str(file_path)], check=True)
-            logger.info(f"Opened file with default application (Linux): {path}")
+            try:
+                subprocess.run(["xdg-open", str(file_path)], check=True, capture_output=True)
+                logger.info(f"Opened file with default application (Linux): {path}")
+                success = True
+            except subprocess.CalledProcessError as e:
+                logger.warning(f"Linux xdg-open failed: {e}")
+
+        # Qt fallback for all platforms if native methods fail
+        if not success:
+            try:
+                url = QUrl.fromLocalFile(str(file_path))
+                qt_success = QDesktopServices.openUrl(url)
+                if qt_success:
+                    logger.info(f"Opened file with Qt fallback: {path}")
+                    success = True
+                else:
+                    logger.warning("Qt fallback returned False")
+            except Exception as e:
+                logger.error(f"Qt fallback failed: {e}")
+
+        if not success:
+            raise FileSearchError(f"Failed to open file {path} with all available methods")
 
         return True
 
-    except FileNotFoundError:
-        logger.error(f"File not found: {path}")
-        raise FileSearchError(f"File not found: {path}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to open file {path}: {e}")
-        raise FileSearchError(f"Failed to open file {path}: {e}")
-    except OSError as e:
-        logger.error(f"OS error opening file {path}: {e}")
-        raise FileSearchError(f"OS error opening file {path}: {e}")
+    except FileSearchError:
+        # Re-raise our own exceptions
+        raise
     except Exception as e:
         logger.error(f"Unexpected error opening file {path}: {e}")
         raise FileSearchError(f"Error opening file {path}: {e}")
@@ -216,7 +261,7 @@ def get_file_size(path: Union[str, Path]) -> int:
         FileSearchError: If file does not exist or cannot be accessed
     """
     info = get_file_info(path)
-    return info["size"]
+    return int(info["size"])
 
 
 def get_file_modified_time(path: Union[str, Path]) -> float:
@@ -232,7 +277,7 @@ def get_file_modified_time(path: Union[str, Path]) -> float:
         FileSearchError: If file does not exist or cannot be accessed
     """
     info = get_file_info(path)
-    return info["modified"]
+    return float(info["modified"])
 
 
 def is_directory(path: Union[str, Path]) -> bool:
@@ -248,7 +293,7 @@ def is_directory(path: Union[str, Path]) -> bool:
         FileSearchError: If path does not exist
     """
     info = get_file_info(path)
-    return info["is_directory"]
+    return bool(info["is_directory"])
 
 
 def normalize_path(path: str) -> Path:

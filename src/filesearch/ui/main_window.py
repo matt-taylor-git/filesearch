@@ -569,87 +569,112 @@ class MainWindow(QMainWindow):
             self.safe_status_message(f"Error opening folder: {e}")
             logger.error(f"Error opening folder for {file_path}: {e}")
 
-    def _load_highlight_settings(self) -> None:
-        """Load highlighting settings from config and apply to results view."""
-        try:
-            # Load highlight settings from config
-            highlight_enabled = self.config_manager.get("highlighting.enabled", True)
-            highlight_color = self.config_manager.get("highlighting.color", "#FFFF99")
-            highlight_style = self.config_manager.get(
-                "highlighting.style", "background"
-            )
-
-            # Apply to results view
-            self.results_view.set_highlight_enabled(highlight_enabled)
-            self.results_view.set_highlight_color(highlight_color)
-            self.results_view.set_highlight_style(highlight_style)
-
-            logger.debug(
-                f"Highlight settings loaded: enabled={highlight_enabled}, "
-                f"color={highlight_color}, style={highlight_style}"
-            )
-
-        except Exception as e:
-            logger.error(f"Error loading highlight settings: {e}")
-
-    def _load_sort_settings(self) -> None:
-        """Load sort settings from config and apply"""
-        try:
-            from ..core.sort_engine import SortCriteria
-
-            # Load saved sort criteria
-            criteria_str = self.config_manager.get("sorting.criteria", "name_asc")
-
-            # Map string to SortCriteria
-            criteria_map = {
-                "name_asc": SortCriteria.NAME_ASC,
-                "name_desc": SortCriteria.NAME_DESC,
-                "size_asc": SortCriteria.SIZE_ASC,
-                "size_desc": SortCriteria.SIZE_DESC,
-                "date_asc": SortCriteria.DATE_ASC,
-                "date_desc": SortCriteria.DATE_DESC,
-                "type_asc": SortCriteria.TYPE_ASC,
-                "relevance_desc": SortCriteria.RELEVANCE_DESC,
-            }
-
-            criteria = criteria_map.get(criteria_str, SortCriteria.NAME_ASC)
-
-            # Apply to sort controls
-            self.sort_controls.set_criteria(criteria)
-
-            logger.debug(f"Sort settings loaded: criteria={criteria_str}")
-
-        except Exception as e:
-            logger.error(f"Error loading sort settings: {e}")
-
-    def show_settings_dialog(self) -> None:
-        """Show the settings dialog."""
-        try:
-            from filesearch.ui.settings_dialog import SettingsDialog
-
-            dialog = SettingsDialog(self.config_manager, self.plugin_manager, self)
-            dialog.exec()
-            logger.info("Settings dialog shown")
-        except Exception as e:
-            self.safe_status_message(f"Error opening settings: {e}")
-            logger.error(f"Error opening settings dialog: {e}")
-
-    def closeEvent(self, event) -> None:
-        """Handle window close event.
-
+    def _on_file_open_requested(self, search_result: SearchResult) -> None:
+        """Handle file opening request from results view.
+        
         Args:
-            event: Close event
+            search_result: SearchResult object for the file to open
         """
-        # Stop any ongoing search
-        if self.is_searching and self.search_worker:
-            self.search_worker.stop()
-            self.search_worker.wait()
+        try:
+            # Get security manager for executable warnings
+            from filesearch.core.security_manager import get_security_manager
+            security_manager = get_security_manager(self.config_manager)
+            
+            # Check if file is executable and should warn
+            should_warn, warning_message = security_manager.should_warn_before_opening(search_result.path)
+            
+            if should_warn:
+                # Show warning dialog
+                from PyQt6.QtWidgets import QMessageBox, QCheckBox
+                from PyQt6.QtCore import Qt
+                
+                msg_box = QMessageBox()
+                msg_box.setIcon(QMessageBox.Icon.Warning)
+                msg_box.setWindowTitle("Security Warning")
+                msg_box.setText(warning_message)
+                
+                # Add checkbox for "Always allow" option
+                checkbox = QCheckBox("Always open files of this type")
+                checkbox.setChecked(False)
+                msg_box.setCheckBox(checkbox)
+                
+                msg_box.setStandardButtons(
+                    QMessageBox.StandardButton.Open | QMessageBox.StandardButton.Cancel
+                )
+                msg_box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+                
+                result = msg_box.exec()
+                
+                if result == QMessageBox.StandardButton.Open:
+                    # User chose to open
+                    if checkbox.isChecked():
+                        # Remember user preference
+                        security_manager.allow_extension(search_result.path.suffix)
+                    
+                    self._open_file_with_status(search_result.path)
+                else:
+                    # User cancelled
+                    self.safe_status_message("File opening cancelled")
+                    logger.info(f"User cancelled opening executable file: {search_result.path}")
+            else:
+                # No warning needed, open directly
+                self._open_file_with_status(search_result.path)
+                
+        except Exception as e:
+            self.safe_status_message(f"Error checking file security: {e}")
+            logger.error(f"Error checking file security for {search_result.path}: {e}")
 
-        # Save window settings
-        self.save_window_settings()
-
-        logger.info("MainWindow closing")
-        event.accept()
+    def _open_file_with_status(self, file_path: Path) -> None:
+        """Open file with status bar updates.
+        
+        Args:
+            file_path: Path to the file to open
+        """
+        try:
+            # Show opening status
+            self.safe_status_message(f"Opening: {file_path.name}...", 3000)
+            
+            # Import safe_open here to avoid circular imports
+            from filesearch.core.file_utils import safe_open
+            safe_open(file_path)
+            
+            # Show success status
+            self.safe_status_message(f"Opened: {file_path.name}")
+            logger.info(f"Successfully opened file: {file_path}")
+            
+            # Add to recently opened files
+            self.config_manager.add_recent_file(file_path)
+            
+        except FileSearchError as e:
+            # Handle specific error types
+            error_msg = str(e)
+            
+            if "SECURITY_WARNING:" in error_msg:
+                # This shouldn't happen here as we handle warnings above
+                return
+            elif "does not exist" in error_msg.lower():
+                self.safe_status_message(f"File no longer exists: {file_path.name}")
+            elif "permission denied" in error_msg.lower():
+                self.safe_status_message(f"Permission denied: {file_path.name}")
+            elif "no application" in error_msg.lower():
+                self.safe_status_message(f"No application associated with this file type: {file_path.suffix}")
+            else:
+                self.safe_status_message(f"Failed to open: {file_path.name}")
+                
+            logger.error(f"Error opening file {file_path}: {e}")
+            
+            # Offer to open containing folder as fallback
+            from PyQt6.QtWidgets import QMessageBox
+            reply = QMessageBox.question(
+                self,
+                "Open Containing Folder",
+                f"Could not open {file_path.name}. Would you like to open its containing folder instead?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                self.open_selected_folder(file_path)
 
 
 def create_main_window(config_manager: Optional[ConfigManager] = None) -> MainWindow:

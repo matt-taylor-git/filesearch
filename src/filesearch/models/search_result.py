@@ -40,3 +40,13 @@ class SearchResult:
         from datetime import datetime
 
         return datetime.fromtimestamp(self.modified).strftime("%b %d, %Y")
+
+    @property
+    def filename(self) -> str:
+        """Return the filename (convenience property)."""
+        return self.path.name
+
+    @property
+    def is_directory(self) -> bool:
+        """Check if the result is a directory (convenience property)."""
+        return self.path.is_dir()
