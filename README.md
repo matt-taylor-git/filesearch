@@ -142,6 +142,7 @@ pytest -v
 - **PyQt6**: Cross-platform GUI framework
 - **loguru**: Structured logging
 - **platformdirs**: Platform-specific directory paths
+- **natsort**: Natural sorting of search results
 - **pytest**: Testing framework with pytest-qt for UI testing
 
 ## Contributing
