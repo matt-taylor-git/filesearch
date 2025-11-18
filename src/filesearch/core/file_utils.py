@@ -111,53 +111,47 @@ def safe_open(path: Union[str, Path], security_manager=None, force_open: bool = 
                 # The UI layer should handle showing the warning dialog
                 raise FileSearchError(f"SECURITY_WARNING:{warning_message}")
 
-        system = platform.system()
-        success = False
+        # Use Qt's QDesktopServices as primary method - it's non-blocking and cross-platform
+        try:
+            url = QUrl.fromLocalFile(str(file_path.resolve()))
+            success = QDesktopServices.openUrl(url)
+            if success:
+                logger.info(f"Opened file with QDesktopServices: {path}")
+            else:
+                logger.warning("QDesktopServices.openUrl returned False, trying platform-specific methods")
+                # Try platform-specific methods as fallback, but use non-blocking approach
+                system = platform.system()
 
-        if system == "Windows":
-            try:
-                # Use os.startfile for Windows (ignore linter error - it's Windows-only)
-                os.startfile(str(file_path))  # type: ignore[attr-defined]
-                logger.info(f"Opened file with default application (Windows): {path}")
-                success = True
-            except (AttributeError, OSError) as e:
-                logger.warning(f"Windows os.startfile failed, trying fallback: {e}")
-                # Fallback for when os.startfile is not available or fails
-                try:
-                    subprocess.run(["cmd", "/c", "start", "", str(file_path)], check=True, capture_output=True)
-                    logger.info(f"Opened file with cmd start (Windows fallback): {path}")
+                if system == "Windows":
+                    try:
+                        # Use os.startfile for Windows (non-blocking)
+                        os.startfile(str(file_path))  # type: ignore[attr-defined]
+                        logger.info(f"Opened file with os.startfile (Windows): {path}")
+                        success = True
+                    except (AttributeError, OSError) as e:
+                        logger.warning(f"Windows os.startfile failed: {e}")
+                        # Use Popen for non-blocking subprocess
+                        subprocess.Popen(["cmd", "/c", "start", "", str(file_path)],
+                                       shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        logger.info(f"Opened file with cmd start (Windows): {path}")
+                        success = True
+
+                elif system == "Darwin":  # macOS
+                    # Use Popen for non-blocking subprocess
+                    subprocess.Popen(["open", str(file_path)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    logger.info(f"Opened file with open command (macOS): {path}")
                     success = True
-                except subprocess.CalledProcessError:
-                    logger.warning("cmd start fallback failed, trying Qt fallback")
 
-        elif system == "Darwin":  # macOS
-            try:
-                subprocess.run(["open", str(file_path)], check=True, capture_output=True)
-                logger.info(f"Opened file with default application (macOS): {path}")
-                success = True
-            except subprocess.CalledProcessError as e:
-                logger.warning(f"macOS open command failed: {e}")
-
-        else:  # Linux and other Unix-like
-            try:
-                subprocess.run(["xdg-open", str(file_path)], check=True, capture_output=True)
-                logger.info(f"Opened file with default application (Linux): {path}")
-                success = True
-            except subprocess.CalledProcessError as e:
-                logger.warning(f"Linux xdg-open failed: {e}")
-
-        # Qt fallback for all platforms if native methods fail
-        if not success:
-            try:
-                url = QUrl.fromLocalFile(str(file_path))
-                qt_success = QDesktopServices.openUrl(url)
-                if qt_success:
-                    logger.info(f"Opened file with Qt fallback: {path}")
+                else:  # Linux and other Unix-like
+                    # Use Popen for non-blocking subprocess
+                    subprocess.Popen(["xdg-open", str(file_path)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    logger.info(f"Opened file with xdg-open (Linux): {path}")
                     success = True
-                else:
-                    logger.warning("Qt fallback returned False")
-            except Exception as e:
-                logger.error(f"Qt fallback failed: {e}")
+
+        except Exception as e:
+            logger.error(f"Error opening file: {e}")
 
         if not success:
             raise FileSearchError(f"Failed to open file {path} with all available methods")
@@ -209,24 +203,30 @@ def open_containing_folder(path: Union[str, Path]) -> bool:
 
         system = platform.system()
 
+        # Use Popen for non-blocking subprocess calls to prevent UI freezing
         if system == "Windows":
             if file_path.is_file():
                 # Try to select the file in Explorer
-                subprocess.run(["explorer", "/select," + str(file_path)], check=True)
+                subprocess.Popen(["explorer", "/select,", str(file_path)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                subprocess.run(["explorer", str(folder_path)], check=True)
+                subprocess.Popen(["explorer", str(folder_path)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             logger.info(f"Opened containing folder (Windows): {folder_path}")
 
         elif system == "Darwin":  # macOS
             if file_path.is_file():
                 # Reveal file in Finder
-                subprocess.run(["open", "-R", str(file_path)], check=True)
+                subprocess.Popen(["open", "-R", str(file_path)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                subprocess.run(["open", str(folder_path)], check=True)
+                subprocess.Popen(["open", str(folder_path)],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             logger.info(f"Opened containing folder (macOS): {folder_path}")
 
         else:  # Linux and other Unix-like
-            subprocess.run(["xdg-open", str(folder_path)], check=True)
+            subprocess.Popen(["xdg-open", str(folder_path)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             logger.info(f"Opened containing folder (Linux): {folder_path}")
 
         return True
@@ -234,9 +234,6 @@ def open_containing_folder(path: Union[str, Path]) -> bool:
     except FileNotFoundError:
         logger.error(f"Path not found: {path}")
         raise FileSearchError(f"Path not found: {path}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to open folder for {path}: {e}")
-        raise FileSearchError(f"Failed to open folder for {path}: {e}")
     except OSError as e:
         logger.error(f"OS error opening folder for {path}: {e}")
         raise FileSearchError(f"OS error opening folder for {path}: {e}")
