@@ -37,6 +37,7 @@ from filesearch.ui.search_controls import (
     SearchState,
     StatusWidget,
 )
+from filesearch.ui.settings_dialog import SettingsDialog
 from filesearch.ui.sort_controls import SortControls
 
 
@@ -344,6 +345,55 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             logger.error(f"Error saving window settings: {e}")
+
+    def show_settings_dialog(self) -> None:
+        """Show the settings dialog."""
+        dialog = SettingsDialog(self.config_manager, self.plugin_manager, self)
+        if dialog.exec():
+            # Settings were saved, reload any affected components
+            self._load_highlight_settings()
+            self._load_sort_settings()
+            logger.info("Settings dialog closed with changes saved")
+        else:
+            logger.debug("Settings dialog cancelled")
+
+    def _load_highlight_settings(self) -> None:
+        """Load and apply highlight settings from configuration."""
+        try:
+            # Load highlight settings if the results view supports it
+            if hasattr(self.results_view, 'set_highlight_enabled'):
+                enabled = self.config_manager.get("highlighting.enabled", True)
+                self.results_view.set_highlight_enabled(enabled)
+
+                color = self.config_manager.get("highlighting.color", "#FFFF99")
+                if hasattr(self.results_view, 'set_highlight_color'):
+                    self.results_view.set_highlight_color(color)
+
+                case_sensitive = self.config_manager.get("highlighting.case_sensitive", False)
+                if hasattr(self.results_view, 'set_highlight_case_sensitive'):
+                    self.results_view.set_highlight_case_sensitive(case_sensitive)
+
+                logger.debug("Highlight settings loaded")
+        except Exception as e:
+            logger.error(f"Error loading highlight settings: {e}")
+
+    def _load_sort_settings(self) -> None:
+        """Load and apply sort settings from configuration."""
+        try:
+            # Load sort criteria from config
+            from filesearch.models.sort_criteria import SortCriteria
+            criteria_str = self.config_manager.get("sorting.criteria", "name")
+
+            # Convert string to SortCriteria enum
+            criteria = SortCriteria(criteria_str)
+
+            # Apply to sort controls
+            if hasattr(self.sort_controls, 'set_criteria'):
+                self.sort_controls.set_criteria(criteria)
+
+            logger.debug(f"Sort settings loaded: {criteria_str}")
+        except Exception as e:
+            logger.error(f"Error loading sort settings: {e}")
 
     def _on_sort_criteria_changed(self, criteria) -> None:
         """Handle sort criteria change - save to config"""
