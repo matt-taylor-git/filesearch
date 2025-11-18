@@ -123,6 +123,13 @@ class SearchInputWidget(QWidget):
         self.label.setProperty("class", "search-label")
         layout.addWidget(self.label)
 
+        # Create a container for the search input with clear button and loading indicator
+        search_container = QWidget()
+        search_layout = QHBoxLayout()
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.setSpacing(0)
+        search_container.setLayout(search_layout)
+
         # Search input field
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Enter filename or partial name...")
@@ -146,14 +153,21 @@ class SearchInputWidget(QWidget):
         self.clear_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.clear_button.setVisible(False)  # Hidden by default
         self.clear_button.clicked.connect(self.clear_text)
+        self.clear_button.setFixedSize(24, 24)
 
         # Loading indicator (simple text for now, can be replaced with spinner)
         self.loading_indicator = QLabel("⟳")
         self.loading_indicator.setProperty("class", "loading-indicator")
         self.loading_indicator.setVisible(False)
+        self.loading_indicator.setFixedSize(24, 24)
 
-        # Add widgets to layout
-        layout.addWidget(self.search_input)
+        # Add widgets to search container
+        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(self.clear_button)
+        search_layout.addWidget(self.loading_indicator)
+
+        # Add search container to main layout
+        layout.addWidget(search_container)
 
         # Set widget size policy for proper sizing
         self.setMinimumWidth(400)  # Minimum 400px as per AC
