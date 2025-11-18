@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from PyQt6.QtCore import QAbstractListModel, QModelIndex, QRect, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QAbstractListModel, QModelIndex, QRect, QSize, Qt, pyqtSignal, QPoint
 from PyQt6.QtGui import (
     QAbstractTextDocumentLayout,
     QColor,
@@ -406,6 +406,8 @@ class ResultsView(QListView):
 
     # Custom signal for file opening requests
     file_open_requested = pyqtSignal(object)  # SearchResult
+    # Custom signal for context menu requests
+    context_menu_requested = pyqtSignal(QPoint) # Global position of the right-click
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -414,6 +416,10 @@ class ResultsView(QListView):
         self._empty_model = QStandardItemModel()  # For empty states
         self._results_model = None
         self.setModel(self._empty_model)
+
+        # Enable custom context menu policy
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._on_custom_context_menu_requested)
 
         # Delegate
         self.setItemDelegate(ResultsItemDelegate(self))
@@ -449,6 +455,14 @@ class ResultsView(QListView):
 
         # Store reference to delegate for highlighting
         self._delegate = self.itemDelegate()
+
+    def _on_custom_context_menu_requested(self, pos: QPoint) -> None:
+        """
+        Handles the custom context menu request by emitting a signal with the global position.
+        """
+        # Map the local position to global coordinates for the main window
+        global_pos = self.mapToGlobal(pos)
+        self.context_menu_requested.emit(global_pos)
 
     def set_query(self, query: str):
         """Set the current search query for highlighting"""

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from loguru import logger
-from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal  # noqa: F401
+from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal, QPoint  # noqa: F401
 from PyQt6.QtWidgets import QApplication  # noqa: F401
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -21,7 +21,11 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
     QWidget,
+    QMenu,      # Added for context menu
+    QAction,    # Added for context menu actions
 )
+from PyQt6.QtGui import QFont # Added for bold text in context menu
+from enum import Enum # Added for ContextMenuAction enum
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
@@ -180,6 +184,9 @@ class MainWindow(QMainWindow):
         # Set focus to search input on launch
         self.query_input.set_focus()
 
+        # Setup context menu actions
+        self._setup_context_menu()
+
         logger.info("MainWindow initialized")
 
     def setup_ui(self) -> None:
@@ -305,6 +312,8 @@ class MainWindow(QMainWindow):
 
         # Results view signals
         self.results_view.file_open_requested.connect(self._on_file_open_requested)
+        # Context menu request signal from ResultsView
+        self.results_view.context_menu_requested.connect(self._on_context_menu_requested)
 
         logger.debug("Signals connected")
 
@@ -348,6 +357,164 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             logger.error(f"Error saving window settings: {e}")
+
+    class ContextMenuAction(Enum):
+        """Enum for context menu actions to ensure type safety and consistency."""
+        OPEN = "Open"
+        OPEN_WITH = "Open With..."
+        OPEN_CONTAINING_FOLDER = "Open Containing Folder"
+        COPY_PATH_TO_CLIPBOARD = "Copy Path to Clipboard"
+        COPY_FILE_TO_CLIPBOARD = "Copy File to Clipboard"
+        PROPERTIES = "Properties"
+        DELETE = "Delete"
+        RENAME = "Rename"
+
+    def _setup_context_menu(self) -> None:
+        """
+        Sets up the context menu infrastructure.
+        The actual menu is created dynamically on request.
+        """
+        # No direct setup needed here besides connecting the signal,
+        # as the menu is created dynamically on request.
+        pass
+
+    def _on_context_menu_requested(self, pos: QPoint) -> None:
+        """
+        Handles the request to display a context menu for search results.
+
+        Args:
+            pos: The global position where the context menu should appear.
+        """
+        selected_indexes = self.results_view.selectionModel().selectedIndexes()
+        selected_results = [self.results_view.model().data(index, Qt.ItemDataRole.UserRole)
+                            for index in selected_indexes if index.isValid()]
+        
+        if not selected_results:
+            # Only show context menu if at least one result is selected
+            return
+
+        menu = self._create_context_menu(selected_results)
+        menu.exec(pos)
+
+    def _create_context_menu(self, selected_results: List[SearchResult]) -> QMenu:
+        """
+        Creates and populates the context menu based on selected results.
+
+        Args:
+            selected_results: A list of SearchResult objects currently selected.
+
+        Returns:
+            A QMenu instance ready to be displayed.
+        """
+        menu = QMenu(self)
+
+        # AC1: Open (default action, bold text)
+        open_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
+                                     self.ContextMenuAction.OPEN.value)
+        open_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.OPEN))
+        font = open_action.font()
+        font.setBold(True)
+        open_action.setFont(font)
+
+        # AC4: Open With... Submenu
+        open_with_menu = QMenu("Open With...", self)
+        open_with_action = menu.addMenu(open_with_menu)
+        open_with_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)) # Placeholder icon
+        # open_with_menu.addAction("Choose another application...") # Placeholder
+
+        # AC5: Open Containing Folder
+        open_folder_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon),
+                                             self.ContextMenuAction.OPEN_CONTAINING_FOLDER.value)
+        open_folder_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.OPEN_CONTAINING_FOLDER))
+        open_folder_action.setShortcut(Qt.Modifier.Control | Qt.Modifier.Shift | Qt.Key.Key_O)
+        
+        menu.addSeparator()
+
+        # AC6: Copy Path to Clipboard
+        copy_path_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_CopyIcon),
+                                          self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD.value)
+        copy_path_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD))
+        copy_path_action.setShortcut(Qt.Modifier.Control | Qt.Modifier.Shift | Qt.Key.Key_C)
+
+        # AC7: Copy File to Clipboard
+        copy_file_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon), # Placeholder icon
+                                          self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD.value)
+        copy_file_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD))
+        
+        menu.addSeparator()
+
+        # AC8: Properties Dialog
+        properties_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon), # Placeholder icon
+                                           self.ContextMenuAction.PROPERTIES.value)
+        properties_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.PROPERTIES))
+        properties_action.setShortcut(Qt.Modifier.Alt | Qt.Key.Key_Return) # Alt+Enter
+
+        # AC9: Delete with Confirmation
+        delete_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon),
+                                        self.ContextMenuAction.DELETE.value)
+        delete_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.DELETE))
+        delete_action.setShortcut(Qt.Key.Key_Delete)
+
+        # AC10: Rename with Validation
+        rename_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_LineEditClearButton), # Placeholder icon
+                                       self.ContextMenuAction.RENAME.value)
+        rename_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.RENAME))
+        rename_action.setShortcut(Qt.Key.Key_F2)
+
+        # AC11: Multi-Selection Support - Initial disabling/enabling logic
+        is_single_selection = len(selected_results) == 1
+        open_with_action.setEnabled(is_single_selection)
+        properties_action.setEnabled(is_single_selection)
+        rename_action.setEnabled(is_single_selection)
+        
+        return menu
+
+    def _on_context_menu_action(self, action: ContextMenuAction) -> None:
+        """
+        Routes context menu actions to their respective handlers.
+        
+        Args:
+            action: The ContextMenuAction enum value representing the chosen action.
+        """
+        # For now, this just prints a message.
+        # Specific implementations will replace these print statements.
+        selected_indexes = self.results_view.selectionModel().selectedIndexes()
+        selected_results = [self.results_view.model().data(index, Qt.ItemDataRole.UserRole)
+                            for index in selected_indexes if index.isValid()]
+        
+        if not selected_results:
+            self.statusBar().showMessage("No item selected for action.", 3000)
+            return
+
+        # Safeguard against actions not supported for multiple selections
+        if len(selected_results) > 1 and action not in [
+            self.ContextMenuAction.OPEN,
+            self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD,
+            self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD,
+            self.ContextMenuAction.DELETE
+        ]:
+            self.statusBar().showMessage(f"Action '{action.value}' not supported for multiple selections.", 3000)
+            return
+
+        first_result_path = selected_results[0].path if selected_results else None
+
+        if action == self.ContextMenuAction.OPEN:
+            self.statusBar().showMessage(f"Action: Open {first_result_path.name}", 3000)
+            # This should eventually call self._on_file_open_requested
+        elif action == self.ContextMenuAction.OPEN_WITH:
+            self.statusBar().showMessage(f"Action: Open With... {first_result_path.name}", 3000)
+        elif action == self.ContextMenuAction.OPEN_CONTAINING_FOLDER:
+            self.statusBar().showMessage(f"Action: Open Containing Folder {first_result_path.parent.name}", 3000)
+        elif action == self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD:
+            self.statusBar().showMessage(f"Action: Copy Path to Clipboard for {len(selected_results)} items", 3000)
+        elif action == self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD:
+            self.statusBar().showMessage(f"Action: Copy File to Clipboard for {len(selected_results)} items", 3000)
+        elif action == self.ContextMenuAction.PROPERTIES:
+            self.statusBar().showMessage(f"Action: Properties for {first_result_path.name}", 3000)
+        elif action == self.ContextMenuAction.DELETE:
+            self.statusBar().showMessage(f"Action: Delete {len(selected_results)} items", 3000)
+        elif action == self.ContextMenuAction.RENAME:
+            self.statusBar().showMessage(f"Action: Rename {first_result_path.name}", 3000)
 
     def show_settings_dialog(self) -> None:
         """Show the settings dialog."""
