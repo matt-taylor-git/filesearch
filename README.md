@@ -141,6 +141,7 @@ pytest -v
 - **Python 3.9+**: Modern Python with type hints
 - **PyQt6**: Cross-platform GUI framework
 - **loguru**: Structured logging
+- **platformdirs**: Platform-specific directory paths
 - **pytest**: Testing framework with pytest-qt for UI testing
 
 ## Contributing

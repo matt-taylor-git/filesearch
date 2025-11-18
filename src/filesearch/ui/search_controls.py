@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
     QMenu,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -127,12 +128,16 @@ class SearchInputWidget(QWidget):
         self.search_input.setPlaceholderText("Enter filename or partial name...")
         self.search_input.setMaxLength(self.MAX_SEARCH_LENGTH)
         self.search_input.setProperty("class", "search-input")
+        self.search_input.setMaximumWidth(900)  # Prevent expanding to window edge
 
         # Set accessibility attributes
         self.search_input.setAccessibleName("Search input")
         self.search_input.setAccessibleDescription(
             "Enter filename or partial name to search for files and folders"
         )
+
+        # Set text alignment to ensure proper vertical centering
+        self.search_input.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         # Clear button
         self.clear_button = QToolButton()
@@ -152,7 +157,7 @@ class SearchInputWidget(QWidget):
 
         # Set widget size policy for proper sizing
         self.setMinimumWidth(400)  # Minimum 400px as per AC
-        self.search_input.setMinimumHeight(32)  # 32px height as per AC
+        self.setMaximumWidth(1200)  # Prevent excessive expansion
 
         # Connect signals
         self.connect_signals()
@@ -176,13 +181,12 @@ class SearchInputWidget(QWidget):
             }
 
             QLineEdit.search-input {
-                font-size: 14px;
-                font-family: system-ui, -apple-system, sans-serif;
-                padding: 4px 8px;
+                font-size: 13px;
+                padding: 12px;
                 border: 2px solid #cccccc;
                 border-radius: 4px;
                 background: rgba(255, 255, 255, 0.95);
-                color: #333333;
+                color: #000000;
                 selection-background-color: #0078d4;
             }
 
@@ -501,31 +505,6 @@ class SearchInputWidget(QWidget):
         self._debounce_timer.stop()
         if self.auto_search_enabled and text.strip():
             self._debounce_timer.start(self.auto_search_delay_ms)
-
-    def sizeHint(self) -> QSize:
-        """Get recommended size for the widget.
-
-        Returns:
-            Recommended size (80% of parent width, minimum 400px)
-        """
-        if self.parent():
-            # Try to get parent width safely
-            try:
-                parent_width = self.parent().width()
-                width = max(400, int(parent_width * 0.8))
-            except (AttributeError, TypeError):
-                width = 400
-        else:
-            width = 400
-        return QSize(width, 32)  # Height is 32px as per AC
-
-    def minimumSizeHint(self) -> QSize:
-        """Get minimum recommended size for the widget.
-
-        Returns:
-            Minimum size (400px width, 32px height as per AC)
-        """
-        return QSize(400, 32)
 
 
 class DirectorySelectorWidget(QWidget):
@@ -1205,6 +1184,8 @@ class ProgressWidget(QWidget):
 
         # Initially hidden
         self.setVisible(False)
+        # Set minimum size to 0 when hidden to prevent layout issues
+        self.setMinimumSize(QSize(0, 0))
 
         logger.debug("ProgressWidget initialized")
 
@@ -1464,6 +1445,18 @@ class ProgressWidget(QWidget):
         if self.is_determinate:
             self.progress_bar.setValue(100)
         logger.debug(f"Completed state set: {total_files} files")
+
+    def sizeHint(self) -> QSize:
+        """Override size hint to return zero when hidden."""
+        if not self.is_visible:
+            return QSize(0, 0)
+        return super().sizeHint()
+
+    def minimumSizeHint(self) -> QSize:
+        """Override minimum size hint to return zero when hidden."""
+        if not self.is_visible:
+            return QSize(0, 0)
+        return super().minimumSizeHint()
 
 
 class StatusWidget(QWidget):

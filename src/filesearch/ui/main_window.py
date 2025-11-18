@@ -199,12 +199,19 @@ class MainWindow(QMainWindow):
 
         # Create main layout
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(
+            10, 10, 10, 10
+        )  # Add margins: left, top, right, bottom
+        main_layout.setSpacing(8)  # Add spacing between widgets
         central_widget.setLayout(main_layout)
 
         # Create search controls layout
         # Search input widget
         self.query_input = SearchInputWidget(self.config_manager)
         main_layout.addWidget(self.query_input)
+
+        # Add spacing below search input
+        main_layout.addSpacing(20)
 
         # Directory selection widget
         from filesearch.ui.search_controls import DirectorySelectorWidget
