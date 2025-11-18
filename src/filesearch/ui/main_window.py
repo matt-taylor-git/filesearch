@@ -6,11 +6,11 @@ with search input, directory selection, and results display functionality.
 
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 from loguru import logger
 from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal, QPoint  # noqa: F401
-from PyQt6.QtWidgets import QApplication  # noqa: F401
+from PyQt6.QtWidgets import QApplication, QStyle  # noqa: F401
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
