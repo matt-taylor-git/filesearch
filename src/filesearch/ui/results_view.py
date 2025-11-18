@@ -523,6 +523,10 @@ class ResultsView(QListView):
         if not self._results_model:
             self._results_model = ResultsModel()
             self.setModel(self._results_model)
+            # Clear the searching state when first result arrives
+            self.set_search_active(False)
+            # Force viewport update to show the new model
+            self.viewport().update()
         # Maintain scroll position when adding results
         scroll_bar = self.verticalScrollBar()
         vertical_scroll = scroll_bar.value() if scroll_bar else 0
@@ -746,47 +750,8 @@ class ResultsView(QListView):
 
     def is_search_active(self) -> bool:
         """Check if a search is currently in progress.
-        
+
         Returns:
             True if searching, False otherwise
         """
         return self._is_searching
-
-        if key == Qt.Key.Key_Up:
-            # Move selection up
-            if current_index.row() > 0:
-                new_index = model.index(current_index.row() - 1, 0)
-                self.setCurrentIndex(new_index)
-        elif key == Qt.Key.Key_Down:
-            # Move selection down
-            if current_index.row() < model.rowCount() - 1:
-                new_index = model.index(current_index.row() + 1, 0)
-                self.setCurrentIndex(new_index)
-        elif key == Qt.Key.Key_Home:
-            # Move to first item
-            if model.rowCount() > 0:
-                new_index = model.index(0, 0)
-                self.setCurrentIndex(new_index)
-        elif key == Qt.Key.Key_End:
-            # Move to last item
-            if model.rowCount() > 0:
-                new_index = model.index(model.rowCount() - 1, 0)
-                self.setCurrentIndex(new_index)
-        elif key == Qt.Key.Key_PageUp:
-            # Move up by viewport height
-            visible_count = self.height() // self.sizeHint().height()
-            new_row = max(0, current_index.row() - visible_count)
-            new_index = model.index(new_row, 0)
-            self.setCurrentIndex(new_index)
-        elif key == Qt.Key.Key_PageDown:
-            # Move down by viewport height
-            visible_count = self.height() // self.sizeHint().height()
-            new_row = min(model.rowCount() - 1, current_index.row() + visible_count)
-            new_index = model.index(new_row, 0)
-            self.setCurrentIndex(new_index)
-        elif key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
-            # Activate selected item (double-click equivalent)
-            self.doubleClicked.emit(current_index)
-        else:
-            # Let parent handle other keys
-            super().keyPressEvent(e)
