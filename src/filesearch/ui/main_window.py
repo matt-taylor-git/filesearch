@@ -381,8 +381,8 @@ class MainWindow(QMainWindow):
         """Load and apply sort settings from configuration."""
         try:
             # Load sort criteria from config
-            from filesearch.models.sort_criteria import SortCriteria
-            criteria_str = self.config_manager.get("sorting.criteria", "name")
+            from filesearch.core.sort_engine import SortCriteria
+            criteria_str = self.config_manager.get("sorting.criteria", "name_asc")
 
             # Convert string to SortCriteria enum
             criteria = SortCriteria(criteria_str)
