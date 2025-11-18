@@ -303,6 +303,9 @@ class MainWindow(QMainWindow):
         self.sort_controls.sortChanged.connect(self.results_view.apply_sorting)
         self.sort_controls.sortChanged.connect(self._on_sort_criteria_changed)
 
+        # Results view signals
+        self.results_view.file_open_requested.connect(self._on_file_open_requested)
+
         logger.debug("Signals connected")
 
     def safe_status_message(self, message: str) -> None:
@@ -676,18 +679,18 @@ class MainWindow(QMainWindow):
 
     def _open_file_with_status(self, file_path: Path) -> None:
         """Open file with status bar updates.
-        
+
         Args:
             file_path: Path to the file to open
         """
         try:
             # Show opening status
-            self.safe_status_message(f"Opening: {file_path.name}...", 3000)
-            
+            self.safe_status_message(f"Opening: {file_path.name}...")
+
             # Import safe_open here to avoid circular imports
             from filesearch.core.file_utils import safe_open
             safe_open(file_path)
-            
+
             # Show success status
             self.safe_status_message(f"Opened: {file_path.name}")
             logger.info(f"Successfully opened file: {file_path}")
