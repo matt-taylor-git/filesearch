@@ -1,19 +1,30 @@
 from datetime import datetime
 from typing import List, Optional
 
-from PyQt6.QtCore import QAbstractListModel, QModelIndex, QRect, QSize, Qt, pyqtSignal, QPoint
+from loguru import logger
+from PyQt6.QtCore import (
+    QAbstractListModel,
+    QModelIndex,
+    QPoint,
+    QRect,
+    QSize,
+    Qt,
+    pyqtSignal,
+)
 from PyQt6.QtGui import (
     QAbstractTextDocumentLayout,
     QColor,
+    QCursor,
     QFont,
     QKeyEvent,
     QStandardItem,
     QStandardItemModel,
     QTextDocument,
-    QCursor,
 )
 from PyQt6.QtWidgets import QAbstractItemView, QListView, QStyle, QStyledItemDelegate
 
+from ..core.exceptions import FileSearchError
+from ..core.file_utils import rename_file
 from ..core.sort_engine import SortCriteria, SortEngine
 from ..models.search_result import SearchResult
 from ..utils.highlight_engine import HighlightEngine
@@ -21,6 +32,8 @@ from ..utils.highlight_engine import HighlightEngine
 
 class ResultsModel(QAbstractListModel):
     """Custom model for results list with virtual scrolling support"""
+
+    error_occurred = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -52,6 +65,47 @@ class ResultsModel(QAbstractListModel):
             )
 
         return None
+
+    def flags(self, index):
+        """Return item flags"""
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
+        return super().flags(index) | Qt.ItemFlag.ItemIsEditable
+
+    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
+        """Handle data updates (renaming)"""
+        if not index.isValid() or role != Qt.ItemDataRole.EditRole:
+            return False
+
+        result = self._results[index.row()]
+        new_name = str(value)
+
+        # Skip if name hasn't changed
+        if new_name == result.path.name:
+            return False
+
+        try:
+            new_path = rename_file(result.path, new_name)
+
+            # Update result object
+            result.path = new_path
+
+            # Emit data changed signal
+            self.dataChanged.emit(
+                index,
+                index,
+                [
+                    Qt.ItemDataRole.DisplayRole,
+                    Qt.ItemDataRole.UserRole,
+                    Qt.ItemDataRole.ToolTipRole,
+                ],
+            )
+            return True
+
+        except Exception as e:
+            logger.error(f"Rename failed: {e}")
+            self.error_occurred.emit(str(e))
+            return False
 
     def canFetchMore(self, parent=QModelIndex()):
         """Check if more results can be fetched for virtual scrolling"""
@@ -91,6 +145,19 @@ class ResultsModel(QAbstractListModel):
             self._displayed_count += 1
 
         self.endInsertRows()
+
+    def remove_result(self, result):
+        """Remove a single result from the model"""
+        try:
+            idx = self._results.index(result)
+            self.beginRemoveRows(QModelIndex(), idx, idx)
+            self._results.pop(idx)
+            if idx < self._displayed_count:
+                self._displayed_count -= 1
+            self.endRemoveRows()
+            return True
+        except ValueError:
+            return False
 
     def clear(self):
         """Clear all results from the model"""
@@ -407,7 +474,7 @@ class ResultsView(QListView):
     # Custom signal for file opening requests
     file_open_requested = pyqtSignal(object)  # SearchResult
     # Custom signal for context menu requests
-    context_menu_requested = pyqtSignal(QPoint) # Global position of the right-click
+    context_menu_requested = pyqtSignal(QPoint)  # Global position of the right-click
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -501,6 +568,8 @@ class ResultsView(QListView):
         if results:
             if not self._results_model:
                 self._results_model = ResultsModel()
+                # Connect error signal
+                self._results_model.error_occurred.connect(self._on_model_error)
             self._results_model.set_results(results)
             self.setModel(self._results_model)
             # Auto-scroll to first result when search completes
@@ -512,6 +581,12 @@ class ResultsView(QListView):
             self._show_empty_state("No files found")
             # Search is complete, enable double-click
             self.set_search_active(False)
+
+    def _on_model_error(self, message: str):
+        """Handle errors from the model"""
+        from PyQt6.QtWidgets import QMessageBox
+
+        QMessageBox.critical(self, "Error", message)
 
     def clear_results(self):
         """Clear all results"""
@@ -536,6 +611,7 @@ class ResultsView(QListView):
         """Add a single result to the view"""
         if not self._results_model:
             self._results_model = ResultsModel()
+            self._results_model.error_occurred.connect(self._on_model_error)
             self.setModel(self._results_model)
             # Clear the searching state when first result arrives
             self.set_search_active(False)
@@ -571,7 +647,7 @@ class ResultsView(QListView):
             return
 
         # Get current query from delegate for relevance sorting
-        query = getattr(self._delegate, 'current_query', '') if self._delegate else ""
+        query = getattr(self._delegate, "current_query", "") if self._delegate else ""
 
         # Apply sorting
         self._results_model.sort_results(criteria, query)
@@ -669,6 +745,12 @@ class ResultsView(QListView):
         elif key == Qt.Key.Key_Return or key == Qt.Key.Key_Enter:
             # Activate selected item (double-click equivalent)
             self.doubleClicked.emit(current_index)
+        elif key == Qt.Key.Key_Menu:
+            # Trigger context menu at current selection
+            rect = self.visualRect(current_index)
+            center = rect.center()
+            global_pos = self.mapToGlobal(center)
+            self.context_menu_requested.emit(global_pos)
         else:
             # Let parent handle other keys
             super().keyPressEvent(e)
@@ -676,53 +758,54 @@ class ResultsView(QListView):
 
     def _on_double_clicked(self, index: QModelIndex) -> None:
         """Handle double-click events on results.
-        
+
         Args:
             index: Model index of the double-clicked item
         """
         if not index.isValid():
             return
-            
+
         # Don't allow opening during search
         if self._is_searching:
             return
-            
+
         # Get the SearchResult object
         model = self.model()
         if model == self._empty_model:
             result = index.data(Qt.ItemDataRole.UserRole)
         else:
             result = index.data(Qt.ItemDataRole.UserRole)
-            
+
         if result:
             # Emit signal for main window to handle
             self.file_open_requested.emit(result)
-            
+
             # Add visual feedback - brief highlight flash
             self._add_highlight_flash(index)
 
     def _add_highlight_flash(self, index: QModelIndex) -> None:
         """Add a brief highlight flash effect to the double-clicked item.
-        
+
         Args:
             index: Model index of the item to highlight
         """
         # Store original selection
         original_selection = self.selectedIndexes()
-        
+
         # Temporarily select and highlight the item
         self.setCurrentIndex(index)
-        
+
         # Force a repaint to show the highlight
         self.viewport().update()
-        
+
         # Use QTimer to restore original selection after brief delay
         from PyQt6.QtCore import QTimer
+
         QTimer.singleShot(150, lambda: self._restore_selection(original_selection))
 
     def _restore_selection(self, original_selection) -> None:
         """Restore the original selection after highlight flash.
-        
+
         Args:
             original_selection: List of originally selected indexes
         """
@@ -733,7 +816,7 @@ class ResultsView(QListView):
 
     def mouseMoveEvent(self, e) -> None:
         """Handle mouse move events for cursor changes.
-        
+
         Args:
             e: Mouse move event
         """
@@ -745,17 +828,17 @@ class ResultsView(QListView):
         else:
             # Restore default cursor
             self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
-            
+
         super().mouseMoveEvent(e)
 
     def set_search_active(self, is_searching: bool) -> None:
         """Set the searching state to control double-click availability.
-        
+
         Args:
             is_searching: True if search is in progress, False otherwise
         """
         self._is_searching = is_searching
-        
+
         # Update cursor based on search state
         if is_searching:
             self.setCursor(QCursor(Qt.CursorShape.BusyCursor))

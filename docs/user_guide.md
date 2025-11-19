@@ -81,8 +81,33 @@ Use the sort controls to organize results by:
 
 - **Single Click**: Select a file to highlight it
 - **Double Click**: Open the file (see [Opening Files](#opening-files))
+- **Right Click**: Open context menu with more actions (Open With, Copy, Rename, Delete, etc.)
 - **Arrow Keys**: Navigate up and down through results
 - **Ctrl+Click**: Select multiple files (when supported)
+
+## Context Menu
+The context menu provides a powerful set of tools for managing your files directly from the search results.
+
+### Accessing the Menu
+1. **Right-click** on any file or folder in the results list
+2. Or press the **Context Menu key** (or Shift+F10) on your keyboard
+
+### Menu Options
+- **Open** (Bold): Opens the file with the default application (same as double-click)
+- **Open With...**: Choose a specific application to open the file
+- **Open Containing Folder** (Ctrl+Shift+O): Opens the folder where the file is located
+- **Copy Path to Clipboard** (Ctrl+Shift+C): Copies the full file path as text
+- **Copy File to Clipboard**: Copies the file itself (can be pasted into File Explorer)
+- **Properties** (Alt+Enter): View detailed file information (size, dates, permissions, checksums)
+- **Delete** (Delete): Move file to trash/recycle bin (Shift+Delete to permanently delete)
+- **Rename** (F2): Rename the file inline
+
+### Multi-Selection
+You can select multiple files (using Ctrl+Click or Shift+Click) to perform batch operations:
+- **Delete**: Delete multiple files at once
+- **Copy Path**: Copy paths of all selected files (newline separated)
+- **Copy File**: Copy multiple files to clipboard (limited support)
+*Note: Rename, Properties, and Open With are only available for single file selections.*
 
 ## Opening Files
 
@@ -133,7 +158,7 @@ When you open a file, you'll see:
 
 - **Highlight Flash**: The selected item briefly highlights
 - **Cursor Change**: Mouse cursor becomes a pointer hand on hover
-- **Status Messages**: 
+- **Status Messages**:
   - "Opening: filename.txt..." (while opening)
   - "Opened: filename.txt" (success)
   - "Failed to open: [error]" (if there's a problem)

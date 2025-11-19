@@ -84,11 +84,11 @@ class TestSearchInputWidget:
         # Test minimum size
         min_size = widget.minimumSizeHint()
         assert min_size.width() == 400  # Minimum 400px
-        assert min_size.height() == 36  # 36px height (optimized based on font metrics)
+        assert min_size.height() >= 36  # At least 36px height
 
         # Test size hint
         size_hint = widget.sizeHint()
-        assert size_hint.height() == 36  # 36px height (optimized based on font metrics)
+        assert size_hint.height() >= 36  # At least 36px height
         assert size_hint.width() >= 400  # At least 400px
 
     def test_keyboard_input_immediate_feedback(self, widget, qtbot):

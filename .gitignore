@@ -143,3 +143,4 @@ config/*.local.toml
 logs/
 *.log
 MagicMock/
+.aider*

@@ -562,6 +562,28 @@ def validate_file_access(path: Path) -> bool:
 
 ## Post-Review Follow-ups
 
+### Story 3.5 Context Menu Issues (2025-11-18)
+
+**Critical Issues:**
+- **Open With... Submenu Missing**: Platform-specific application detection not implemented, placeholder only
+- **Rename Functionality Missing**: Inline editing and validation not implemented, placeholder only
+- **Delete Operations Incomplete**: Confirmation dialog works but no actual trash/delete operations
+- **Keyboard Navigation Missing**: No Up/Down arrow, Enter, or Escape key support
+- **Accessibility Support Missing**: No screen reader compatibility or ARIA labels
+
+**Action Items:**
+1. Implement Open With... with Windows registry, macOS Launch Services, Linux MIME detection
+2. Add inline rename editing with filename validation and file system updates
+3. Complete delete operations using send2trash library with proper error handling
+4. Implement full keyboard navigation for context menu
+5. Add accessibility support following WCAG guidelines
+6. Add menu icons, keyboard shortcuts display, and comprehensive error handling
+7. Implement performance optimization and benchmarking
+
+**Impact:** Story 3.5 is IN PROGRESS until critical missing features are implemented.
+
+---
+
 ### Story 3.1 Critical Issues (2025-11-17)
 
 **Blocking Issues:**

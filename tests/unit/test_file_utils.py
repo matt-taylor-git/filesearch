@@ -2,6 +2,7 @@
 
 import os
 import platform
+import subprocess
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
@@ -117,28 +118,36 @@ class TestSafeOpen:
             safe_open(Path(tmpdir))
 
     @patch("platform.system")
-    @patch("subprocess.run")
-    def test_safe_open_linux(self, mock_run, mock_system, temp_file):
+    @patch("subprocess.Popen")
+    def test_safe_open_linux(self, mock_popen, mock_system, temp_file):
         """Test opening file on Linux."""
         mock_system.return_value = "Linux"
-        mock_run.return_value = Mock()
+        mock_popen.return_value = Mock()
 
         result = safe_open(temp_file)
 
         assert result is True
-        mock_run.assert_called_once_with(["xdg-open", str(temp_file)], check=True, capture_output=True)
+        mock_popen.assert_called_once_with(
+            ["xdg-open", str(temp_file)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     @patch("platform.system")
-    @patch("subprocess.run")
-    def test_safe_open_macos(self, mock_run, mock_system, temp_file):
+    @patch("subprocess.Popen")
+    def test_safe_open_macos(self, mock_popen, mock_system, temp_file):
         """Test opening file on macOS."""
         mock_system.return_value = "Darwin"
-        mock_run.return_value = Mock()
+        mock_popen.return_value = Mock()
 
         result = safe_open(temp_file)
 
         assert result is True
-        mock_run.assert_called_once_with(["open", str(temp_file)], check=True, capture_output=True)
+        mock_popen.assert_called_once_with(
+            ["open", str(temp_file)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     @patch("platform.system")
     def test_safe_open_windows(self, mock_system, temp_file):
@@ -152,12 +161,12 @@ class TestSafeOpen:
             assert result is True
             mock_startfile.assert_called_once_with(str(temp_file))
 
-    @patch("subprocess.run")
-    def test_safe_open_subprocess_error(self, mock_run, temp_file):
+    @patch("subprocess.Popen")
+    def test_safe_open_subprocess_error(self, mock_popen, temp_file):
         """Test handling subprocess error."""
         import subprocess
 
-        mock_run.side_effect = subprocess.CalledProcessError(1, "xdg-open")
+        mock_popen.side_effect = OSError("Failed to execute")
 
         with pytest.raises(FileSearchError, match="Failed to open file"):
             # Force Linux path for consistent testing
@@ -187,58 +196,74 @@ class TestOpenContainingFolder:
             open_containing_folder("/nonexistent/path/file.txt")
 
     @patch("platform.system")
-    @patch("subprocess.run")
-    def test_open_containing_folder_linux_file(self, mock_run, mock_system, temp_file):
+    @patch("subprocess.Popen")
+    def test_open_containing_folder_linux_file(
+        self, mock_popen, mock_system, temp_file
+    ):
         """Test opening containing folder for file on Linux."""
         mock_system.return_value = "Linux"
-        mock_run.return_value = Mock()
+        mock_popen.return_value = Mock()
 
         result = open_containing_folder(temp_file)
 
         assert result is True
-        mock_run.assert_called_once_with(
-            ["xdg-open", str(temp_file.parent)], check=True
+        mock_popen.assert_called_once_with(
+            ["xdg-open", str(temp_file.parent)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
 
     @patch("platform.system")
-    @patch("subprocess.run")
+    @patch("subprocess.Popen")
     def test_open_containing_folder_linux_directory(
-        self, mock_run, mock_system, tmpdir
+        self, mock_popen, mock_system, tmpdir
     ):
         """Test opening directory on Linux."""
         mock_system.return_value = "Linux"
-        mock_run.return_value = Mock()
+        mock_popen.return_value = Mock()
 
         result = open_containing_folder(Path(tmpdir))
 
         assert result is True
-        mock_run.assert_called_once_with(["xdg-open", str(Path(tmpdir))], check=True)
+        mock_popen.assert_called_once_with(
+            ["xdg-open", str(Path(tmpdir))],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     @patch("platform.system")
-    @patch("subprocess.run")
-    def test_open_containing_folder_macos_file(self, mock_run, mock_system, temp_file):
+    @patch("subprocess.Popen")
+    def test_open_containing_folder_macos_file(
+        self, mock_popen, mock_system, temp_file
+    ):
         """Test opening containing folder for file on macOS."""
         mock_system.return_value = "Darwin"
-        mock_run.return_value = Mock()
+        mock_popen.return_value = Mock()
 
         result = open_containing_folder(temp_file)
 
         assert result is True
-        mock_run.assert_called_once_with(["open", "-R", str(temp_file)], check=True)
+        mock_popen.assert_called_once_with(
+            ["open", "-R", str(temp_file)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     @patch("platform.system")
     def test_open_containing_folder_windows_file(self, mock_system, temp_file):
         """Test opening containing folder for file on Windows."""
         mock_system.return_value = "Windows"
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock()
+        with patch("subprocess.Popen") as mock_popen:
+            mock_popen.return_value = Mock()
 
             result = open_containing_folder(temp_file)
 
             assert result is True
-            mock_run.assert_called_once_with(
-                ["explorer", "/select," + str(temp_file)], check=True
+            mock_popen.assert_called_once_with(
+                ["explorer", "/select,", str(temp_file)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
 
     @patch("platform.system")
@@ -246,14 +271,16 @@ class TestOpenContainingFolder:
         """Test opening directory on Windows."""
         mock_system.return_value = "Windows"
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = Mock()
+        with patch("subprocess.Popen") as mock_popen:
+            mock_popen.return_value = Mock()
 
             result = open_containing_folder(Path(tmpdir))
 
             assert result is True
-            mock_run.assert_called_once_with(
-                ["explorer", str(Path(tmpdir))], check=True
+            mock_popen.assert_called_once_with(
+                ["explorer", str(Path(tmpdir))],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
 
 

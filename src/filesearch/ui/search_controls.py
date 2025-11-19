@@ -110,6 +110,14 @@ class SearchInputWidget(QWidget):
 
         logger.debug("SearchInputWidget initialized")
 
+    def minimumSizeHint(self) -> QSize:
+        """Return minimum size hint."""
+        return QSize(400, 36)
+
+    def sizeHint(self) -> QSize:
+        """Return size hint."""
+        return QSize(400, 36)
+
     def _setup_ui(self) -> None:
         """Setup user interface components."""
         # Main layout

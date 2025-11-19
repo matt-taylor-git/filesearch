@@ -6,9 +6,10 @@ cross-platform file opening, and directory navigation.
 
 import os
 import platform
+import shutil
 import subprocess
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from loguru import logger
 from PyQt6.QtCore import QUrl
@@ -67,7 +68,9 @@ def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bo
         raise FileSearchError(f"Error getting file info for {path}: {e}")
 
 
-def safe_open(path: Union[str, Path], security_manager=None, force_open: bool = False) -> bool:
+def safe_open(
+    path: Union[str, Path], security_manager=None, force_open: bool = False
+) -> bool:
     """Open a file with the system default application.
 
     Args:
@@ -104,13 +107,18 @@ def safe_open(path: Union[str, Path], security_manager=None, force_open: bool = 
 
         # Security check for executable files
         if not force_open and security_manager:
-            should_warn, warning_message = security_manager.should_warn_before_opening(file_path)
+            should_warn, warning_message = security_manager.should_warn_before_opening(
+                file_path
+            )
             if should_warn:
-                logger.warning(f"Security warning for executable file {path}: {warning_message}")
+                logger.warning(
+                    f"Security warning for executable file {path}: {warning_message}"
+                )
                 # Return a special indicator that user confirmation is needed
                 # The UI layer should handle showing the warning dialog
                 raise FileSearchError(f"SECURITY_WARNING:{warning_message}")
 
+        success = False
         # Use Qt's QDesktopServices as primary method - it's non-blocking and cross-platform
         try:
             url = QUrl.fromLocalFile(str(file_path.resolve()))
@@ -118,7 +126,9 @@ def safe_open(path: Union[str, Path], security_manager=None, force_open: bool = 
             if success:
                 logger.info(f"Opened file with QDesktopServices: {path}")
             else:
-                logger.warning("QDesktopServices.openUrl returned False, trying platform-specific methods")
+                logger.warning(
+                    "QDesktopServices.openUrl returned False, trying platform-specific methods"
+                )
                 # Try platform-specific methods as fallback, but use non-blocking approach
                 system = platform.system()
 
@@ -131,22 +141,32 @@ def safe_open(path: Union[str, Path], security_manager=None, force_open: bool = 
                     except (AttributeError, OSError) as e:
                         logger.warning(f"Windows os.startfile failed: {e}")
                         # Use Popen for non-blocking subprocess
-                        subprocess.Popen(["cmd", "/c", "start", "", str(file_path)],
-                                       shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        subprocess.Popen(
+                            ["cmd", "/c", "start", "", str(file_path)],
+                            shell=True,
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
                         logger.info(f"Opened file with cmd start (Windows): {path}")
                         success = True
 
                 elif system == "Darwin":  # macOS
                     # Use Popen for non-blocking subprocess
-                    subprocess.Popen(["open", str(file_path)],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.Popen(
+                        ["open", str(file_path)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
                     logger.info(f"Opened file with open command (macOS): {path}")
                     success = True
 
                 else:  # Linux and other Unix-like
                     # Use Popen for non-blocking subprocess
-                    subprocess.Popen(["xdg-open", str(file_path)],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.Popen(
+                        ["xdg-open", str(file_path)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
                     logger.info(f"Opened file with xdg-open (Linux): {path}")
                     success = True
 
@@ -154,7 +174,9 @@ def safe_open(path: Union[str, Path], security_manager=None, force_open: bool = 
             logger.error(f"Error opening file: {e}")
 
         if not success:
-            raise FileSearchError(f"Failed to open file {path} with all available methods")
+            raise FileSearchError(
+                f"Failed to open file {path} with all available methods"
+            )
 
         return True
 
@@ -207,26 +229,41 @@ def open_containing_folder(path: Union[str, Path]) -> bool:
         if system == "Windows":
             if file_path.is_file():
                 # Try to select the file in Explorer
-                subprocess.Popen(["explorer", "/select,", str(file_path)],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(
+                    ["explorer", "/select,", str(file_path)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             else:
-                subprocess.Popen(["explorer", str(folder_path)],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(
+                    ["explorer", str(folder_path)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             logger.info(f"Opened containing folder (Windows): {folder_path}")
 
         elif system == "Darwin":  # macOS
             if file_path.is_file():
                 # Reveal file in Finder
-                subprocess.Popen(["open", "-R", str(file_path)],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(
+                    ["open", "-R", str(file_path)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             else:
-                subprocess.Popen(["open", str(folder_path)],
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.Popen(
+                    ["open", str(folder_path)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             logger.info(f"Opened containing folder (macOS): {folder_path}")
 
         else:  # Linux and other Unix-like
-            subprocess.Popen(["xdg-open", str(folder_path)],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.Popen(
+                ["xdg-open", str(folder_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
             logger.info(f"Opened containing folder (Linux): {folder_path}")
 
         return True
@@ -338,3 +375,223 @@ def validate_directory(path: Path) -> Optional[str]:
         return "Permission denied: Cannot read directory contents."
 
     return None
+
+
+def get_associated_applications(path: Union[str, Path]) -> List[Dict[str, str]]:
+    """Get list of applications associated with the file type.
+
+    Args:
+        path: Path to the file
+
+    Returns:
+        List of dictionaries containing 'name' and 'command'/'id' for each application.
+        Example: [{'name': 'Text Editor', 'id': 'org.gnome.TextEditor.desktop'}]
+    """
+    apps = []
+    file_path = Path(path)
+    if not file_path.exists():
+        return apps
+
+    system = platform.system()
+
+    try:
+        if system == "Linux":
+            # Use gio to find associated apps
+            # 1. Get MIME type
+            # Using check_output with error handling
+            try:
+                mime_type = (
+                    subprocess.check_output(
+                        [
+                            "gio",
+                            "info",
+                            "-a",
+                            "standard::content-type",
+                            "--no-follow-symlinks",
+                            str(file_path),
+                        ],
+                        stderr=subprocess.DEVNULL,
+                    )
+                    .decode("utf-8")
+                    .strip()
+                )
+            except subprocess.CalledProcessError:
+                return apps
+
+            # Parse output like "standard::content-type: text/plain"
+            import re
+
+            match = re.search(r"standard::content-type:\s+(\S+)", mime_type)
+            if match:
+                mime_type_str = match.group(1)
+
+                # 2. Get apps for MIME type
+                try:
+                    output = subprocess.check_output(
+                        ["gio", "mime", mime_type_str], stderr=subprocess.DEVNULL
+                    ).decode("utf-8")
+                except subprocess.CalledProcessError:
+                    return apps
+
+                # Parse output
+                desktop_ids = []
+                for line in output.splitlines():
+                    line = line.strip()
+                    if line.endswith(".desktop"):
+                        # Extract desktop ID
+                        desktop_id = line.split()[-1]
+                        if desktop_id not in desktop_ids:
+                            desktop_ids.append(desktop_id)
+
+                # 3. Get display names for apps
+                for app_id in desktop_ids:
+                    try:
+                        # minimal effort name extraction
+                        name = app_id.replace(".desktop", "").split(".")[-1]
+                        apps.append({"name": name, "id": app_id, "type": "desktop_id"})
+                    except Exception:
+                        continue
+
+    except Exception as e:
+        logger.warning(f"Error detecting applications: {e}")
+
+    return apps
+
+
+def open_with_application(path: Union[str, Path], app_info: Dict[str, str]) -> bool:
+    """Open file with specific application.
+
+    Args:
+        path: Path to file
+        app_info: Application info dictionary from get_associated_applications
+
+    Returns:
+        True if successful
+    """
+    file_path = Path(path)
+    system = platform.system()
+
+    try:
+        if system == "Linux" and app_info.get("type") == "desktop_id":
+            subprocess.Popen(
+                ["gio", "launch", app_info["id"], str(file_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return True
+
+        # Fallback for direct commands
+        if "command" in app_info:
+            subprocess.Popen(
+                [app_info["command"], str(file_path)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return True
+
+        return False
+
+    except Exception as e:
+        logger.error(f"Error opening with application: {e}")
+        raise FileSearchError(f"Failed to open with application: {e}")
+
+
+def validate_filename(name: str) -> Optional[str]:
+    """Validate a filename.
+
+    Args:
+        name: The filename to validate
+
+    Returns:
+        None if valid, error message string otherwise
+    """
+    if not name or not name.strip():
+        return "Filename cannot be empty"
+
+    # Check for invalid characters
+    # Windows: < > : " / \ | ? *
+    # Unix: / (and null byte)
+    invalid_chars = '<>:"/\\|?*' if platform.system() == "Windows" else "/"
+
+    for char in invalid_chars:
+        if char in name:
+            return f"Filename cannot contain: {char}"
+
+    if name.strip() == "." or name.strip() == "..":
+        return "Invalid filename"
+
+    return None
+
+
+def rename_file(path: Path, new_name: str) -> Path:
+    """Rename a file or directory.
+
+    Args:
+        path: Current path
+        new_name: New filename
+
+    Returns:
+        Path object to the renamed file
+
+    Raises:
+        FileSearchError: If rename fails
+    """
+    try:
+        # Validate name
+        error = validate_filename(new_name)
+        if error:
+            raise FileSearchError(error)
+
+        new_path = path.parent / new_name
+
+        if new_path.exists():
+            raise FileSearchError(f"A file with name '{new_name}' already exists")
+
+        path.rename(new_path)
+        logger.info(f"Renamed {path} to {new_path}")
+        return new_path
+
+    except OSError as e:
+        logger.error(f"OS error renaming {path}: {e}")
+        raise FileSearchError(f"Failed to rename: {e}")
+    except Exception as e:
+        if isinstance(e, FileSearchError):
+            raise
+        logger.error(f"Unexpected error renaming {path}: {e}")
+        raise FileSearchError(f"Error renaming file: {e}")
+
+
+def delete_file(path: Path, permanent: bool = False) -> None:
+    """Delete a file or directory.
+
+    Args:
+        path: Path to delete
+        permanent: If True, delete permanently; otherwise move to trash
+
+    Raises:
+        FileSearchError: If deletion fails
+    """
+    if not path.exists():
+        raise FileSearchError(f"Path does not exist: {path}")
+
+    try:
+        if permanent:
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+            logger.info(f"Permanently deleted: {path}")
+        else:
+            from send2trash import send2trash
+
+            send2trash(path)
+            logger.info(f"Moved to trash: {path}")
+
+    except OSError as e:
+        logger.error(f"OS error deleting {path}: {e}")
+        raise FileSearchError(f"Failed to delete: {e}")
+    except Exception as e:
+        if isinstance(e, FileSearchError):
+            raise
+        logger.error(f"Unexpected error deleting {path}: {e}")
+        raise FileSearchError(f"Error deleting file: {e}")

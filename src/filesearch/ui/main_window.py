@@ -5,30 +5,55 @@ with search input, directory selection, and results display functionality.
 """
 
 import time
+from enum import Enum  # Added for ContextMenuAction enum
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 from loguru import logger
-from PyQt6.QtCore import Qt, QThread, QTimer, pyqtSignal, QPoint  # noqa: F401
-from PyQt6.QtWidgets import QApplication, QStyle  # noqa: F401
-from PyQt6.QtWidgets import (
+from PyQt6.QtCore import (  # noqa: F401
+    QKeyCombination,
+    QMimeData,
+    QPoint,
+    Qt,
+    QThread,
+    QTimer,
+    QUrl,
+    pyqtSignal,
+)
+from PyQt6.QtGui import (  # Added for bold text in context menu, QAction moved from QtWidgets
+    QAction,
+    QClipboard,
+    QDesktopServices,
+    QFont,
+    QGuiApplication,
+    QKeySequence,
+)
+from PyQt6.QtWidgets import QMenu  # Added for context menu
+from PyQt6.QtWidgets import (  # noqa: F401
+    QApplication,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
     QPushButton,
+    QStyle,
     QVBoxLayout,
     QWidget,
-    QMenu,      # Added for context menu
 )
-from PyQt6.QtGui import QFont, QAction # Added for bold text in context menu, QAction moved from QtWidgets
-from enum import Enum # Added for ContextMenuAction enum
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
-from filesearch.core.file_utils import open_containing_folder, safe_open
+from filesearch.core.file_utils import (
+    delete_file,
+    get_associated_applications,
+    open_containing_folder,
+    open_with_application,
+    safe_open,
+)
 from filesearch.core.search_engine import FileSearchEngine
 from filesearch.models.search_result import SearchResult
 from filesearch.plugins.plugin_manager import PluginManager
@@ -312,7 +337,9 @@ class MainWindow(QMainWindow):
         # Results view signals
         self.results_view.file_open_requested.connect(self._on_file_open_requested)
         # Context menu request signal from ResultsView
-        self.results_view.context_menu_requested.connect(self._on_context_menu_requested)
+        self.results_view.context_menu_requested.connect(
+            self._on_context_menu_requested
+        )
 
         logger.debug("Signals connected")
 
@@ -359,6 +386,7 @@ class MainWindow(QMainWindow):
 
     class ContextMenuAction(Enum):
         """Enum for context menu actions to ensure type safety and consistency."""
+
         OPEN = "Open"
         OPEN_WITH = "Open With..."
         OPEN_CONTAINING_FOLDER = "Open Containing Folder"
@@ -373,9 +401,12 @@ class MainWindow(QMainWindow):
         Sets up the context menu infrastructure.
         The actual menu is created dynamically on request.
         """
-        # No direct setup needed here besides connecting the signal,
-        # as the menu is created dynamically on request.
-        pass
+        # Add accessibility info
+        self.setAccessibleName("Main Window")
+        self.results_view.setAccessibleName("Search Results List")
+        self.results_view.setAccessibleDescription(
+            "List of files matching the search query. Use arrow keys to navigate, Enter to open, and Context Menu key for options."
+        )
 
     def _on_context_menu_requested(self, pos: QPoint) -> None:
         """
@@ -385,9 +416,12 @@ class MainWindow(QMainWindow):
             pos: The global position where the context menu should appear.
         """
         selected_indexes = self.results_view.selectionModel().selectedIndexes()
-        selected_results = [self.results_view.model().data(index, Qt.ItemDataRole.UserRole)
-                            for index in selected_indexes if index.isValid()]
-        
+        selected_results = [
+            self.results_view.model().data(index, Qt.ItemDataRole.UserRole)
+            for index in selected_indexes
+            if index.isValid()
+        ]
+
         if not selected_results:
             # Only show context menu if at least one result is selected
             return
@@ -408,9 +442,13 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
 
         # AC1: Open (default action, bold text)
-        open_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
-                                     self.ContextMenuAction.OPEN.value)
-        open_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.OPEN))
+        open_action = menu.addAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
+            self.ContextMenuAction.OPEN.value,
+        )
+        open_action.triggered.connect(
+            lambda: self._on_context_menu_action(self.ContextMenuAction.OPEN)
+        )
         font = open_action.font()
         font.setBold(True)
         open_action.setFont(font)
@@ -418,46 +456,93 @@ class MainWindow(QMainWindow):
         # AC4: Open With... Submenu
         open_with_menu = QMenu("Open With...", self)
         open_with_action = menu.addMenu(open_with_menu)
-        open_with_action.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)) # Placeholder icon
-        # open_with_menu.addAction("Choose another application...") # Placeholder
+        open_with_action.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)
+        )
+
+        # Populate submenu dynamically when shown
+        # We need to pass the result to the populate function
+        if len(selected_results) == 1:
+            # Only populate for single selection
+            open_with_menu.aboutToShow.connect(
+                lambda: self._populate_open_with_menu(
+                    open_with_menu, selected_results[0]
+                )
+            )
+        else:
+            open_with_action.setEnabled(False)
 
         # AC5: Open Containing Folder
-        open_folder_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon),
-                                             self.ContextMenuAction.OPEN_CONTAINING_FOLDER.value)
-        open_folder_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.OPEN_CONTAINING_FOLDER))
-        open_folder_action.setShortcut(Qt.Modifier.Control | Qt.Modifier.Shift | Qt.Key.Key_O)
-        
+        open_folder_action = menu.addAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon),
+            self.ContextMenuAction.OPEN_CONTAINING_FOLDER.value,
+        )
+        open_folder_action.triggered.connect(
+            lambda: self._on_context_menu_action(
+                self.ContextMenuAction.OPEN_CONTAINING_FOLDER
+            )
+        )
+        open_folder_action.setShortcut("Ctrl+Shift+O")
+
         menu.addSeparator()
 
         # AC6: Copy Path to Clipboard
-        copy_path_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_CopyIcon),
-                                          self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD.value)
-        copy_path_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD))
-        copy_path_action.setShortcut(Qt.Modifier.Control | Qt.Modifier.Shift | Qt.Key.Key_C)
+        copy_path_action = menu.addAction(
+            self.style().standardIcon(
+                QStyle.StandardPixmap.SP_DialogSaveButton
+            ),  # Placeholder-ish
+            self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD.value,
+        )
+        copy_path_action.triggered.connect(
+            lambda: self._on_context_menu_action(
+                self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD
+            )
+        )
+        copy_path_action.setShortcut("Ctrl+Shift+C")
 
         # AC7: Copy File to Clipboard
-        copy_file_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon), # Placeholder icon
-                                          self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD.value)
-        copy_file_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD))
-        
+        copy_file_action = menu.addAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon),
+            self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD.value,
+        )
+        copy_file_action.triggered.connect(
+            lambda: self._on_context_menu_action(
+                self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD
+            )
+        )
+
         menu.addSeparator()
 
         # AC8: Properties Dialog
-        properties_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon), # Placeholder icon
-                                           self.ContextMenuAction.PROPERTIES.value)
-        properties_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.PROPERTIES))
-        properties_action.setShortcut(Qt.Modifier.Alt | Qt.Key.Key_Return) # Alt+Enter
+        properties_action = menu.addAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation),
+            self.ContextMenuAction.PROPERTIES.value,
+        )
+        properties_action.triggered.connect(
+            lambda: self._on_context_menu_action(self.ContextMenuAction.PROPERTIES)
+        )
+        properties_action.setShortcut("Alt+Return")  # Alt+Enter
 
         # AC9: Delete with Confirmation
-        delete_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon),
-                                        self.ContextMenuAction.DELETE.value)
-        delete_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.DELETE))
+        delete_action = menu.addAction(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon),
+            self.ContextMenuAction.DELETE.value,
+        )
+        delete_action.triggered.connect(
+            lambda: self._on_context_menu_action(self.ContextMenuAction.DELETE)
+        )
         delete_action.setShortcut(Qt.Key.Key_Delete)
 
         # AC10: Rename with Validation
-        rename_action = menu.addAction(self.style().standardIcon(QStyle.StandardPixmap.SP_LineEditClearButton), # Placeholder icon
-                                       self.ContextMenuAction.RENAME.value)
-        rename_action.triggered.connect(lambda: self._on_context_menu_action(self.ContextMenuAction.RENAME))
+        rename_action = menu.addAction(
+            self.style().standardIcon(
+                QStyle.StandardPixmap.SP_LineEditClearButton
+            ),  # Placeholder icon
+            self.ContextMenuAction.RENAME.value,
+        )
+        rename_action.triggered.connect(
+            lambda: self._on_context_menu_action(self.ContextMenuAction.RENAME)
+        )
         rename_action.setShortcut(Qt.Key.Key_F2)
 
         # AC11: Multi-Selection Support - Initial disabling/enabling logic
@@ -465,55 +550,348 @@ class MainWindow(QMainWindow):
         open_with_action.setEnabled(is_single_selection)
         properties_action.setEnabled(is_single_selection)
         rename_action.setEnabled(is_single_selection)
-        
+
         return menu
+
+    def _populate_open_with_menu(self, menu: QMenu, result: SearchResult) -> None:
+        """Populate the Open With submenu with available applications.
+
+        Args:
+            menu: The menu to populate
+            result: The search result to find apps for
+        """
+        menu.clear()
+
+        # Get associated applications
+        apps = get_associated_applications(result.path)
+
+        for app in apps:
+            action = menu.addAction(app["name"])
+            # Capture app_info in closure
+            action.triggered.connect(
+                lambda checked, a=app: self._handle_open_with_app(a, result)
+            )
+
+        if apps:
+            menu.addSeparator()
+
+        # Always add "Choose another application..."
+        choose_action = menu.addAction("Choose another application...")
+        choose_action.triggered.connect(lambda: self._handle_choose_application(result))
+
+    def _handle_open_with_app(self, app_info: dict, result: SearchResult) -> None:
+        """Handle opening file with a specific application.
+
+        Args:
+            app_info: Application info dictionary
+            result: SearchResult object
+        """
+        try:
+            self.safe_status_message(
+                f"Opening {result.path.name} with {app_info['name']}..."
+            )
+            open_with_application(result.path, app_info)
+            self.safe_status_message(
+                f"Opened {result.path.name} with {app_info['name']}"
+            )
+            logger.info(
+                f"Opened file {result.path} with application {app_info['name']}"
+            )
+        except Exception as e:
+            self.safe_status_message(f"Failed to open with {app_info['name']}: {e}")
+            logger.error(f"Error opening {result.path} with {app_info['name']}: {e}")
+
+    def _handle_choose_application(self, result: SearchResult) -> None:
+        """Handle "Choose another application..." action.
+
+        Args:
+            result: SearchResult object
+        """
+        from PyQt6.QtWidgets import QFileDialog
+
+        # Simple implementation: let user pick an executable
+        # In a real app, we might want a more sophisticated dialog showing installed apps
+        file_dialog = QFileDialog(self, "Choose Application")
+        file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+
+        if file_dialog.exec():
+            selected_files = file_dialog.selectedFiles()
+            if selected_files:
+                executable = selected_files[0]
+                app_info = {"name": Path(executable).name, "command": executable}
+                self._handle_open_with_app(app_info, result)
 
     def _on_context_menu_action(self, action: ContextMenuAction) -> None:
         """
         Routes context menu actions to their respective handlers.
-        
+
         Args:
             action: The ContextMenuAction enum value representing the chosen action.
         """
-        # For now, this just prints a message.
-        # Specific implementations will replace these print statements.
         selected_indexes = self.results_view.selectionModel().selectedIndexes()
-        selected_results = [self.results_view.model().data(index, Qt.ItemDataRole.UserRole)
-                            for index in selected_indexes if index.isValid()]
-        
+        selected_results = [
+            self.results_view.model().data(index, Qt.ItemDataRole.UserRole)
+            for index in selected_indexes
+            if index.isValid()
+        ]
+
         if not selected_results:
-            self.statusBar().showMessage("No item selected for action.", 3000)
+            self.safe_status_message("No item selected for action.")
             return
 
-        # Safeguard against actions not supported for multiple selections
-        if len(selected_results) > 1 and action not in [
-            self.ContextMenuAction.OPEN,
-            self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD,
-            self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD,
-            self.ContextMenuAction.DELETE
-        ]:
-            self.statusBar().showMessage(f"Action '{action.value}' not supported for multiple selections.", 3000)
+        # Route to appropriate handler
+        handler_map = {
+            self.ContextMenuAction.OPEN: self._handle_context_open,
+            self.ContextMenuAction.OPEN_WITH: self._handle_context_open_with,
+            self.ContextMenuAction.OPEN_CONTAINING_FOLDER: self._handle_context_open_containing_folder,
+            self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD: self._handle_context_copy_path,
+            self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD: self._handle_context_copy_file,
+            self.ContextMenuAction.PROPERTIES: self._handle_context_properties,
+            self.ContextMenuAction.DELETE: self._handle_context_delete,
+            self.ContextMenuAction.RENAME: self._handle_context_rename,
+        }
+
+        handler = handler_map.get(action)
+        if handler:
+            try:
+                handler(selected_results)
+            except Exception as e:
+                logger.error(f"Error executing context menu action {action}: {e}")
+                self.safe_status_message(f"Error: {str(e)}")
+        else:
+            logger.warning(f"Unknown context menu action: {action}")
+
+    def _handle_context_open(self, selected_results: List[SearchResult]) -> None:
+        """Handle Open action - open files with default application."""
+        for result in selected_results:
+            # Use existing file opening logic
+            self._on_file_open_requested(result)
+
+    def _handle_context_open_with(self, selected_results: List[SearchResult]) -> None:
+        """Handle Open With... submenu action."""
+        if len(selected_results) != 1:
+            self.safe_status_message(
+                "Open With... only supported for single selection."
+            )
             return
 
-        first_result_path = selected_results[0].path if selected_results else None
+        result = selected_results[0]
+        # TODO: Implement Open With... dialog (AC4)
+        self.safe_status_message(
+            f"Open With... not yet implemented for {result.path.name}"
+        )
 
-        if action == self.ContextMenuAction.OPEN:
-            self.statusBar().showMessage(f"Action: Open {first_result_path.name}", 3000)
-            # This should eventually call self._on_file_open_requested
-        elif action == self.ContextMenuAction.OPEN_WITH:
-            self.statusBar().showMessage(f"Action: Open With... {first_result_path.name}", 3000)
-        elif action == self.ContextMenuAction.OPEN_CONTAINING_FOLDER:
-            self.statusBar().showMessage(f"Action: Open Containing Folder {first_result_path.parent.name}", 3000)
-        elif action == self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD:
-            self.statusBar().showMessage(f"Action: Copy Path to Clipboard for {len(selected_results)} items", 3000)
-        elif action == self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD:
-            self.statusBar().showMessage(f"Action: Copy File to Clipboard for {len(selected_results)} items", 3000)
-        elif action == self.ContextMenuAction.PROPERTIES:
-            self.statusBar().showMessage(f"Action: Properties for {first_result_path.name}", 3000)
-        elif action == self.ContextMenuAction.DELETE:
-            self.statusBar().showMessage(f"Action: Delete {len(selected_results)} items", 3000)
-        elif action == self.ContextMenuAction.RENAME:
-            self.statusBar().showMessage(f"Action: Rename {first_result_path.name}", 3000)
+    def _handle_context_open_containing_folder(
+        self, selected_results: List[SearchResult]
+    ) -> None:
+        """Handle Open Containing Folder action."""
+        if len(selected_results) != 1:
+            self.safe_status_message(
+                "Open Containing Folder only supported for single selection."
+            )
+            return
+
+        result = selected_results[0]
+        try:
+            open_containing_folder(result.path)
+            self.safe_status_message("Opened containing folder")
+            logger.info(f"Opened containing folder for {result.path}")
+        except FileSearchError as e:
+            self.safe_status_message(f"Failed to open containing folder: {e}")
+            logger.error(f"Error opening containing folder for {result.path}: {e}")
+
+    def _handle_context_copy_path(self, selected_results: List[SearchResult]) -> None:
+        """Handle Copy Path to Clipboard action."""
+        try:
+            clipboard = QGuiApplication.clipboard()
+            if len(selected_results) == 1:
+                # Single file: copy just the path
+                path_text = str(selected_results[0].path)
+            else:
+                # Multiple files: copy newline-separated paths
+                paths = [str(result.path) for result in selected_results]
+                path_text = "\n".join(paths)
+
+            clipboard.setText(path_text)
+            self.safe_status_message("Path copied to clipboard")
+            logger.info(f"Copied {len(selected_results)} path(s) to clipboard")
+        except Exception as e:
+            self.safe_status_message(f"Failed to copy path: {e}")
+            logger.error(f"Error copying path to clipboard: {e}")
+
+    def _handle_context_copy_file(self, selected_results: List[SearchResult]) -> None:
+        """Handle Copy File to Clipboard action."""
+        try:
+            clipboard = QGuiApplication.clipboard()
+
+            # Verify files exist before copying
+            missing_files = []
+            for result in selected_results:
+                if not result.path.exists():
+                    missing_files.append(result.path.name)
+
+            if missing_files:
+                if len(missing_files) == 1:
+                    self.safe_status_message(
+                        f"File no longer exists: {missing_files[0]}"
+                    )
+                else:
+                    self.safe_status_message(
+                        f"{len(missing_files)} files no longer exist"
+                    )
+                return
+
+            if len(selected_results) == 1:
+                # Single file: copy as file URL for proper pasting
+                file_path = selected_results[0].path
+                file_url = QUrl.fromLocalFile(str(file_path))
+
+                # Create MIME data for file copying
+                mime_data = QMimeData()
+                mime_data.setUrls([file_url])
+                clipboard.setMimeData(mime_data)
+            else:
+                # Multiple files: try to copy as list of URLs
+                urls = [QUrl.fromLocalFile(str(r.path)) for r in selected_results]
+                mime_data = QMimeData()
+                mime_data.setUrls(urls)
+                clipboard.setMimeData(mime_data)
+
+            self.safe_status_message("File copied to clipboard")
+            logger.info(f"Copied {len(selected_results)} file(s) to clipboard")
+        except Exception as e:
+            self.safe_status_message(f"Failed to copy: {e}")
+            logger.error(f"Error copying file to clipboard: {e}")
+
+            # Fallback to path copy
+            try:
+                self._handle_context_copy_path(selected_results)
+                self.safe_status_message(
+                    "Failed to copy file object, copied path instead"
+                )
+            except Exception:
+                pass
+
+    def _handle_context_properties(self, selected_results: List[SearchResult]) -> None:
+        """Handle Properties dialog action."""
+        if len(selected_results) != 1:
+            self.safe_status_message("Properties only supported for single selection.")
+            return
+
+        result = selected_results[0]
+        try:
+            from filesearch.ui.dialogs.properties_dialog import PropertiesDialog
+
+            dialog = PropertiesDialog(result.path, self)
+            dialog.exec()
+            logger.info(f"Showed properties dialog for {result.path}")
+        except Exception as e:
+            self.safe_status_message(f"Failed to show properties: {e}")
+            logger.error(f"Error showing properties dialog for {result.path}: {e}")
+
+    def _handle_context_delete(self, selected_results: List[SearchResult]) -> None:
+        """Handle Delete action with confirmation."""
+        try:
+            # Check if Shift is pressed for permanent delete
+            modifiers = QApplication.keyboardModifiers()
+            permanent_delete = bool(modifiers & Qt.KeyboardModifier.ShiftModifier)
+
+            # Show confirmation dialog
+            if len(selected_results) == 1:
+                item_name = selected_results[0].path.name
+            else:
+                item_name = f"{len(selected_results)} items"
+
+            if permanent_delete:
+                message = (
+                    f"Permanently delete {item_name}? This action cannot be undone."
+                )
+                title = "Confirm Permanent Delete"
+            else:
+                message = f"Move {item_name} to trash?"
+                title = "Confirm Delete"
+
+            reply = QMessageBox.question(
+                self,
+                title,
+                message,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+
+            if reply != QMessageBox.StandardButton.Yes:
+                self.safe_status_message("Delete cancelled")
+                return
+
+            # Perform delete operation
+            self._perform_delete(selected_results, permanent_delete)
+
+        except Exception as e:
+            self.safe_status_message(f"Delete failed: {e}")
+            logger.error(f"Error in delete operation: {e}")
+
+    def _perform_delete(
+        self, selected_results: List[SearchResult], permanent: bool
+    ) -> None:
+        """Perform the actual delete operation."""
+
+        deleted_count = 0
+        errors = []
+
+        for result in selected_results:
+            try:
+                delete_file(result.path, permanent)
+                deleted_count += 1
+
+                # Remove from results view (via model)
+                # Note: This is slightly inefficient as we're deleting one by one
+                # A better way would be to ask the model to remove rows
+                # For now, we'll rely on the search being refreshed or just hiding it?
+                # Ideally we should update the model.
+                # Let's trigger a model refresh or similar.
+
+                # Since we don't have direct remove methods in ResultsView easily accessible here without
+                # finding the index, we might just remove it from our local list.
+                # But the view needs to update.
+                # We can search for the item in the model and remove it.
+
+                self._remove_result_from_view(result)
+
+            except Exception as e:
+                errors.append(f"{result.path.name}: {str(e)}")
+
+        # Report status
+        if errors:
+            if len(errors) == 1:
+                self.safe_status_message(f"Error: {errors[0]}")
+            else:
+                self.safe_status_message(f"Failed to delete {len(errors)} items")
+                # Show details in dialog?
+                logger.error(f"Delete errors: {errors}")
+        elif deleted_count > 0:
+            action = "permanently deleted" if permanent else "moved to trash"
+            self.safe_status_message(f"Successfully {action} {deleted_count} items")
+
+    def _remove_result_from_view(self, result: SearchResult) -> None:
+        """Remove a result from the view's model."""
+        model = self.results_view.model()
+        # Iterate to find the item - not super efficient but robust
+        if hasattr(model, "remove_result"):
+            model.remove_result(result)
+
+    def _handle_context_rename(self, selected_results: List[SearchResult]) -> None:
+        """Handle Rename action with inline editing."""
+        if len(selected_results) != 1:
+            self.safe_status_message("Rename only supported for single selection.")
+            return
+
+        # Trigger edit in the view
+        current_index = self.results_view.currentIndex()
+        if current_index.isValid():
+            self.results_view.edit(current_index)
+            self.safe_status_message(f"Renaming {selected_results[0].path.name}")
+        else:
+            self.safe_status_message("Could not start rename: invalid selection")
 
     def show_settings_dialog(self) -> None:
         """Show the settings dialog."""
@@ -530,16 +908,18 @@ class MainWindow(QMainWindow):
         """Load and apply highlight settings from configuration."""
         try:
             # Load highlight settings if the results view supports it
-            if hasattr(self.results_view, 'set_highlight_enabled'):
+            if hasattr(self.results_view, "set_highlight_enabled"):
                 enabled = self.config_manager.get("highlighting.enabled", True)
                 self.results_view.set_highlight_enabled(enabled)
 
                 color = self.config_manager.get("highlighting.color", "#FFFF99")
-                if hasattr(self.results_view, 'set_highlight_color'):
+                if hasattr(self.results_view, "set_highlight_color"):
                     self.results_view.set_highlight_color(color)
 
-                case_sensitive = self.config_manager.get("highlighting.case_sensitive", False)
-                if hasattr(self.results_view, 'set_highlight_case_sensitive'):
+                case_sensitive = self.config_manager.get(
+                    "highlighting.case_sensitive", False
+                )
+                if hasattr(self.results_view, "set_highlight_case_sensitive"):
                     self.results_view.set_highlight_case_sensitive(case_sensitive)
 
                 logger.debug("Highlight settings loaded")
@@ -551,13 +931,14 @@ class MainWindow(QMainWindow):
         try:
             # Load sort criteria from config
             from filesearch.core.sort_engine import SortCriteria
+
             criteria_str = self.config_manager.get("sorting.criteria", "name_asc")
 
             # Convert string to SortCriteria enum
             criteria = SortCriteria(criteria_str)
 
             # Apply to sort controls
-            if hasattr(self.sort_controls, 'set_criteria'):
+            if hasattr(self.sort_controls, "set_criteria"):
                 self.sort_controls.set_criteria(criteria)
 
             logger.debug(f"Sort settings loaded: {criteria_str}")
@@ -790,55 +1171,60 @@ class MainWindow(QMainWindow):
 
     def _on_file_open_requested(self, search_result: SearchResult) -> None:
         """Handle file opening request from results view.
-        
+
         Args:
             search_result: SearchResult object for the file to open
         """
         try:
             # Get security manager for executable warnings
             from filesearch.core.security_manager import get_security_manager
+
             security_manager = get_security_manager(self.config_manager)
-            
+
             # Check if file is executable and should warn
-            should_warn, warning_message = security_manager.should_warn_before_opening(search_result.path)
-            
+            should_warn, warning_message = security_manager.should_warn_before_opening(
+                search_result.path
+            )
+
             if should_warn:
                 # Show warning dialog
-                from PyQt6.QtWidgets import QMessageBox, QCheckBox
                 from PyQt6.QtCore import Qt
-                
+                from PyQt6.QtWidgets import QCheckBox, QMessageBox
+
                 msg_box = QMessageBox()
                 msg_box.setIcon(QMessageBox.Icon.Warning)
                 msg_box.setWindowTitle("Security Warning")
                 msg_box.setText(warning_message)
-                
+
                 # Add checkbox for "Always allow" option
                 checkbox = QCheckBox("Always open files of this type")
                 checkbox.setChecked(False)
                 msg_box.setCheckBox(checkbox)
-                
+
                 msg_box.setStandardButtons(
                     QMessageBox.StandardButton.Open | QMessageBox.StandardButton.Cancel
                 )
                 msg_box.setDefaultButton(QMessageBox.StandardButton.Cancel)
-                
+
                 result = msg_box.exec()
-                
+
                 if result == QMessageBox.StandardButton.Open:
                     # User chose to open
                     if checkbox.isChecked():
                         # Remember user preference
                         security_manager.allow_extension(search_result.path.suffix)
-                    
+
                     self._open_file_with_status(search_result.path)
                 else:
                     # User cancelled
                     self.safe_status_message("File opening cancelled")
-                    logger.info(f"User cancelled opening executable file: {search_result.path}")
+                    logger.info(
+                        f"User cancelled opening executable file: {search_result.path}"
+                    )
             else:
                 # No warning needed, open directly
                 self._open_file_with_status(search_result.path)
-                
+
         except Exception as e:
             self.safe_status_message(f"Error checking file security: {e}")
             logger.error(f"Error checking file security for {search_result.path}: {e}")
@@ -855,19 +1241,20 @@ class MainWindow(QMainWindow):
 
             # Import safe_open here to avoid circular imports
             from filesearch.core.file_utils import safe_open
+
             safe_open(file_path)
 
             # Show success status
             self.safe_status_message(f"Opened: {file_path.name}")
             logger.info(f"Successfully opened file: {file_path}")
-            
+
             # Add to recently opened files
             self.config_manager.add_recent_file(file_path)
-            
+
         except FileSearchError as e:
             # Handle specific error types
             error_msg = str(e)
-            
+
             if "SECURITY_WARNING:" in error_msg:
                 # This shouldn't happen here as we handle warnings above
                 return
@@ -876,24 +1263,35 @@ class MainWindow(QMainWindow):
             elif "permission denied" in error_msg.lower():
                 self.safe_status_message(f"Permission denied: {file_path.name}")
             elif "no application" in error_msg.lower():
-                self.safe_status_message(f"No application associated with this file type: {file_path.suffix}")
+                self.safe_status_message(
+                    f"No application associated with this file type: {file_path.suffix}"
+                )
             else:
                 self.safe_status_message(f"Failed to open: {file_path.name}")
-                
+
             logger.error(f"Error opening file {file_path}: {e}")
-            
+
             # Offer to open containing folder as fallback
             from PyQt6.QtWidgets import QMessageBox
+
             reply = QMessageBox.question(
                 self,
                 "Open Containing Folder",
                 f"Could not open {file_path.name}. Would you like to open its containing folder instead?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes
+                QMessageBox.StandardButton.Yes,
             )
-            
+
             if reply == QMessageBox.StandardButton.Yes:
                 self.open_selected_folder(file_path)
+
+    def closeEvent(self, event) -> None:
+        """Handle window close event."""
+        self.save_window_settings()
+        if self.search_worker:
+            self.search_worker.stop()
+            self.search_worker.wait()
+        super().closeEvent(event)
 
 
 def create_main_window(config_manager: Optional[ConfigManager] = None) -> MainWindow:
