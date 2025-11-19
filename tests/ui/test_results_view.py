@@ -23,6 +23,7 @@ def app():
 def results_view(app):
     """Create ResultsView instance for tests."""
     view = ResultsView()
+    view.show()  # Need to show for visual rects to work properly
     yield view
     view.deleteLater()
 
@@ -173,3 +174,84 @@ def test_empty_state_messages(results_view):
     assert model.rowCount() == 1
     index = model.index(0, 0)
     assert "No files found" in index.data(Qt.ItemDataRole.DisplayRole)
+
+
+def test_searching_state_clears_previous_results(results_view, sample_results):
+    """Test that setting searching state clears previous results."""
+    # With a view with existing results
+    results_view.set_results(sample_results)
+    assert results_view.model().rowCount() == 3
+
+    # When we set the searching state
+    results_view.set_searching_state()
+
+    # Then the view should be empty and show the searching message
+    assert results_view.model().rowCount() == 1
+    index = results_view.model().index(0, 0)
+    assert "Searching..." in index.data(Qt.ItemDataRole.DisplayRole)
+
+    # And the underlying results model should be cleared
+    assert not results_view._results_model.get_all_results()
+
+
+def test_double_click_on_path_opens_folder(results_view, sample_results, qtbot):
+    """Test that double-clicking on the path area opens the containing folder."""
+    results_view.set_results(sample_results)
+    results_view.resize(400, 200)  # Ensure some size
+
+    # Create a signal spy
+    with qtbot.waitSignal(results_view.folder_open_requested, timeout=1000) as blocker:
+        # Get index of first item
+        index = results_view.model().index(0, 0)
+
+        # Scroll to item
+        results_view.scrollTo(index)
+
+        rect = results_view.visualRect(index)
+
+        # Click at y=35 relative to item top (path area)
+        from PyQt6.QtCore import QPoint
+
+        # Calculate global position for the click
+        # visualRect is in viewport coordinates
+        center_x = rect.center().x()
+        target_y = rect.y() + 35
+
+        qtbot.mouseDClick(
+            results_view.viewport(),
+            Qt.MouseButton.LeftButton,
+            pos=QPoint(center_x, target_y),
+        )
+
+    assert blocker.args[0] == sample_results[0]
+
+
+def test_double_click_on_filename_opens_file(results_view, sample_results, qtbot):
+    """Test that double-clicking on the filename area opens the file."""
+    results_view.set_results(sample_results)
+    results_view.resize(400, 200)  # Ensure some size
+
+    # Create a signal spy for file opening
+    with qtbot.waitSignal(results_view.file_open_requested, timeout=1000) as blocker:
+        # Get index of first item
+        index = results_view.model().index(0, 0)
+
+        # Scroll to item
+        results_view.scrollTo(index)
+
+        rect = results_view.visualRect(index)
+
+        # Click at y=15 relative to item top (filename area)
+        from PyQt6.QtCore import QPoint
+
+        # Calculate global position for the click
+        center_x = rect.center().x()
+        target_y = rect.y() + 15
+
+        qtbot.mouseDClick(
+            results_view.viewport(),
+            Qt.MouseButton.LeftButton,
+            pos=QPoint(center_x, target_y),
+        )
+
+    assert blocker.args[0] == sample_results[0]

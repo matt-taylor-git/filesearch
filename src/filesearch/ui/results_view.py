@@ -473,6 +473,8 @@ class ResultsView(QListView):
 
     # Custom signal for file opening requests
     file_open_requested = pyqtSignal(object)  # SearchResult
+    # Custom signal for folder opening requests (AC: Open Containing Folder)
+    folder_open_requested = pyqtSignal(object)  # SearchResult
     # Custom signal for context menu requests
     context_menu_requested = pyqtSignal(QPoint)  # Global position of the right-click
 
@@ -509,6 +511,9 @@ class ResultsView(QListView):
         # Keyboard navigation
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
 
+        # Disable double-click to edit, so double-click opens file
+        self.setEditTriggers(QAbstractItemView.EditTrigger.EditKeyPressed)
+
         # Double-click handling
         self.doubleClicked.connect(self._on_double_clicked)
 
@@ -525,7 +530,8 @@ class ResultsView(QListView):
 
     def _on_custom_context_menu_requested(self, pos: QPoint) -> None:
         """
-        Handles the custom context menu request by emitting a signal with the global position.
+        Handles the custom context menu request by emitting a signal with the global
+        position.
         """
         # Map the local position to global coordinates for the main window
         global_pos = self.mapToGlobal(pos)
@@ -600,6 +606,8 @@ class ResultsView(QListView):
 
     def set_searching_state(self):
         """Set searching state with spinner message"""
+        if self._results_model:
+            self._results_model.clear()
         self.setModel(self._empty_model)
         self._empty_model.clear()
         self._show_empty_state("Searching...")
@@ -609,9 +617,10 @@ class ResultsView(QListView):
 
     def add_result(self, result: SearchResult):
         """Add a single result to the view"""
-        if not self._results_model:
-            self._results_model = ResultsModel()
-            self._results_model.error_occurred.connect(self._on_model_error)
+        if not self._results_model or self.model() == self._empty_model:
+            if not self._results_model:
+                self._results_model = ResultsModel()
+                self._results_model.error_occurred.connect(self._on_model_error)
             self.setModel(self._results_model)
             # Clear the searching state when first result arrives
             self.set_search_active(False)
@@ -664,7 +673,8 @@ class ResultsView(QListView):
             super().keyPressEvent(e)
             return
 
-        # Handle keyboard shortcuts for sorting (Ctrl+1..5 for criteria, Ctrl+R to reverse)
+        # Handle keyboard shortcuts for sorting (Ctrl+1..5 for criteria, Ctrl+R to
+        # reverse)
         if e.modifiers() == Qt.KeyboardModifier.ControlModifier:
             if e.key() == Qt.Key.Key_1:
                 self.apply_sorting(SortCriteria.NAME_ASC)
@@ -696,6 +706,16 @@ class ResultsView(QListView):
                     self.apply_sorting(SortCriteria.DATE_DESC)
                 elif current == SortCriteria.DATE_DESC:
                     self.apply_sorting(SortCriteria.DATE_ASC)
+                return
+
+        # Handle Ctrl+Shift+O (Open Containing Folder)
+        if e.modifiers() == (
+            Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier
+        ):
+            if e.key() == Qt.Key.Key_O:
+                result = self.get_selected_result()
+                if result:
+                    self.folder_open_requested.emit(result)
                 return
 
         if not self._results_model:
@@ -756,6 +776,47 @@ class ResultsView(QListView):
             super().keyPressEvent(e)
             return
 
+    def mouseDoubleClickEvent(self, e) -> None:
+        """Handle mouse double click events.
+
+        Overridden to distinguish between clicking on filename (open file)
+        and clicking on path (open containing folder).
+        """
+        if self._is_searching:
+            return
+
+        index = self.indexAt(e.pos())
+        if index.isValid():
+            # Get the visual rect of the item
+            rect = self.visualRect(index)
+
+            # Calculate click position relative to the item
+            # Item layout (from ResultsItemDelegate):
+            # - Top margin: 5px
+            # - Icon/Filename: 20px height (y=5 to y=25)
+            # - Path: 15px height (starts at filename bottom) (y=25 to y=40)
+            #
+            # So if relative Y is > 25, it's likely the path area
+            relative_y = e.pos().y() - rect.y()
+
+            if relative_y > 25:
+                # Clicked on path area - open folder
+                result = index.data(Qt.ItemDataRole.UserRole)
+                if result:
+                    self.folder_open_requested.emit(result)
+                    self._add_highlight_flash(index)
+            else:
+                # Clicked on filename area - open file
+                # Explicitly emit doubleClicked signal to trigger file opening
+                # This ensures reliable behavior regardless of edit triggers
+                self.doubleClicked.emit(index)
+
+            e.accept()
+            return
+
+        # Otherwise call super implementation
+        super().mouseDoubleClickEvent(e)
+
     def _on_double_clicked(self, index: QModelIndex) -> None:
         """Handle double-click events on results.
 
@@ -809,10 +870,14 @@ class ResultsView(QListView):
         Args:
             original_selection: List of originally selected indexes
         """
-        if original_selection:
-            self.setCurrentIndex(original_selection[0])
-        else:
-            self.clearSelection()
+        try:
+            if original_selection:
+                self.setCurrentIndex(original_selection[0])
+            else:
+                self.clearSelection()
+        except RuntimeError:
+            # View might be deleted
+            pass
 
     def mouseMoveEvent(self, e) -> None:
         """Handle mouse move events for cursor changes.

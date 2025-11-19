@@ -1,7 +1,7 @@
 """Unit tests for context menu functionality."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -31,7 +31,6 @@ class TestContextMenuActionRouting:
 
     def test_on_context_menu_action_valid_routing(self, search_results):
         """Test that actions route to correct handlers."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.results_view = Mock()
@@ -56,7 +55,6 @@ class TestContextMenuActionRouting:
 
     def test_on_context_menu_action_invalid_selection(self):
         """Test handling when no items are selected."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.results_view = Mock()
@@ -74,7 +72,6 @@ class TestContextMenuActionRouting:
 
     def test_on_context_menu_action_multi_selection_guarding(self, search_results):
         """Test that multi-selection properly guards single-file actions."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.results_view = Mock()
@@ -113,7 +110,6 @@ class TestContextMenuActionHandlers:
         self, mock_open_folder, search_results
     ):
         """Test opening containing folder."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
@@ -140,8 +136,6 @@ class TestContextMenuActionHandlers:
         mock_clipboard = Mock()
         mock_clipboard_getter.return_value = mock_clipboard
 
-        from filesearch.ui.main_window import MainWindow
-
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
 
@@ -162,8 +156,6 @@ class TestContextMenuActionHandlers:
         mock_clipboard = Mock()
         mock_clipboard_getter.return_value = mock_clipboard
 
-        from filesearch.ui.main_window import MainWindow
-
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
 
@@ -183,12 +175,10 @@ class TestContextMenuActionHandlers:
         self, mock_clipboard_getter, search_results
     ):
         """Test copying file to clipboard using MIME data."""
-        from PyQt6.QtCore import QMimeData, QUrl
+        from PyQt6.QtCore import QMimeData
 
         mock_clipboard = Mock()
         mock_clipboard_getter.return_value = mock_clipboard
-
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
@@ -218,8 +208,6 @@ class TestContextMenuActionHandlers:
         mock_clipboard = Mock()
         mock_clipboard_getter.return_value = mock_clipboard
 
-        from filesearch.ui.main_window import MainWindow
-
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
 
@@ -235,11 +223,11 @@ class TestContextMenuActionHandlers:
 
         # Mock path existence
         with patch("pathlib.Path.exists", return_value=True):
-            # Mock setMimeData to raise exception to trigger fallback, OR rely on implementation logic
+            # Mock setMimeData to raise exception to trigger fallback
             # The implementation for multiple files tries to set list of URLs.
             # If we want to test fallback, we need exception.
-            # BUT the test expectation "Should fall back to path copying" matches the code:
-            # "Multiple files: try to copy as list of URLs" -> this is NEW logic.
+            # BUT the test expectation matches the code:
+            # "Multiple files - try to copy as list of URLs" -> this is NEW logic.
             # Previously it fell back. Now it supports multiple files via URL list.
             # So the test expectation is outdated unless we force exception.
 
@@ -250,11 +238,10 @@ class TestContextMenuActionHandlers:
 
         # Should fall back to path copying for multiple files
         mock_clipboard.setText.assert_called_once_with(expected_text)
-        # window.safe_status_message.assert_called_with("Path copied to clipboard") # This might be called inside copy_path
+        # window.safe_status_message.assert_called_with("Path copied to clipboard")
 
     def test_handle_context_rename_placeholder(self, search_results):
         """Test rename action placeholder behavior."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
@@ -278,7 +265,6 @@ class TestContextMenuActionHandlers:
 
     def test_handle_context_open_with_placeholder(self, search_results):
         """Test open with action placeholder behavior."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
@@ -295,7 +281,6 @@ class TestContextMenuActionHandlers:
 
     def test_handle_context_properties_single_selection_guard(self, search_results):
         """Test properties action guard for single selection."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
@@ -313,7 +298,6 @@ class TestContextMenuActionHandlers:
 
     def test_handle_context_delete_single_selection_guard(self, search_results):
         """Test delete action guard for multi-selection support."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
@@ -332,8 +316,6 @@ class TestContextMenuActionHandlers:
         mock_dialog = Mock()
         mock_properties_dialog.return_value = mock_dialog
         mock_dialog.exec.return_value = True
-
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
@@ -356,7 +338,6 @@ class TestContextMenuDeleteOperations:
         self, mock_delete_file, search_results
     ):
         """Test permanent delete implementation."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
@@ -376,7 +357,6 @@ class TestContextMenuDeleteOperations:
     @patch("filesearch.ui.main_window.delete_file")
     def test_perform_delete_trash_placeholder(self, mock_delete_file, search_results):
         """Test trash delete implementation."""
-        from filesearch.ui.main_window import MainWindow
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()

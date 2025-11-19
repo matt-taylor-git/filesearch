@@ -1,0 +1,115 @@
+{
+  "workflow_version": "1.2.0",
+  "timestamps": {
+    "started": "2025-11-19T00:00:00Z",
+    "last_updated": "2025-11-19T00:00:00Z"
+  },
+  "mode": "initial_scan",
+  "scan_level": "deep",
+  "project_root": "/home/matt/code/filesearch",
+  "output_folder": "/home/matt/code/filesearch/docs",
+  "completed_steps": [
+    {
+      "step": "step_1",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Classified as monolith desktop application with PyQt6"
+    },
+    {
+      "step": "step_2",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Found 13 existing docs"
+    },
+    {
+      "step": "step_3",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Tech stack: PyQt6 on Python"
+    },
+    {
+      "step": "step_4",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Conditional analysis complete, 4 files written"
+    },
+    {
+      "step": "step_5",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Source tree documented"
+    },
+    {
+      "step": "step_6",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Dev/deployment guides written"
+    },
+    {
+      "step": "step_7",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Architecture docs written for 1 parts"
+    },
+    {
+      "step": "step_9",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "All supporting docs written"
+    },
+    {
+      "step": "step_10",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Master index generated"
+    },
+    {
+      "step": "step_11",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Validation and review complete"
+    },
+    {
+      "step": "step_12",
+      "status": "completed",
+      "timestamp": "2025-11-19T00:00:00Z",
+      "summary": "Workflow complete"
+    }
+  ],
+  "current_step": "completed",
+  "timestamps": {
+    "started": "2025-11-19T00:00:00Z",
+    "last_updated": "2025-11-19T00:00:00Z",
+    "completed": "2025-11-19T00:00:00Z"
+  }
+  "findings": {
+    "project_classification": "Desktop application (monolith) with PyQt6 GUI framework and modular architecture",
+    "project_types": [
+      {
+        "part_id": "main",
+        "project_type_id": "desktop",
+        "display_name": "Desktop Application"
+      }
+    ],
+    "technology_stack": "Python 3.9+ with PyQt6 GUI framework, loguru logging, platformdirs for cross-platform paths"
+  },
+  "outputs_generated": [
+    "project-scan-report.json",
+    "state-management-analysis.md",
+    "ui-component-inventory.md",
+    "asset-inventory.md",
+    "configuration-deployment-analysis.md"
+  ],
+  "findings": {
+    "project_classification": "Desktop application (monolith) with PyQt6 GUI framework and modular architecture",
+    "project_types": [
+      {
+        "part_id": "main",
+        "project_type_id": "desktop",
+        "display_name": "Desktop Application"
+      }
+    ]
+  },
+  "outputs_generated": ["project-scan-report.json"],
+  "resume_instructions": "Starting from step 1"
+}

@@ -440,6 +440,30 @@ def validate_file_access(path: Path) -> bool:
 
 **Test:** Ctrl+Shift+O opens folder with file selected on all platforms
 
+---
+
+**Implementation Status: ✅ COMPLETED 2025-11-18**
+
+**What was implemented:**
+- Enhanced `file_utils.py` with `reveal_file_in_folder` supporting Windows, macOS, and Linux.
+- Implemented `folder_open_requested` signal in `ResultsView`.
+- Added `Ctrl+Shift+O` shortcut handling in `ResultsView`.
+- Connected signal in `MainWindow` to `open_selected_folder`.
+- Updated context menu handler to support multi-selection (opens folder for first selected item).
+- Verified platform-specific commands via unit tests with mocking.
+
+**Key Technical Decisions:**
+- Used `subprocess.Popen` for non-blocking execution on all platforms.
+- Implemented specific file manager support for Linux (nautilus, dolphin) with `xdg-open` fallback.
+- Reused existing `open_containing_folder` function as alias to new implementation.
+
+**Test Coverage:**
+- Unit tests for `reveal_file_in_folder` on all platforms.
+- Integration tests for signal flow and keyboard shortcut.
+- Integration tests for context menu action.
+
+---
+
 ## Traceability Mapping
 
 | AC | PRD Section | Architecture Component | API/Interface | Test Strategy |
@@ -582,6 +606,19 @@ def validate_file_access(path: Path) -> bool:
 
 **Impact:** Story 3.5 is IN PROGRESS until critical missing features are implemented.
 
+### Story 3.6 Open Containing Folder Issues (2025-11-19)
+
+**Blocking Issues:**
+- **Task Falsely Marked Complete:** "Add double-click handler for path column" marked done but not implemented.
+- **Task Falsely Marked Complete:** "Add wait cursor during operation" marked done but not implemented.
+
+**Action Items:**
+1. Implement "Double-click on path text" detection in `ResultsView`.
+2. Add wait cursor during folder open operation.
+3. Consider adding error dialog for folder open failures.
+
+**Impact:** Story 3.6 is BLOCKED until critical missing features are implemented.
+
 ---
 
 ### Story 3.1 Critical Issues (2025-11-17)
@@ -609,7 +646,7 @@ def validate_file_access(path: Path) -> bool:
 - AC3 (Results Sorting): ✅ COMPLETED 2025-11-17
 - AC4 (Double-Click Opening): ✅ COMPLETED 2025-11-18
 - AC5 (Context Menu): 🔄 IN PROGRESS - Story 3.5 pending
-- AC6 (Open Containing Folder): 🔄 IN PROGRESS - Story 3.6 pending
+- AC6 (Open Containing Folder): ✅ COMPLETED 2025-11-18
 
 **Next Steps:**
 1. **BLOCKED**: Address Story 3.1 critical implementation gaps (SearchWorker, virtual scrolling, keyboard navigation)

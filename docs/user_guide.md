@@ -95,7 +95,7 @@ The context menu provides a powerful set of tools for managing your files direct
 ### Menu Options
 - **Open** (Bold): Opens the file with the default application (same as double-click)
 - **Open With...**: Choose a specific application to open the file
-- **Open Containing Folder** (Ctrl+Shift+O): Opens the folder where the file is located
+- **Open Containing Folder** (Ctrl+Shift+O): Opens the folder where the file is located, with the file selected
 - **Copy Path to Clipboard** (Ctrl+Shift+C): Copies the full file path as text
 - **Copy File to Clipboard**: Copies the file itself (can be pasted into File Explorer)
 - **Properties** (Alt+Enter): View detailed file information (size, dates, permissions, checksums)
@@ -172,6 +172,7 @@ When you open a file, you'll see:
 | **Home** | Jump to first result |
 | **End** | Jump to last result |
 | **Ctrl+F** | Focus search bar |
+| **Ctrl+Shift+O** | Open containing folder |
 | **Escape** | Clear search/stop current search |
 | **F5** | Refresh search |
 

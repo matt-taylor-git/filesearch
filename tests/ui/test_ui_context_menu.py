@@ -7,8 +7,8 @@ from PyQt6.QtCore import QItemSelectionModel, QPoint, Qt
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QApplication, QMenu
 
-from src.filesearch.models.search_result import SearchResult
-from src.filesearch.ui.main_window import MainWindow
+from filesearch.models.search_result import SearchResult
+from filesearch.ui.main_window import MainWindow
 
 
 # Create a temporary directory and files for testing
@@ -100,7 +100,7 @@ def test_context_menu_creation_and_actions(main_window, add_search_results):
     actual_actions = get_visible_menu_actions(context_menu)
     assert (
         actual_actions == expected_actions
-    ), f"Context menu actions do not match expectations. Got: {actual_actions}, Expected: {expected_actions}"
+    ), f"Actions mismatch.\nGot: {actual_actions}\nExpected: {expected_actions}"
 
     # AC1: Open (default action, bold text)
     open_action = get_action_by_text(context_menu, "Open")
@@ -134,7 +134,8 @@ def test_context_menu_creation_and_actions(main_window, add_search_results):
     assert rename_action is not None, "Rename action not found."
     assert rename_action.shortcut().toString() == "F2", "Rename shortcut should be F2"
 
-    # AC11: Multi-Selection Support - Test with single selection (Open With..., Properties, Rename should be enabled)
+    # AC11: Multi-Selection Support - Test with single selection
+    # (Open With..., Properties, Rename should be enabled)
     open_with_menu = None
     for action in context_menu.actions():
         if action.text() == "Open With...":
@@ -155,7 +156,8 @@ def test_context_menu_multi_selection(main_window, add_search_results):
 
     context_menu = main_window._create_context_menu(selected_results)
 
-    # AC11: With multiple selection, Open With..., Properties, and Rename should be disabled
+    # AC11: With multiple selection, Open With..., Properties, and Rename
+    # should be disabled
     open_with_action = None
     properties_action = get_action_by_text(context_menu, "Properties")
     rename_action = get_action_by_text(context_menu, "Rename")

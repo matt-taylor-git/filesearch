@@ -1,0 +1,191 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>6</storyId>
+    <title>Implement "Open Containing Folder" Functionality</title>
+    <status>ready-for-dev</status>
+    <generatedAt>Tue Nov 18 2025</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/stories/3-6-implement-open-containing-folder-functionality.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>user</asA>
+    <iWant>open the containing folder of a search result</iWant>
+    <soThat>I can see the file in context and work with related files</soThat>
+    <tasks>
+### Core Implementation
+- [ ] Enhance `src/filesearch/core/file_utils.py`
+  - [ ] Implement `reveal_file_in_folder(path)` method
+  - [ ] Add platform detection (Windows, macOS, Linux, specific DEs)
+  - [ ] Implement Windows `explorer /select` logic
+  - [ ] Implement macOS `open -R` logic
+  - [ ] Implement Linux desktop environment detection (GNOME, KDE, etc.)
+  - [ ] Implement Linux specific file manager selection commands
+  - [ ] Add generic fallback (open folder without selection)
+  - [ ] Write unit tests for platform detection and command generation
+
+### UI Integration
+- [ ] Update `src/filesearch/ui/main_window.py`
+  - [ ] Add `on_open_containing_folder()` method
+  - [ ] Connect to context menu action
+  - [ ] Connect to keyboard shortcut (Ctrl+Shift+O)
+  - [ ] Implement status bar updates
+  - [ ] Add wait cursor during operation
+  - [ ] Add error dialog handling
+
+- [ ] Update `src/filesearch/ui/results_view.py`
+  - [ ] Add double-click handler for path column (if applicable)
+  - [ ] Ensure correct item is identified for multi-selection
+
+### Testing
+- [ ] Write unit tests for `reveal_file_in_folder`
+  - [ ] Mock platform calls for Windows, macOS, Linux
+  - [ ] Test fallback mechanisms
+  - [ ] Test error conditions (file not found)
+- [ ] Write integration tests
+  - [ ] Test connection from UI to core logic
+  - [ ] Test keyboard shortcut activation
+- [ ] Write UI tests
+  - [ ] Test status message updates
+  - [ ] Test cursor changes
+
+### Documentation
+- [ ] Update `docs/user_guide.md`
+  - [ ] Document "Open Containing Folder" feature
+  - [ ] Document keyboard shortcut
+- [ ] Update `docs/sprint-artifacts/tech-spec-epic-3.md`
+  - [ ] Mark AC6 (Open Containing Folder) as implemented
+</tasks>
+  </story>
+
+  <acceptanceCriteria>
+### AC1: Open Parent Directory
+**Given** a search result is selected
+**When** I choose "Open Containing Folder"
+**Then** the parent directory should open in the system file manager
+**And** the specific file should be selected/highlighted when possible
+
+**Test:** Ctrl+Shift+O shortcut works, opens folder with file selected
+
+### AC2: Access Methods
+**Given** search results are displayed
+**When** I interact with the results
+**Then** "Open Containing Folder" should be accessible via:
+- Context menu: "Open Containing Folder" (Story 3.5)
+- Keyboard shortcut: **Ctrl+Shift+O**
+- Toolbar button (if toolbar implemented)
+- Double-click on path text in result item
+
+**Test:** All access methods trigger the folder opening action
+
+### AC3: Platform-Specific Implementation
+**Given** a folder open request
+**When** the action executes
+**Then** the system should use appropriate platform commands:
+- **Windows:** `explorer /select,"C:\path\to\file.txt"`
+- **macOS:** `open -R /path/to/file.txt` (Reveal in Finder)
+- **Linux:** `nautilus --select /path/to/file.txt` (GNOME) or `dolphin --select /path/to/file.txt` (KDE) or `xdg-open /path/to/folder` (fallback)
+- **Cross-platform:** Open folder, then try to select file (best effort)
+
+**Test:** Verify correct command is executed for the current platform
+
+### AC4: Visual Feedback
+**Given** an open operation is initiated
+**When** the action is processing
+**Then** visual feedback should be provided:
+- Status bar: "Opening containing folder for {filename}..."
+- Cursor: Wait cursor during operation
+- Success: "Opened folder for {filename}"
+- Error: "Failed to open folder: {error_message}"
+
+**Test:** Status messages appear during and after operation
+
+### AC5: Special Case Handling
+**Given** specific edge cases
+**When** "Open Containing Folder" is triggered
+**Then** it should handle:
+- **Folders:** If result is a folder, open that folder (not parent)
+- **Deleted files:** Show error "File no longer exists"
+- **Permission denied:** Show error "Permission denied for {folder}"
+- **Network paths:** Open with appropriate handler for network locations
+
+**Test:** Each edge case is handled gracefully with appropriate messaging
+
+### AC6: Multi-Selection Behavior
+**Given** multiple items are selected
+**When** "Open Containing Folder" is triggered
+**Then** the operation should open the folder for the first selected item only
+**And** status message should indicate which file's folder was opened
+
+**Test:** Multi-selection opens folder for first item only
+</acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+- path: docs/architecture.md
+  title: Architecture Decisions
+  section: File Opening Mechanism
+  snippet: Platform-specific implementations for file operations should be used, with cross-platform fallbacks. Windows uses os.startfile, macOS uses open command, Linux uses xdg-open.
+
+- path: docs/epics.md
+  title: Epic Breakdown
+  section: Story 3.6: Implement "Open Containing Folder" Functionality
+  snippet: Users can open containing folder for selected result.
+</docs>
+    <code>
+- path: src/filesearch/core/file_utils.py
+  kind: module
+  symbol: open_containing_folder
+  lines: 191-280
+  reason: Existing implementation of folder opening logic, already supports Windows/macOS/Linux selection. Needs verification against new ACs.
+
+- path: src/filesearch/ui/main_window.py
+  kind: class
+  symbol: MainWindow._handle_context_open_containing_folder
+  lines: 684-702
+  reason: Existing handler for context menu action.
+
+- path: src/filesearch/ui/results_view.py
+  kind: class
+  symbol: ResultsView.keyPressEvent
+  lines: 664-761
+  reason: Keyboard event handling, might need Ctrl+Shift+O handling if not already present or if handled by menu shortcut.
+</code>
+    <dependencies>
+- pyqt6
+- platformdirs
+</dependencies>
+  </artifacts>
+
+  <constraints>
+- Platform-specific commands (Windows explorer /select, macOS open -R, Linux file managers)
+- Non-blocking UI (use subprocess.Popen)
+- Error handling with user-friendly messages
+- Thread safety for status updates
+</constraints>
+  <interfaces>
+- name: reveal_file_in_folder
+  kind: function signature
+  signature: def reveal_file_in_folder(path: Union[str, Path]) -> bool:
+  path: src/filesearch/core/file_utils.py (proposed rename/enhance of open_containing_folder)
+</interfaces>
+  <tests>
+    <standards>
+- Use pytest with pytest-qt for UI interactions.
+- Mock subprocess.Popen and platform.system for cross-platform unit tests.
+- Test all error conditions (file not found, permission denied).
+- Verify status bar updates in UI tests.
+</standards>
+    <locations>
+- tests/unit/test_file_utils_operations.py
+- tests/integration/test_open_containing_folder.py
+</locations>
+    <ideas>
+- Test: AC1 - Ctrl+Shift+O opens folder.
+- Test: AC3 - Windows command format `explorer /select,"C:\path"`.
+- Test: AC3 - macOS command format `open -R /path`.
+- Test: AC5 - Handling of deleted files returns correct error.
+</ideas>
+  </tests>
+</story-context>

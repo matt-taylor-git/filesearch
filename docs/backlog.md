@@ -42,3 +42,6 @@ Routing guidance:
 | | 2025-11-17 | 3.1 | 3 | Enhancement | Medium | TBD | Open | Configure ResultsView to occupy bottom 70% of MainWindow (AC #1) [file: src/filesearch/ui/main_window.py:200-240] |
 | | 2025-11-17 | 3.1 | 3 | Bug | Medium | TBD | Open | Fix file size formatting to use binary prefixes (KiB, MiB, GiB) instead of decimal (AC #2) [file: src/filesearch/models/search_result.py:26-36] |
 | | 2025-11-17 | 3.1 | 3 | Enhancement | Medium | TBD | Open | Add "Searching..." empty state during search operations (AC #4) [file: src/filesearch/ui/results_view.py:169-174] |
+| 2025-11-19 | 3.6 | 3 | Enhancement | High | TBD | Open | Implement "Double-click on path text" detection in ResultsView (AC2) [file: src/filesearch/ui/results_view.py] |
+| 2025-11-19 | 3.6 | 3 | Enhancement | High | TBD | Open | Add wait cursor during folder open operation (AC4) [file: src/filesearch/ui/main_window.py] |
+| 2025-11-19 | 3.6 | 3 | Enhancement | Med | TBD | Open | Consider adding error dialog for folder open failures consistent with file opening [file: src/filesearch/ui/main_window.py] |

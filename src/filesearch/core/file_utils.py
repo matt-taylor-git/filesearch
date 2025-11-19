@@ -116,10 +116,11 @@ def safe_open(
                 )
                 # Return a special indicator that user confirmation is needed
                 # The UI layer should handle showing the warning dialog
-                raise FileSearchError(f"SECURITY_WARNING:{warning_message}")
+                raise FileSearchError(f"SECURITY_WARNING: {warning_message}")
 
         success = False
-        # Use Qt's QDesktopServices as primary method - it's non-blocking and cross-platform
+        # Use Qt's QDesktopServices as primary method - it's non-blocking and
+        # cross-platform
         try:
             url = QUrl.fromLocalFile(str(file_path.resolve()))
             success = QDesktopServices.openUrl(url)
@@ -127,9 +128,11 @@ def safe_open(
                 logger.info(f"Opened file with QDesktopServices: {path}")
             else:
                 logger.warning(
-                    "QDesktopServices.openUrl returned False, trying platform-specific methods"
+                    "QDesktopServices.openUrl returned False, trying "
+                    "platform-specific methods"
                 )
-                # Try platform-specific methods as fallback, but use non-blocking approach
+                # Try platform-specific methods as fallback, but use non-blocking
+                # approach
                 system = platform.system()
 
                 if system == "Windows":
@@ -188,8 +191,11 @@ def safe_open(
         raise FileSearchError(f"Error opening file {path}: {e}")
 
 
-def open_containing_folder(path: Union[str, Path]) -> bool:
-    """Open the containing folder of a file in the file manager.
+def reveal_file_in_folder(path: Union[str, Path]) -> bool:
+    """Reveal a file in the system file manager (select it).
+
+    On most platforms, this opens the parent folder and selects the file.
+    If the path is a directory, it opens the directory itself.
 
     Args:
         path: Path to a file or directory
@@ -204,12 +210,12 @@ def open_containing_folder(path: Union[str, Path]) -> bool:
         Uses platform-specific methods:
         - Windows: explorer /select
         - macOS: open -R (reveals file in Finder)
-        - Linux: xdg-open (opens directory)
+        - Linux: nautilus --select, dolphin --select, or xdg-open (fallback)
 
     Example:
-        >>> success = open_containing_folder("/path/to/file.txt")
+        >>> success = reveal_file_in_folder("/path/to/file.txt")
         >>> if success:
-        ...     print("Folder opened successfully")
+        ...     print("File revealed successfully")
     """
     try:
         file_path = Path(path)
@@ -240,7 +246,7 @@ def open_containing_folder(path: Union[str, Path]) -> bool:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-            logger.info(f"Opened containing folder (Windows): {folder_path}")
+            logger.info(f"Revealed file/folder (Windows): {path}")
 
         elif system == "Darwin":  # macOS
             if file_path.is_file():
@@ -256,15 +262,39 @@ def open_containing_folder(path: Union[str, Path]) -> bool:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-            logger.info(f"Opened containing folder (macOS): {folder_path}")
+            logger.info(f"Revealed file/folder (macOS): {path}")
 
         else:  # Linux and other Unix-like
-            subprocess.Popen(
-                ["xdg-open", str(folder_path)],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            logger.info(f"Opened containing folder (Linux): {folder_path}")
+            success = False
+            if file_path.is_file():
+                # Try to select the file with common file managers
+                if shutil.which("nautilus"):
+                    subprocess.Popen(
+                        ["nautilus", "--select", str(file_path)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    logger.info(f"Revealed file with nautilus (Linux): {file_path}")
+                    success = True
+                elif shutil.which("dolphin"):
+                    subprocess.Popen(
+                        ["dolphin", "--select", str(file_path)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    logger.info(f"Revealed file with dolphin (Linux): {file_path}")
+                    success = True
+
+            if not success:
+                # Fallback to xdg-open on parent directory (no selection)
+                subprocess.Popen(
+                    ["xdg-open", str(folder_path)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                logger.info(
+                    f"Opened containing folder with xdg-open (Linux): {folder_path}"
+                )
 
         return True
 
@@ -272,11 +302,15 @@ def open_containing_folder(path: Union[str, Path]) -> bool:
         logger.error(f"Path not found: {path}")
         raise FileSearchError(f"Path not found: {path}")
     except OSError as e:
-        logger.error(f"OS error opening folder for {path}: {e}")
-        raise FileSearchError(f"OS error opening folder for {path}: {e}")
+        logger.error(f"OS error revealing {path}: {e}")
+        raise FileSearchError(f"OS error revealing {path}: {e}")
     except Exception as e:
-        logger.error(f"Unexpected error opening folder for {path}: {e}")
-        raise FileSearchError(f"Error opening folder for {path}: {e}")
+        logger.error(f"Unexpected error revealing {path}: {e}")
+        raise FileSearchError(f"Error revealing {path}: {e}")
+
+
+# Alias for backward compatibility
+open_containing_folder = reveal_file_in_folder
 
 
 # Convenience functions for common operations
@@ -364,7 +398,8 @@ def validate_directory(path: Path) -> Optional[str]:
         None if the directory is valid, otherwise a string error message.
     """
     if not path.exists():
-        # AC: Show error state for invalid paths (red border, tooltip: "Directory does not exist")
+        # AC: Show error state for invalid paths (red border, tooltip:
+        # "Directory does not exist")
         return "Directory does not exist."
 
     if not path.is_dir():

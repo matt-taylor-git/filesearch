@@ -17,6 +17,7 @@ from filesearch.core.file_utils import (
     is_directory,
     normalize_path,
     open_containing_folder,
+    reveal_file_in_folder,
     safe_open,
     validate_directory,
 )
@@ -119,7 +120,8 @@ class TestSafeOpen:
 
     @patch("platform.system")
     @patch("subprocess.Popen")
-    def test_safe_open_linux(self, mock_popen, mock_system, temp_file):
+    @patch("PyQt6.QtGui.QDesktopServices.openUrl", return_value=False)
+    def test_safe_open_linux(self, mock_open_url, mock_popen, mock_system, temp_file):
         """Test opening file on Linux."""
         mock_system.return_value = "Linux"
         mock_popen.return_value = Mock()
@@ -135,7 +137,8 @@ class TestSafeOpen:
 
     @patch("platform.system")
     @patch("subprocess.Popen")
-    def test_safe_open_macos(self, mock_popen, mock_system, temp_file):
+    @patch("PyQt6.QtGui.QDesktopServices.openUrl", return_value=False)
+    def test_safe_open_macos(self, mock_open_url, mock_popen, mock_system, temp_file):
         """Test opening file on macOS."""
         mock_system.return_value = "Darwin"
         mock_popen.return_value = Mock()
@@ -150,7 +153,8 @@ class TestSafeOpen:
         )
 
     @patch("platform.system")
-    def test_safe_open_windows(self, mock_system, temp_file):
+    @patch("PyQt6.QtGui.QDesktopServices.openUrl", return_value=False)
+    def test_safe_open_windows(self, mock_open_url, mock_system, temp_file):
         """Test opening file on Windows."""
         mock_system.return_value = "Windows"
 
@@ -162,7 +166,8 @@ class TestSafeOpen:
             mock_startfile.assert_called_once_with(str(temp_file))
 
     @patch("subprocess.Popen")
-    def test_safe_open_subprocess_error(self, mock_popen, temp_file):
+    @patch("PyQt6.QtGui.QDesktopServices.openUrl", return_value=False)
+    def test_safe_open_subprocess_error(self, mock_open_url, mock_popen, temp_file):
         """Test handling subprocess error."""
         import subprocess
 
@@ -174,8 +179,8 @@ class TestSafeOpen:
                 safe_open(temp_file)
 
 
-class TestOpenContainingFolder:
-    """Test cases for open_containing_folder function."""
+class TestRevealFileInFolder:
+    """Test cases for reveal_file_in_folder function."""
 
     @pytest.fixture
     def temp_file(self):
@@ -190,21 +195,71 @@ class TestOpenContainingFolder:
         if temp_path.exists():
             temp_path.unlink()
 
-    def test_open_containing_folder_file_not_found(self):
-        """Test opening folder for non-existent path."""
+    def test_alias_exists(self):
+        """Test that open_containing_folder alias exists and works."""
+        assert open_containing_folder is reveal_file_in_folder
+
+    def test_reveal_file_not_found(self):
+        """Test revealing non-existent path."""
         with pytest.raises(FileSearchError, match="Path does not exist"):
-            open_containing_folder("/nonexistent/path/file.txt")
+            reveal_file_in_folder("/nonexistent/path/file.txt")
 
     @patch("platform.system")
+    @patch("shutil.which")
     @patch("subprocess.Popen")
-    def test_open_containing_folder_linux_file(
-        self, mock_popen, mock_system, temp_file
+    def test_reveal_file_linux_nautilus(
+        self, mock_popen, mock_which, mock_system, temp_file
     ):
-        """Test opening containing folder for file on Linux."""
+        """Test revealing file on Linux with nautilus."""
         mock_system.return_value = "Linux"
+        mock_which.side_effect = (
+            lambda x: "/usr/bin/nautilus" if x == "nautilus" else None
+        )
         mock_popen.return_value = Mock()
 
-        result = open_containing_folder(temp_file)
+        result = reveal_file_in_folder(temp_file)
+
+        assert result is True
+        mock_popen.assert_called_once_with(
+            ["nautilus", "--select", str(temp_file)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    @patch("platform.system")
+    @patch("shutil.which")
+    @patch("subprocess.Popen")
+    def test_reveal_file_linux_dolphin(
+        self, mock_popen, mock_which, mock_system, temp_file
+    ):
+        """Test revealing file on Linux with dolphin."""
+        mock_system.return_value = "Linux"
+        mock_which.side_effect = (
+            lambda x: "/usr/bin/dolphin" if x == "dolphin" else None
+        )
+        mock_popen.return_value = Mock()
+
+        result = reveal_file_in_folder(temp_file)
+
+        assert result is True
+        mock_popen.assert_called_once_with(
+            ["dolphin", "--select", str(temp_file)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    @patch("platform.system")
+    @patch("shutil.which")
+    @patch("subprocess.Popen")
+    def test_reveal_file_linux_fallback(
+        self, mock_popen, mock_which, mock_system, temp_file
+    ):
+        """Test revealing file on Linux fallback to xdg-open."""
+        mock_system.return_value = "Linux"
+        mock_which.return_value = None  # No specific file manager found
+        mock_popen.return_value = Mock()
+
+        result = reveal_file_in_folder(temp_file)
 
         assert result is True
         mock_popen.assert_called_once_with(
@@ -215,16 +270,15 @@ class TestOpenContainingFolder:
 
     @patch("platform.system")
     @patch("subprocess.Popen")
-    def test_open_containing_folder_linux_directory(
-        self, mock_popen, mock_system, tmpdir
-    ):
-        """Test opening directory on Linux."""
+    def test_reveal_directory_linux(self, mock_popen, mock_system, tmpdir):
+        """Test revealing directory on Linux (always xdg-open fallback logic)."""
         mock_system.return_value = "Linux"
         mock_popen.return_value = Mock()
 
-        result = open_containing_folder(Path(tmpdir))
+        result = reveal_file_in_folder(Path(tmpdir))
 
         assert result is True
+        # For directories, it falls through to the fallback logic
         mock_popen.assert_called_once_with(
             ["xdg-open", str(Path(tmpdir))],
             stdout=subprocess.DEVNULL,
@@ -233,14 +287,12 @@ class TestOpenContainingFolder:
 
     @patch("platform.system")
     @patch("subprocess.Popen")
-    def test_open_containing_folder_macos_file(
-        self, mock_popen, mock_system, temp_file
-    ):
-        """Test opening containing folder for file on macOS."""
+    def test_reveal_file_macos(self, mock_popen, mock_system, temp_file):
+        """Test revealing file on macOS."""
         mock_system.return_value = "Darwin"
         mock_popen.return_value = Mock()
 
-        result = open_containing_folder(temp_file)
+        result = reveal_file_in_folder(temp_file)
 
         assert result is True
         mock_popen.assert_called_once_with(
@@ -250,14 +302,30 @@ class TestOpenContainingFolder:
         )
 
     @patch("platform.system")
-    def test_open_containing_folder_windows_file(self, mock_system, temp_file):
-        """Test opening containing folder for file on Windows."""
+    @patch("subprocess.Popen")
+    def test_reveal_directory_macos(self, mock_popen, mock_system, tmpdir):
+        """Test revealing directory on macOS."""
+        mock_system.return_value = "Darwin"
+        mock_popen.return_value = Mock()
+
+        result = reveal_file_in_folder(Path(tmpdir))
+
+        assert result is True
+        mock_popen.assert_called_once_with(
+            ["open", str(Path(tmpdir))],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    @patch("platform.system")
+    def test_reveal_file_windows(self, mock_system, temp_file):
+        """Test revealing file on Windows."""
         mock_system.return_value = "Windows"
 
         with patch("subprocess.Popen") as mock_popen:
             mock_popen.return_value = Mock()
 
-            result = open_containing_folder(temp_file)
+            result = reveal_file_in_folder(temp_file)
 
             assert result is True
             mock_popen.assert_called_once_with(
@@ -267,14 +335,14 @@ class TestOpenContainingFolder:
             )
 
     @patch("platform.system")
-    def test_open_containing_folder_windows_directory(self, mock_system, tmpdir):
-        """Test opening directory on Windows."""
+    def test_reveal_directory_windows(self, mock_system, tmpdir):
+        """Test revealing directory on Windows."""
         mock_system.return_value = "Windows"
 
         with patch("subprocess.Popen") as mock_popen:
             mock_popen.return_value = Mock()
 
-            result = open_containing_folder(Path(tmpdir))
+            result = reveal_file_in_folder(Path(tmpdir))
 
             assert result is True
             mock_popen.assert_called_once_with(

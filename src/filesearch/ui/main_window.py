@@ -20,7 +20,7 @@ from PyQt6.QtCore import (  # noqa: F401
     QUrl,
     pyqtSignal,
 )
-from PyQt6.QtGui import (  # Added for bold text in context menu, QAction moved from QtWidgets
+from PyQt6.QtGui import (  # QAction moved from QtWidgets
     QAction,
     QClipboard,
     QDesktopServices,
@@ -336,6 +336,9 @@ class MainWindow(QMainWindow):
 
         # Results view signals
         self.results_view.file_open_requested.connect(self._on_file_open_requested)
+        self.results_view.folder_open_requested.connect(
+            lambda r: self.open_selected_folder(r.path)
+        )
         # Context menu request signal from ResultsView
         self.results_view.context_menu_requested.connect(
             self._on_context_menu_requested
@@ -405,7 +408,8 @@ class MainWindow(QMainWindow):
         self.setAccessibleName("Main Window")
         self.results_view.setAccessibleName("Search Results List")
         self.results_view.setAccessibleDescription(
-            "List of files matching the search query. Use arrow keys to navigate, Enter to open, and Context Menu key for options."
+            "List of files matching the search query. Use arrow keys to "
+            "navigate, Enter to open, and Context Menu key for options."
         )
 
     def _on_context_menu_requested(self, pos: QPoint) -> None:
@@ -610,7 +614,8 @@ class MainWindow(QMainWindow):
         from PyQt6.QtWidgets import QFileDialog
 
         # Simple implementation: let user pick an executable
-        # In a real app, we might want a more sophisticated dialog showing installed apps
+        # In a real app, we might want a more sophisticated dialog showing
+        # installed apps
         file_dialog = QFileDialog(self, "Choose Application")
         file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
 
@@ -643,9 +648,15 @@ class MainWindow(QMainWindow):
         handler_map = {
             self.ContextMenuAction.OPEN: self._handle_context_open,
             self.ContextMenuAction.OPEN_WITH: self._handle_context_open_with,
-            self.ContextMenuAction.OPEN_CONTAINING_FOLDER: self._handle_context_open_containing_folder,
-            self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD: self._handle_context_copy_path,
-            self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD: self._handle_context_copy_file,
+            self.ContextMenuAction.OPEN_CONTAINING_FOLDER: (
+                self._handle_context_open_containing_folder
+            ),
+            self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD: (
+                self._handle_context_copy_path
+            ),
+            self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD: (
+                self._handle_context_copy_file
+            ),
             self.ContextMenuAction.PROPERTIES: self._handle_context_properties,
             self.ContextMenuAction.DELETE: self._handle_context_delete,
             self.ContextMenuAction.RENAME: self._handle_context_rename,
@@ -685,12 +696,10 @@ class MainWindow(QMainWindow):
         self, selected_results: List[SearchResult]
     ) -> None:
         """Handle Open Containing Folder action."""
-        if len(selected_results) != 1:
-            self.safe_status_message(
-                "Open Containing Folder only supported for single selection."
-            )
+        if not selected_results:
             return
 
+        # AC6: Multi-Selection Behavior - open folder for the first selected item only
         result = selected_results[0]
         try:
             open_containing_folder(result.path)
@@ -846,11 +855,12 @@ class MainWindow(QMainWindow):
                 # Remove from results view (via model)
                 # Note: This is slightly inefficient as we're deleting one by one
                 # A better way would be to ask the model to remove rows
-                # For now, we'll rely on the search being refreshed or just hiding it?
-                # Ideally we should update the model.
+                # For now, we'll rely on the search being refreshed or just hiding
+                # it? Ideally we should update the model.
                 # Let's trigger a model refresh or similar.
 
-                # Since we don't have direct remove methods in ResultsView easily accessible here without
+                # Since we don't have direct remove methods in ResultsView easily
+                # accessible here without
                 # finding the index, we might just remove it from our local list.
                 # But the view needs to update.
                 # We can search for the item in the model and remove it.
@@ -1161,6 +1171,8 @@ class MainWindow(QMainWindow):
         Args:
             file_path: Path to the file
         """
+        # Show wait cursor
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             open_containing_folder(file_path)
             self.safe_status_message(f"Opened folder: {file_path.parent}")
@@ -1168,6 +1180,13 @@ class MainWindow(QMainWindow):
         except FileSearchError as e:
             self.safe_status_message(f"Error opening folder: {e}")
             logger.error(f"Error opening folder for {file_path}: {e}")
+            # Show error dialog
+            QMessageBox.critical(
+                self, "Error", f"Failed to open containing folder: \n{e}"
+            )
+        finally:
+            # Restore cursor
+            QApplication.restoreOverrideCursor()
 
     def _on_file_open_requested(self, search_result: SearchResult) -> None:
         """Handle file opening request from results view.
@@ -1277,7 +1296,8 @@ class MainWindow(QMainWindow):
             reply = QMessageBox.question(
                 self,
                 "Open Containing Folder",
-                f"Could not open {file_path.name}. Would you like to open its containing folder instead?",
+                f"Could not open {file_path.name}. Would you like to open its "
+                f"containing folder instead?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.Yes,
             )
