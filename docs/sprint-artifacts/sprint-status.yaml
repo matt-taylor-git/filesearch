@@ -64,6 +64,6 @@ development_status:
   3-2-implement-search-result-highlighting: done
   3-3-implement-results-sorting-functionality: done
   3-4-implement-double-click-to-open-files: done
-  3-5-implement-right-click-context-menu: review
+   3-5-implement-right-click-context-menu: done
   3-6-implement-open-containing-folder-functionality: backlog
   epic-3-retrospective: optional
