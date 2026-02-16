@@ -232,10 +232,8 @@ class MainWindow(QMainWindow):
 
         # Create main layout
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(
-            10, 10, 10, 10
-        )  # Add margins: left, top, right, bottom
-        main_layout.setSpacing(8)  # Add spacing between widgets
+        main_layout.setContentsMargins(16, 16, 16, 16)
+        main_layout.setSpacing(12)
         central_widget.setLayout(main_layout)
 
         # Create search controls layout
@@ -266,7 +264,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.status_widget)
 
         # Results area
-        self.results_label = QLabel("Results:")
+        self.results_label = QLabel("RESULTS")
+        self.results_label.setProperty("class", "results-header")
         main_layout.addWidget(self.results_label)
 
         # Sort controls (AC6: UI Controls)

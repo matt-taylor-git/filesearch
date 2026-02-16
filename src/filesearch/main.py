@@ -132,6 +132,11 @@ def main() -> int:
 
         # Create and show main window
         app = QApplication(sys.argv)
+
+        from filesearch.ui.theme import apply_theme
+
+        apply_theme(app)
+
         window = MainWindow(config_manager, plugin_manager)
         window.show()
 

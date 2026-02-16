@@ -112,11 +112,11 @@ class SearchInputWidget(QWidget):
 
     def minimumSizeHint(self) -> QSize:
         """Return minimum size hint."""
-        return QSize(400, 36)
+        return QSize(400, 60)
 
     def sizeHint(self) -> QSize:
         """Return size hint."""
-        return QSize(400, 36)
+        return QSize(400, 60)
 
     def _setup_ui(self) -> None:
         """Setup user interface components."""
@@ -143,6 +143,7 @@ class SearchInputWidget(QWidget):
         self.search_input.setPlaceholderText("Enter filename or partial name...")
         self.search_input.setMaxLength(self.MAX_SEARCH_LENGTH)
         self.search_input.setProperty("class", "search-input")
+        self.search_input.setMinimumHeight(36)
         self.search_input.setMaximumWidth(900)  # Prevent expanding to window edge
 
         # Set accessibility attributes
@@ -187,67 +188,8 @@ class SearchInputWidget(QWidget):
         logger.debug("UI setup completed")
 
     def _setup_style(self) -> None:
-        """Setup widget styling."""
-        # Base style for widget
-        self.setStyleSheet(
-            """
-            QWidget#searchInputWidget {
-                background: transparent;
-            }
-
-            QLabel.search-label {
-                font-size: 12px;
-                font-weight: bold;
-                color: #666666;
-                margin-bottom: 4px;
-            }
-
-            QLineEdit.search-input {
-                font-size: 13px;
-                padding: 12px;
-                border: 2px solid #cccccc;
-                border-radius: 4px;
-                background: rgba(255, 255, 255, 0.95);
-                color: #000000;
-                selection-background-color: #0078d4;
-            }
-
-            QLineEdit.search-input:focus {
-                border-color: #0078d4;
-                outline: none;
-            }
-
-            QLineEdit.search-input[state="error"] {
-                border-color: #d13438;
-            }
-
-            QToolButton.clear-button {
-                border: none;
-                background: transparent;
-                color: #666666;
-                font-size: 16px;
-                padding: 4px;
-                margin-right: 8px;
-            }
-
-            QToolButton.clear-button:hover {
-                color: #333333;
-                background: rgba(0, 0, 0, 0.1);
-                border-radius: 2px;
-            }
-
-            QLabel.loading-indicator {
-                color: #0078d4;
-                font-size: 16px;
-                padding: 4px;
-            }
-        """
-        )
-
-        # Set object name for styling
+        """Setup widget styling via centralized theme."""
         self.setObjectName("searchInputWidget")
-
-        logger.debug("Styling setup completed")
 
     def _load_search_history(self) -> None:
         """Load search history from configuration."""
@@ -580,7 +522,7 @@ class DirectorySelectorWidget(QWidget):
         self.directory_input = QLineEdit()
         self.directory_input.setPlaceholderText("Enter directory path or browse...")
         self.directory_input.setProperty("class", "directory-input")
-        self.directory_input.setMinimumHeight(32)
+        self.directory_input.setMinimumHeight(36)
         h_layout.addWidget(self.directory_input)
 
         # Dropdown button for recent directories
@@ -588,14 +530,14 @@ class DirectorySelectorWidget(QWidget):
         self.recent_button.setText("▼")
         self.recent_button.setProperty("class", "recent-button")
         self.recent_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.recent_button.setFixedSize(QSize(24, 32))
+        self.recent_button.setFixedSize(QSize(28, 36))
         h_layout.addWidget(self.recent_button)
 
         # Browse button
         self.browse_button = QPushButton("Browse...")
         self.browse_button.setProperty("class", "browse-button")
         self.browse_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.browse_button.setFixedSize(QSize(80, 32))
+        self.browse_button.setFixedSize(QSize(96, 36))
         h_layout.addWidget(self.browse_button)
 
         layout.addWidget(h_layout_widget)
@@ -698,60 +640,7 @@ class DirectorySelectorWidget(QWidget):
             logger.debug("Directory selection cancelled")
 
     def _setup_style(self) -> None:
-        """Setup widget styling."""
-        self.setStyleSheet(
-            """
-            QLabel.directory-label {
-                font-size: 12px;
-                font-weight: bold;
-                color: #666666;
-                margin-bottom: 4px;
-            }
-
-            QLineEdit.directory-input {
-                font-size: 14px;
-                font-family: system-ui, -apple-system, sans-serif;
-                padding: 4px 8px;
-                border: 2px solid #cccccc;
-                border-radius: 4px;
-                background: rgba(255, 255, 255, 0.95);
-                color: #333333;
-                selection-background-color: #0078d4;
-            }
-
-            QLineEdit.directory-input:focus {
-                border-color: #0078d4;
-                outline: none;
-            }
-
-            QPushButton.browse-button {
-                font-size: 14px;
-                font-weight: bold;
-                border: 2px solid #0078d4;
-                border-radius: 4px;
-                background-color: #0078d4;
-                color: white;
-            }
-
-            QPushButton.browse-button:hover {
-                background-color: #005a9e;
-                border-color: #005a9e;
-            }
-
-            QToolButton.recent-button {
-                border: 2px solid #cccccc;
-                border-left: none;
-                border-radius: 0 4px 4px 0;
-                background: rgba(255, 255, 255, 0.95);
-                color: #666666;
-                font-weight: bold;
-            }
-
-            QToolButton.recent-button:hover {
-                background: #eeeeee;
-            }
-        """
-        )
+        """Setup widget styling via centralized theme."""
         self.setObjectName("directorySelectorWidget")
 
     def _load_recent_directories(self) -> None:
@@ -964,61 +853,16 @@ class SearchControlWidget(QWidget):
         self.search_button = QPushButton("Search")
         self.search_button.setProperty("class", "search-control-button")
         self.search_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.search_button.setFixedSize(QSize(80, 32))  # AC: 80px wide, 32px height
+        self.search_button.setFixedSize(QSize(88, 36))
         self.search_button.clicked.connect(self._on_button_clicked)
 
         layout.addWidget(self.search_button)
 
         # Set widget size policy
-        self.setFixedSize(QSize(80, 32))
+        self.setFixedSize(QSize(88, 36))
 
     def _setup_style(self) -> None:
-        """Setup widget styling."""
-        self.setStyleSheet(
-            """
-            QPushButton.search-control-button {
-                font-size: 14px;
-                font-weight: bold;
-                border: 2px solid #0078d4;
-                border-radius: 4px;
-                background-color: #0078d4;
-                color: white;
-                padding: 4px 8px;
-            }
-
-            QPushButton.search-control-button:hover {
-                background-color: #005a9e;
-                border-color: #005a9e;
-            }
-
-            QPushButton.search-control-button:pressed {
-                background-color: #004578;
-                border-color: #004578;
-            }
-
-            QPushButton.search-control-button:disabled {
-                background-color: #cccccc;
-                border-color: #cccccc;
-                color: #666666;
-            }
-
-            QPushButton.search-control-button[state="stop"] {
-                background-color: #d13438;
-                border-color: #d13438;
-            }
-
-            QPushButton.search-control-button[state="stop"]:hover {
-                background-color: #b91c1c;
-                border-color: #b91c1c;
-            }
-
-            QPushButton.search-control-button[state="stop"]:pressed {
-                background-color: #991b1b;
-                border-color: #991b1b;
-            }
-        """
-        )
-
+        """Setup widget styling via centralized theme."""
         self.setObjectName("searchControlWidget")
 
     def _setup_shortcuts(self) -> None:
@@ -1250,44 +1094,7 @@ class ProgressWidget(QWidget):
         layout.addLayout(bottom_layout)
 
     def _setup_style(self) -> None:
-        """Setup widget styling."""
-        self.setStyleSheet(
-            """
-            QWidget#progressWidget {
-                background: transparent;
-            }
-
-            QProgressBar {
-                border: none;
-                border-radius: 3px;
-                background: rgba(255, 255, 255, 0.1);
-            }
-
-            QProgressBar::chunk {
-                background: #0078d4;
-                border-radius: 3px;
-            }
-
-            QLabel.spinner {
-                color: #0078d4;
-                font-size: 14px;
-                font-weight: bold;
-            }
-
-            QLabel.progress-text {
-                color: #666666;
-                font-size: 12px;
-                font-family: system-ui, -apple-system, sans-serif;
-            }
-
-            QLabel.file-counter {
-                color: #666666;
-                font-size: 12px;
-                font-family: system-ui, -apple-system, sans-serif;
-                font-weight: bold;
-            }
-        """
-        )
+        """Setup widget styling via centralized theme."""
         self.setObjectName("progressWidget")
 
     def _animate_spinner(self) -> None:
@@ -1542,39 +1349,7 @@ class StatusWidget(QWidget):
         layout.addWidget(self.summary_label)
 
     def _setup_style(self) -> None:
-        """Setup widget styling."""
-        self.setStyleSheet(
-            """
-            QWidget#statusWidget {
-                background: transparent;
-            }
-
-            QLabel.results-count {
-                font-size: 16px;
-                font-weight: bold;
-                color: #666666;
-                margin-bottom: 4px;
-            }
-
-            QLabel.results-count[state="success"] {
-                color: #107c10;
-            }
-
-            QLabel.results-count[state="zero"] {
-                color: #ff8c00;
-            }
-
-            QLabel.results-count[state="error"] {
-                color: #d13438;
-            }
-
-            QLabel.status-summary {
-                font-size: 12px;
-                color: #666666;
-                font-family: system-ui, -apple-system, sans-serif;
-            }
-        """
-        )
+        """Setup widget styling via centralized theme."""
         self.setObjectName("statusWidget")
 
     def _format_result_count(self, count: int) -> str:

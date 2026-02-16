@@ -21,9 +21,11 @@ class SortControls(QWidget):
         """Setup the UI components"""
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
 
         # Label
         self.sort_label = QLabel("Sort by:")
+        self.sort_label.setProperty("class", "sort-label")
         layout.addWidget(self.sort_label)
 
         # Sort criteria dropdown

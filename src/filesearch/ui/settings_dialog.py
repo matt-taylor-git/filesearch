@@ -354,7 +354,6 @@ class SettingsDialog(QDialog):
         preview_layout = QVBoxLayout()
 
         self.highlight_preview_label = QLabel("Example: MonthlyReport.pdf")
-        self.highlight_preview_label.setStyleSheet("padding: 10px; background: white;")
         self.highlight_preview_label.setMinimumHeight(40)
 
         preview_layout.addWidget(self.highlight_preview_label)
@@ -792,9 +791,6 @@ class SettingsDialog(QDialog):
 
             if not enabled:
                 self.highlight_preview_label.setText("Example: MonthlyReport.pdf")
-                self.highlight_preview_label.setStyleSheet(
-                    "padding: 10px; background: white;"
-                )
                 return
 
             # Validate color
@@ -813,9 +809,6 @@ class SettingsDialog(QDialog):
             preview_html = html_template.format(color=color)
 
             self.highlight_preview_label.setText(preview_html)
-            self.highlight_preview_label.setStyleSheet(
-                "padding: 10px; background: white;"
-            )
 
         except Exception as e:
             logger.error(f"Error updating highlight preview: {e}")

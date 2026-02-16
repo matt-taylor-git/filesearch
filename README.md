@@ -7,7 +7,7 @@ A cross-platform file search application with extensible plugin architecture, bu
 - **Fast File Searching**: Efficient search across directories with real-time results
 - **Cross-Platform**: Works on Windows, macOS, and Linux
 - **Extensible Architecture**: Plugin system for custom search providers and result processors
-- **Modern UI**: Clean, intuitive interface built with PyQt6
+- **Modern UI**: Clean, polished interface built with PyQt6 and a centralized theme system
 - **Advanced Filtering**: Filter by file type, size, date, and content patterns
 - **Result Management**: Sort, filter, and export search results
 - **Performance Optimized**: Multi-threaded search with progress indication
@@ -79,7 +79,7 @@ filesearch/
 ├── src/filesearch/          # Main package
 │   ├── core/               # Core functionality
 │   ├── plugins/            # Plugin architecture
-│   └── ui/                 # User interface components
+│   └── ui/                 # User interface components (includes theme.py)
 ├── tests/                  # Test suite
 ├── config/                 # Configuration files
 ├── docs/                   # Documentation
@@ -132,7 +132,8 @@ pytest -v
 
 - **Search Engine**: Multi-threaded file search with pattern matching
 - **Plugin System**: Extensible architecture for custom functionality
-- **UI Framework**: PyQt6-based interface with model-view architecture
+- **UI Framework**: PyQt6-based interface with model-view architecture and centralized theming
+- **Theme System**: Single `theme.py` module defining colors, fonts, spacing, and QSS stylesheet
 - **Configuration**: TOML-based configuration with environment overrides
 - **Logging**: Structured logging with rotation and compression
 

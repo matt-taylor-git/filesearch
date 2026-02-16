@@ -214,17 +214,27 @@ class ResultsItemDelegate(QStyledItemDelegate):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.bold_font = QFont()
-        self.bold_font.setBold(True)
-        self.normal_font = QFont()
-        self.small_font = QFont()
-        self.small_font.setPointSize(11)
+        from filesearch.ui.theme import Colors, Fonts, Spacing
+
+        # Theme-aware fonts
+        self.filename_font = QFont("Segoe UI", Fonts.SIZE_BASE)
+        self.filename_font.setWeight(QFont.Weight.DemiBold)
+        self.path_font = QFont("Segoe UI", Fonts.SIZE_XS)
+        self.size_font = QFont("Segoe UI", Fonts.SIZE_XS)
+        self.size_font.setWeight(QFont.Weight.Medium)
+        self.date_font = QFont("Segoe UI", Fonts.SIZE_XS)
+
         self.icon_cache = {}
         self.highlight_engine = HighlightEngine()
         self.current_query = None
-        self.highlight_color = "#FFFF99"  # Default yellow highlight
+        self.highlight_color = Colors.HIGHLIGHT_BG
+        self.highlight_text_color = Colors.HIGHLIGHT_TEXT
         self.highlight_enabled = True
         self.highlight_style = "background"  # background, outline, or underline
+
+        # Cache theme colors
+        self._colors = Colors
+        self._spacing = Spacing
 
     def get_file_type_icon(self, path):
         """Get file type icon based on extension with caching"""
@@ -255,7 +265,7 @@ class ResultsItemDelegate(QStyledItemDelegate):
         return self.icon_cache.setdefault(ext, icon_map.get(ext, "📄"))
 
     def paint(self, painter, option, index):
-        """Custom paint method for result items"""
+        """Custom paint method for result items with polished theme styling"""
         if painter is None:
             return
         painter.save()
@@ -267,27 +277,87 @@ class ResultsItemDelegate(QStyledItemDelegate):
             painter.restore()
             return
 
-        # Draw background
+        C = self._colors
+        pad = self._spacing.PADDING_ITEM
+
+        # Draw background based on state
         if option.state & QStyle.StateFlag.State_Selected:
-            painter.fillRect(option.rect, option.palette.highlight())
+            painter.fillRect(option.rect, QColor(C.ITEM_SELECTED_BG))
         elif option.state & QStyle.StateFlag.State_MouseOver:
-            painter.fillRect(option.rect, QColor(240, 240, 240))
-            # Light gray hover
-        # Margins
-        margin = 5
-        rect = option.rect.adjusted(margin, margin, -margin, -margin)
+            painter.fillRect(option.rect, QColor(C.ITEM_HOVER_BG))
+
+        # Draw subtle separator line at bottom
+        sep_y = option.rect.bottom()
+        painter.setPen(QColor(C.ITEM_SEPARATOR))
+        painter.drawLine(
+            option.rect.left() + pad, sep_y, option.rect.right() - pad, sep_y
+        )
+
+        # Content area with padding
+        rect = option.rect.adjusted(pad, pad - 2, -pad, -pad)
 
         # Icon
-        icon_size = 16
+        icon_size = 18
         icon_rect = QRect(rect.left(), rect.top() + 2, icon_size, icon_size)
         icon_text = self.get_file_type_icon(result.path)
-        painter.setFont(self.normal_font)
+        painter.setFont(self.path_font)
+        painter.setPen(QColor(C.TEXT_PRIMARY))
         painter.drawText(icon_rect, Qt.AlignmentFlag.AlignCenter, icon_text)
 
-        # Filename (bold left-aligned, with highlighting)
-        filename_rect = QRect(
-            icon_rect.right() + 5, rect.top(), rect.width() - icon_size - 10 - 100, 20
+        content_left = icon_rect.right() + 8
+
+        # === Right side: Size pill and date ===
+        size_text = result.get_display_size()
+        painter.setFont(self.size_font)
+        size_fm = painter.fontMetrics()
+        pill_text_width = size_fm.horizontalAdvance(size_text)
+        pill_h = size_fm.height() + 6
+        pill_w = pill_text_width + self._spacing.PADDING_PILL * 2
+        pill_x = rect.right() - pill_w
+        pill_y = rect.top() + 2
+
+        # Draw pill background
+        pill_rect = QRect(pill_x, pill_y, pill_w, pill_h)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(C.SIZE_PILL_BG))
+        painter.drawRoundedRect(pill_rect, 4, 4)
+
+        # Draw pill text
+        painter.setPen(QColor(C.TEXT_SECONDARY))
+        painter.setFont(self.size_font)
+        painter.drawText(
+            pill_rect,
+            Qt.AlignmentFlag.AlignCenter,
+            size_text,
         )
+
+        # Date (right-aligned below pill)
+        try:
+            date_text = datetime.fromtimestamp(result.modified).strftime("%b %d, %Y")
+        except Exception:
+            date_text = "Unknown"
+
+        painter.setFont(self.date_font)
+        date_fm = painter.fontMetrics()
+        date_w = date_fm.horizontalAdvance(date_text)
+        date_rect = QRect(
+            rect.right() - date_w,
+            pill_y + pill_h + 4,
+            date_w,
+            date_fm.height(),
+        )
+        painter.setPen(QColor(C.TEXT_TERTIARY))
+        painter.drawText(
+            date_rect,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
+            date_text,
+        )
+
+        # === Left side: Filename and path ===
+        filename_width = pill_x - content_left - 12
+
+        # Filename
+        filename_rect = QRect(content_left, rect.top(), filename_width, 20)
         filename = result.get_display_name()
         if len(filename) > 80:
             filename = filename[:77] + "..."
@@ -302,61 +372,34 @@ class ResultsItemDelegate(QStyledItemDelegate):
                 painter, filename_rect, filename, self.current_query
             )
         else:
-            # Draw normally (without highlighting)
-            painter.setFont(self.bold_font)
+            painter.setFont(self.filename_font)
+            painter.setPen(QColor(C.TEXT_PRIMARY))
             painter.drawText(
                 filename_rect,
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
                 filename,
             )
 
-        # Path (small font, below filename)
+        # Path (below filename)
         path_rect = QRect(
-            filename_rect.left(), filename_rect.bottom(), filename_rect.width(), 15
+            content_left, filename_rect.bottom() + 2, filename_width, 16
         )
-        painter.setFont(self.small_font)
+        painter.setFont(self.path_font)
         path = result.get_display_path()
         if len(path) > 80:
-            path = "..." + path[-77:]  # Truncate from left
-        painter.setPen(QColor(128, 128, 128))  # Gray
+            path = "..." + path[-77:]
+        painter.setPen(QColor(C.TEXT_TERTIARY))
         painter.drawText(
-            path_rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, path
+            path_rect,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
+            path,
         )
 
-        # Size (right-aligned)
-        size_rect = QRect(rect.right() - 90, rect.top(), 85, 20)
-        painter.setFont(self.normal_font)
-        painter.setPen(QColor(0, 0, 0))  # Black
-        size_text = result.get_display_size()
-        painter.drawText(
-            size_rect,
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
-            size_text,
-        )
-
-        # Modified date (if space, below size)
-        if rect.height() > 40:
-            date_rect = QRect(
-                size_rect.left(), size_rect.bottom(), size_rect.width(), 15
-            )
-            painter.setFont(self.small_font)
-            painter.setPen(QColor(128, 128, 128))
-            try:
-                date_text = datetime.fromtimestamp(result.modified).strftime(
-                    "%b %d, %Y"
-                )
-            except Exception:
-                date_text = "Unknown"
-            painter.drawText(
-                date_rect,
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
-                date_text,
-            )
         painter.restore()
 
     def sizeHint(self, option, index: QModelIndex) -> QSize:
         """Return the size hint for items"""
-        return QSize(400, 50)  # Minimum height for comfortable display
+        return QSize(400, 64)  # Spacious items with room for pill and separator
 
     def set_query(self, query: str):
         """Set the current search query for highlighting"""
@@ -376,9 +419,8 @@ class ResultsItemDelegate(QStyledItemDelegate):
         self.highlight_style = style
 
     def _draw_highlighted_text(self, painter, rect, text: str, query: str):
-        """Draw text with highlighted matching portions"""
+        """Draw text with highlighted matching portions using theme colors"""
         if not text or not query or not self.highlight_enabled:
-            # No highlighting, just draw the text normally
             painter.drawText(
                 rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, text
             )
@@ -387,21 +429,16 @@ class ResultsItemDelegate(QStyledItemDelegate):
         matches = self.highlight_engine.find_matches(text, query, case_sensitive=False)
 
         if not matches:
-            # No matches, draw text normally
             painter.drawText(
                 rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, text
             )
             return
 
-        # For performance with many results, we'll use a simple approach:
-        # Draw normal text with bold segments for matches
-        # This avoids QTextDocument overhead for each item
-
         painter.save()
 
+        C = self._colors
         name_without_ext, ext = self.highlight_engine._split_filename_and_ext(text)
 
-        # Calculate positions for manual text drawing
         x = rect.left()
         y = rect.top()
 
@@ -411,40 +448,39 @@ class ResultsItemDelegate(QStyledItemDelegate):
             # Draw non-matching text before this match
             if start > last_end:
                 normal_text = name_without_ext[last_end:start]
-                painter.setFont(self.normal_font)
-                painter.setPen(QColor(0, 0, 0))
+                painter.setFont(self.filename_font)
+                painter.setPen(QColor(C.TEXT_PRIMARY))
                 painter.drawText(x, y, normal_text)
                 x += painter.fontMetrics().horizontalAdvance(normal_text)
 
             # Draw highlighted matching text
             match_text = name_without_ext[start:end]
-            painter.setFont(self.bold_font)
+            painter.setFont(self.filename_font)
 
-            # Calculate dimensions
             bw = painter.fontMetrics().horizontalAdvance(match_text)
             bh = painter.fontMetrics().height()
 
-            # Apply highlight style
             if self.highlight_style == "background":
-                # Draw background highlight
-                painter.fillRect(x, y - bh + 2, bw, bh, QColor(self.highlight_color))
-                painter.setPen(QColor(0, 0, 0))
+                # Rounded rect highlight with warm amber
+                highlight_rect = QRect(x - 1, y - bh + 2, bw + 2, bh)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QColor(self.highlight_color))
+                painter.drawRoundedRect(highlight_rect, 3, 3)
+                painter.setPen(QColor(self.highlight_text_color))
             elif self.highlight_style == "outline":
-                # Draw outline rectangle
                 pen = painter.pen()
                 pen.setColor(QColor(self.highlight_color))
                 pen.setWidth(2)
                 painter.setPen(pen)
-                painter.drawRect(x, y - bh, bw, bh)
-                painter.setPen(QColor(0, 0, 0))  # Reset to black for text
+                painter.drawRoundedRect(x, y - bh, bw, bh, 3, 3)
+                painter.setPen(QColor(C.TEXT_PRIMARY))
             elif self.highlight_style == "underline":
-                # Draw underline
                 pen = painter.pen()
                 pen.setColor(QColor(self.highlight_color))
                 pen.setWidth(2)
                 painter.setPen(pen)
-                painter.drawLine(x, y, x + bw, y)  # Line at baseline
-                painter.setPen(QColor(0, 0, 0))  # Reset to black for text
+                painter.drawLine(x, y, x + bw, y)
+                painter.setPen(QColor(C.TEXT_PRIMARY))
 
             painter.drawText(x, y, match_text)
             x += bw
@@ -454,15 +490,15 @@ class ResultsItemDelegate(QStyledItemDelegate):
         # Draw remaining non-matching text
         if last_end < len(name_without_ext):
             remaining_text = name_without_ext[last_end:]
-            painter.setFont(self.normal_font)
-            painter.setPen(QColor(0, 0, 0))
+            painter.setFont(self.filename_font)
+            painter.setPen(QColor(C.TEXT_PRIMARY))
             painter.drawText(x, y, remaining_text)
             x += painter.fontMetrics().horizontalAdvance(remaining_text)
 
         # Draw extension
         if ext:
-            painter.setFont(self.normal_font)
-            painter.setPen(QColor(0, 0, 0))
+            painter.setFont(self.filename_font)
+            painter.setPen(QColor(C.TEXT_PRIMARY))
             painter.drawText(x, y, ext)
 
         painter.restore()
@@ -792,14 +828,14 @@ class ResultsView(QListView):
 
             # Calculate click position relative to the item
             # Item layout (from ResultsItemDelegate):
-            # - Top margin: 5px
-            # - Icon/Filename: 20px height (y=5 to y=25)
-            # - Path: 15px height (starts at filename bottom) (y=25 to y=40)
+            # - Top padding: 10px
+            # - Icon/Filename: 20px height (y=10 to y=30)
+            # - Path: 16px height (starts at filename bottom) (y=32 to y=48)
             #
-            # So if relative Y is > 25, it's likely the path area
+            # So if relative Y is > 34, it's likely the path area
             relative_y = e.pos().y() - rect.y()
 
-            if relative_y > 25:
+            if relative_y > 34:
                 # Clicked on path area - open folder
                 result = index.data(Qt.ItemDataRole.UserRole)
                 if result:

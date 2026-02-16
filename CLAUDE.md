@@ -86,7 +86,8 @@ filesearch/
 │   │   ├── main_window.py        # Main application window
 │   │   ├── results_view.py       # Search results display
 │   │   ├── settings_dialog.py    # Settings dialog
-│   │   └── sort_controls.py      # Sort UI controls
+│   │   ├── sort_controls.py      # Sort UI controls
+│   │   └── theme.py              # Centralized theme (colors, fonts, QSS)
 │   ├── plugins/             # Plugin system
 │   │   ├── plugin_base.py        # Abstract plugin base class
 │   │   ├── plugin_manager.py     # Plugin lifecycle management
@@ -110,7 +111,7 @@ filesearch/
 ```
 
 ### Source Code Statistics
-- **Source Files:** 21 Python modules
+- **Source Files:** 22 Python modules
 - **Test Files:** 19 test modules
 - **Documentation:** 9 markdown files in docs/
 - **Test Coverage Target:** >80%
@@ -141,6 +142,15 @@ filesearch/
    - JSON-based configuration with platformdirs
    - Cross-platform config directory detection
    - Type-safe defaults with validation
+
+5. **Centralized Theme System**
+   - Single `theme.py` module defining the entire design system
+   - `Colors` class with semantic color constants (primary, text, status, etc.)
+   - `Fonts` class with font family, sizes, and weight constants
+   - `Spacing` class with margins, padding, radii, and item dimensions
+   - `APP_STYLESHEET` global QSS covering all widget types
+   - `apply_theme(app)` function applied at startup in `main.py`
+   - Widgets use `setProperty("class", ...)` for variant styling, NOT inline `setStyleSheet()`
 
 ### Design Patterns Used
 
@@ -645,7 +655,35 @@ class SearchResult:
 - Results streamed back via signals
 - UI remains responsive during search
 
-### 6. Exception Hierarchy (`core/exceptions.py`)
+### 6. Theme System (`ui/theme.py`)
+
+**Purpose:** Centralized visual design system for the entire application
+
+**Key Classes:**
+- `Colors`: All color constants (primary, text, backgrounds, status, highlights)
+- `Fonts`: Font family, sizes (XS through XL), and weight constants
+- `Spacing`: Margins, padding, radii, item dimensions
+
+**Key Function:**
+- `apply_theme(app)`: Sets global font, QSS stylesheet, and QPalette on QApplication
+
+**Color Palette:**
+| Role | Color | Usage |
+|------|-------|-------|
+| Primary | `#2563EB` | Buttons, focus rings, accents |
+| BG Primary | `#FFFFFF` | Main window background |
+| BG Secondary | `#F8FAFC` | Results area, cards |
+| Text Primary | `#0F172A` | Filenames, headings |
+| Text Secondary | `#475569` | Labels, secondary info |
+| Text Tertiary | `#94A3B8` | Paths, timestamps |
+| Highlight BG | `#FDE68A` | Match highlight (warm amber) |
+
+**Usage Pattern:**
+- Widgets use `setProperty("class", "variant-name")` for style variants
+- QSS selectors like `QLabel[class="search-label"]` apply styles
+- **Never** add inline `setStyleSheet()` calls to individual widgets
+
+### 7. Exception Hierarchy (`core/exceptions.py`)
 
 **Purpose:** Type-safe error handling with context
 
@@ -775,7 +813,26 @@ for directory in directories:
 return results
 ```
 
-### 6. Resource Cleanup Pattern
+### 6. Styling Pattern
+
+**Use the centralized theme; do NOT add inline styles:**
+```python
+# Good - use property-class selectors for centralized QSS
+self.label = QLabel("Search")
+self.label.setProperty("class", "search-label")
+self.setObjectName("myWidget")
+
+# Bad - inline stylesheets override the theme
+self.label.setStyleSheet("font-size: 14px; color: #666;")
+self.setStyleSheet("QLabel { color: red; }")
+```
+
+**Adding new styled widgets:**
+1. Add the QSS selector to `theme.py`'s `APP_STYLESHEET`
+2. In the widget code, set `setProperty("class", "my-class")` or `setObjectName("myWidget")`
+3. Use dynamic property changes with `style().unpolish()/polish()` for state changes
+
+### 7. Resource Cleanup Pattern
 
 **Use context managers and cleanup methods:**
 ```python
