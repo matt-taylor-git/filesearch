@@ -44,7 +44,7 @@ class TestOpenContainingFolderIntegration:
     ):
         """Test that context menu action triggers the core utility function."""
         # Mock the core utility function
-        mock_open = mocker.patch("filesearch.ui.main_window.open_containing_folder")
+        mock_open = mocker.patch("filesearch.ui.context_menu_handler.open_containing_folder")
 
         # Simulate selection
         main_window.results_view.add_result(sample_result)
@@ -68,7 +68,7 @@ class TestOpenContainingFolderIntegration:
         """Test error handling when opening folder fails."""
         # Mock core function to raise exception
         mocker.patch(
-            "filesearch.ui.main_window.open_containing_folder",
+            "filesearch.ui.context_menu_handler.open_containing_folder",
             side_effect=FileSearchError("Test error"),
         )
 
@@ -111,7 +111,7 @@ class TestOpenContainingFolderIntegration:
     ):
         """Test full integration of keyboard shortcut to core function."""
         # Mock core function
-        mock_open = mocker.patch("filesearch.ui.main_window.open_containing_folder")
+        mock_open = mocker.patch("filesearch.ui.context_menu_handler.open_containing_folder")
 
         # Add result
         main_window.results_view.add_result(sample_result)

@@ -220,7 +220,7 @@ class TestErrorHandlingIntegration:
             with patch.object(main_window, "safe_status_message") as mock_status:
                 # Patch logger in the module where it is used
                 # (filesearch.ui.main_window)
-                with patch("filesearch.ui.main_window.logger") as mock_logger:
+                with patch("filesearch.ui.context_menu_handler.logger") as mock_logger:
                     # Execute the action
                     main_window._on_context_menu_action(
                         main_window.ContextMenuAction.OPEN
@@ -259,7 +259,7 @@ class TestErrorHandlingIntegration:
             mock_clipboard_getter.return_value = mock_clipboard
 
             with patch.object(main_window, "safe_status_message") as mock_status:
-                with patch("filesearch.ui.main_window.logger") as mock_logger:
+                with patch("filesearch.ui.context_menu_handler.logger") as mock_logger:
                     # Execute copy path action
                     main_window._handle_context_copy_path([search_results[0]])
 
@@ -279,7 +279,7 @@ class TestErrorHandlingIntegration:
             mock_dialog_class.side_effect = Exception("Dialog creation failed")
 
             with patch.object(main_window, "safe_status_message") as mock_status:
-                with patch("filesearch.ui.main_window.logger") as mock_logger:
+                with patch("filesearch.ui.context_menu_handler.logger") as mock_logger:
                     # Execute properties action
                     main_window._handle_context_properties([search_results[0]])
 
@@ -293,7 +293,7 @@ class TestErrorHandlingIntegration:
 class TestCrossPlatformFileOperations:
     """Test cross-platform file operation integration."""
 
-    @patch("filesearch.ui.main_window.open_containing_folder")
+    @patch("filesearch.ui.context_menu_handler.open_containing_folder")
     def test_open_containing_folder_platform_integration(
         self, mock_open_folder, main_window, search_results
     ):

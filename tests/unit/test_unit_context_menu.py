@@ -105,7 +105,7 @@ class TestContextMenuActionRouting:
 class TestContextMenuActionHandlers:
     """Test individual context menu action handlers."""
 
-    @patch("filesearch.ui.main_window.open_containing_folder")
+    @patch("filesearch.ui.context_menu_handler.open_containing_folder")
     def test_handle_context_open_containing_folder(
         self, mock_open_folder, search_results
     ):
@@ -333,7 +333,7 @@ class TestContextMenuActionHandlers:
 class TestContextMenuDeleteOperations:
     """Test delete operations and confirmation dialogs."""
 
-    @patch("filesearch.ui.main_window.delete_file")
+    @patch("filesearch.ui.context_menu_handler.delete_file")
     def test_perform_delete_permanent_placeholder(
         self, mock_delete_file, search_results
     ):
@@ -354,7 +354,7 @@ class TestContextMenuDeleteOperations:
             "Successfully permanently deleted 2 items"
         )
 
-    @patch("filesearch.ui.main_window.delete_file")
+    @patch("filesearch.ui.context_menu_handler.delete_file")
     def test_perform_delete_trash_placeholder(self, mock_delete_file, search_results):
         """Test trash delete implementation."""
 

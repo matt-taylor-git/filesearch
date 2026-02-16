@@ -33,11 +33,27 @@ src/filesearch/
 │   └── exceptions.py        # Exception hierarchy
 ├── ui/
 │   ├── main_window.py       # Main GUI window (3-panel QSplitter layout)
+│   ├── search_worker.py     # Background search thread (QThread + signals)
+│   ├── context_menu_handler.py  # Context menu actions mixin
 │   ├── sidebar_widget.py    # Left sidebar: locations, file type filters, tags
 │   ├── details_panel.py     # Right details panel: file info, actions
-│   ├── results_view.py      # Search results display (QtAwesome icons)
-│   ├── search_controls.py   # Search input, directory selector, progress
-│   ├── settings_dialog.py   # Settings dialog
+│   ├── results_view.py      # Search results list view (QListView)
+│   ├── results_model.py     # Results data model (QAbstractListModel)
+│   ├── results_delegate.py  # Custom result item painting
+│   ├── search_controls/     # Search input widgets package
+│   │   ├── search_state.py      # SearchState enum
+│   │   ├── search_input.py      # Search bar with history & debounce
+│   │   ├── directory_selector.py # Directory path input & browse
+│   │   ├── search_control.py    # Search/Stop button
+│   │   ├── progress.py          # Progress bar with spinner
+│   │   └── status.py            # Results count & status display
+│   ├── settings/             # Settings dialog package
+│   │   ├── settings_dialog.py   # Dialog orchestrator
+│   │   ├── search_tab.py        # Search preferences tab
+│   │   ├── ui_tab.py            # UI preferences tab
+│   │   ├── performance_tab.py   # Performance settings tab
+│   │   ├── highlight_tab.py     # Highlighting settings tab
+│   │   └── plugin_tab.py        # Plugin management tab
 │   ├── sort_controls.py     # Sort UI controls
 │   └── theme.py             # Centralized theme system
 ├── plugins/

@@ -1,606 +1,15 @@
-from datetime import datetime
-from typing import Dict, List, Optional, Set
+"""Results view component for displaying search results."""
 
-import qtawesome as qta
-from loguru import logger
-from PyQt6.QtCore import (
-    QAbstractListModel,
-    QModelIndex,
-    QPoint,
-    QRect,
-    QSize,
-    Qt,
-    pyqtSignal,
-)
-from PyQt6.QtGui import (
-    QAbstractTextDocumentLayout,
-    QColor,
-    QCursor,
-    QFont,
-    QIcon,
-    QKeyEvent,
-    QPixmap,
-    QStandardItem,
-    QStandardItemModel,
-    QTextDocument,
-)
-from PyQt6.QtWidgets import QAbstractItemView, QListView, QStyle, QStyledItemDelegate
+from typing import List, Optional
 
-from ..core.exceptions import FileSearchError
-from ..core.file_utils import rename_file
-from ..core.sort_engine import SortCriteria, SortEngine
-from ..models.search_result import SearchResult
-from ..utils.highlight_engine import HighlightEngine
+from PyQt6.QtCore import QModelIndex, QPoint, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QCursor, QStandardItem, QStandardItemModel
+from PyQt6.QtWidgets import QAbstractItemView, QListView
 
-
-class ResultsModel(QAbstractListModel):
-    """Custom model for results list with virtual scrolling support"""
-
-    error_occurred = pyqtSignal(str)
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._all_results: List[SearchResult] = []  # Unfiltered master list
-        self._results: List[SearchResult] = []  # Filtered view
-        self._displayed_count = 0
-        self._batch_size = 100  # Load 100 items at a time for smooth scrolling
-        self._current_sort_criteria = None
-        self._current_query = ""
-        self._extension_filter: List[str] = []  # Empty = show all
-
-    def rowCount(self, parent=QModelIndex()):
-        return self._displayed_count
-
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid() or index.row() >= self._displayed_count:
-            return None
-
-        result = self._results[index.row()]
-
-        if role == Qt.ItemDataRole.DisplayRole:
-            return result.get_display_name()
-        elif role == Qt.ItemDataRole.UserRole:
-            return result
-        elif role == Qt.ItemDataRole.ToolTipRole:
-            return (
-                f"Filename: {result.path.name}\n"
-                f"Path: {result.path}\n"
-                f"Size: {result.get_display_size()}\n"
-                f"Modified: {result.get_display_date()}"
-            )
-
-        return None
-
-    def flags(self, index):
-        """Return item flags"""
-        if not index.isValid():
-            return Qt.ItemFlag.NoItemFlags
-        return super().flags(index) | Qt.ItemFlag.ItemIsEditable
-
-    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
-        """Handle data updates (renaming)"""
-        if not index.isValid() or role != Qt.ItemDataRole.EditRole:
-            return False
-
-        result = self._results[index.row()]
-        new_name = str(value)
-
-        # Skip if name hasn't changed
-        if new_name == result.path.name:
-            return False
-
-        try:
-            new_path = rename_file(result.path, new_name)
-
-            # Update result object
-            result.path = new_path
-
-            # Emit data changed signal
-            self.dataChanged.emit(
-                index,
-                index,
-                [
-                    Qt.ItemDataRole.DisplayRole,
-                    Qt.ItemDataRole.UserRole,
-                    Qt.ItemDataRole.ToolTipRole,
-                ],
-            )
-            return True
-
-        except Exception as e:
-            logger.error(f"Rename failed: {e}")
-            self.error_occurred.emit(str(e))
-            return False
-
-    def canFetchMore(self, parent=QModelIndex()):
-        """Check if more results can be fetched for virtual scrolling"""
-        if parent.isValid():
-            return False
-        return self._displayed_count < len(self._results)
-
-    def fetchMore(self, parent=QModelIndex()):
-        """Fetch more results for virtual scrolling"""
-        if parent.isValid():
-            return
-
-        remaining = len(self._results) - self._displayed_count
-        items_to_fetch = min(self._batch_size, remaining)
-
-        if items_to_fetch <= 0:
-            return
-
-        self.beginInsertRows(
-            QModelIndex(),
-            self._displayed_count,
-            self._displayed_count + items_to_fetch - 1,
-        )
-        self._displayed_count += items_to_fetch
-        self.endInsertRows()
-
-    def add_result(self, result):
-        """Add a single result to the model"""
-        self._all_results.append(result)
-
-        # Check if result passes current filter
-        if self._extension_filter and result.path.suffix.lower() not in self._extension_filter:
-            return  # Filtered out, don't add to visible list
-
-        self.beginInsertRows(QModelIndex(), len(self._results), len(self._results))
-        self._results.append(result)
-
-        # Auto-fetch if we're still in initial loading phase
-        if (
-            self._displayed_count < len(self._results)
-            and len(self._results) <= self._displayed_count + self._batch_size
-        ):
-            self._displayed_count += 1
-
-        self.endInsertRows()
-
-    def remove_result(self, result):
-        """Remove a single result from the model"""
-        try:
-            idx = self._results.index(result)
-            self.beginRemoveRows(QModelIndex(), idx, idx)
-            self._results.pop(idx)
-            if idx < self._displayed_count:
-                self._displayed_count -= 1
-            self.endRemoveRows()
-            return True
-        except ValueError:
-            return False
-
-    def clear(self):
-        """Clear all results from the model"""
-        self.beginResetModel()
-        self._all_results.clear()
-        self._results.clear()
-        self._displayed_count = 0
-        self.endResetModel()
-
-    def set_results(self, results):
-        """Set all results at once (used for initial load or refresh)"""
-        self.beginResetModel()
-        self._all_results = list(results)
-        if self._extension_filter:
-            self._results = [
-                r for r in self._all_results
-                if r.path.suffix.lower() in self._extension_filter
-            ]
-        else:
-            self._results = list(self._all_results)
-        self._displayed_count = min(self._batch_size, len(self._results))
-        self.endResetModel()
-
-    def get_all_results(self):
-        """Get all results (including those not yet displayed)"""
-        return self._results
-
-    def set_extension_filter(self, extensions: List[str]) -> None:
-        """Filter visible results by file extension (client-side, no re-search).
-
-        Args:
-            extensions: List of extensions like ['.pdf', '.doc']. Empty = show all.
-        """
-        self._extension_filter = [e.lower() for e in extensions]
-        self.beginResetModel()
-        if self._extension_filter:
-            self._results = [
-                r for r in self._all_results
-                if r.path.suffix.lower() in self._extension_filter
-            ]
-        else:
-            self._results = list(self._all_results)
-        self._displayed_count = min(self._batch_size, len(self._results))
-        self.endResetModel()
-
-    def sort_results(self, criteria: SortCriteria, query: str = ""):
-        """Sort results using the specified criteria.
-
-        AC3: Selection and scroll position should be preserved.
-        For now, we sort all results and reset display count.
-
-        Args:
-            criteria: SortCriteria enum value
-            query: Search query (required for relevance sorting)
-        """
-        if not self._results:
-            return
-
-        # Store current state
-        self._current_sort_criteria = criteria
-        self._current_query = query
-
-        # Sort all results
-        sorted_results = SortEngine.sort(self._results, criteria, query)
-
-        # Reset model with sorted results
-        self.set_results(sorted_results)
-
-    def get_current_sort_criteria(self) -> Optional[SortCriteria]:
-        """Get the currently applied sort criteria"""
-        return self._current_sort_criteria
-
-    def get_sort_query(self) -> str:
-        """Get the query used for relevance sorting"""
-        return self._current_query
-
-
-def _get_file_icon_info(path) -> tuple:
-    """Return (qta icon name, color hex) for a file path."""
-    from filesearch.ui.theme import Colors as C
-
-    if path.is_dir():
-        return "mdi6.folder", C.FILE_FOLDER
-
-    ext = path.suffix.lower()
-    _map = {
-        ".pdf": ("mdi6.file-pdf-box", C.FILE_PDF),
-        ".doc": ("mdi6.file-word", C.FILE_DOC),
-        ".docx": ("mdi6.file-word", C.FILE_DOC),
-        ".xls": ("mdi6.file-excel", C.FILE_DOC),
-        ".xlsx": ("mdi6.file-excel", C.FILE_DOC),
-        ".ppt": ("mdi6.file-powerpoint", C.FILE_DOC),
-        ".pptx": ("mdi6.file-powerpoint", C.FILE_DOC),
-        ".txt": ("mdi6.file-document", C.FILE_DOC),
-        ".md": ("mdi6.file-document", C.FILE_DOC),
-        ".rtf": ("mdi6.file-document", C.FILE_DOC),
-        ".csv": ("mdi6.file-delimited", C.FILE_DOC),
-        ".jpg": ("mdi6.file-image", C.FILE_IMAGE),
-        ".jpeg": ("mdi6.file-image", C.FILE_IMAGE),
-        ".png": ("mdi6.file-image", C.FILE_IMAGE),
-        ".gif": ("mdi6.file-image", C.FILE_IMAGE),
-        ".bmp": ("mdi6.file-image", C.FILE_IMAGE),
-        ".svg": ("mdi6.file-image", C.FILE_IMAGE),
-        ".webp": ("mdi6.file-image", C.FILE_IMAGE),
-        ".mp4": ("mdi6.file-video", C.FILE_VIDEO),
-        ".avi": ("mdi6.file-video", C.FILE_VIDEO),
-        ".mkv": ("mdi6.file-video", C.FILE_VIDEO),
-        ".mov": ("mdi6.file-video", C.FILE_VIDEO),
-        ".wmv": ("mdi6.file-video", C.FILE_VIDEO),
-        ".mp3": ("mdi6.file-music", C.FILE_AUDIO),
-        ".wav": ("mdi6.file-music", C.FILE_AUDIO),
-        ".flac": ("mdi6.file-music", C.FILE_AUDIO),
-        ".aac": ("mdi6.file-music", C.FILE_AUDIO),
-        ".ogg": ("mdi6.file-music", C.FILE_AUDIO),
-        ".zip": ("mdi6.zip-box", C.FILE_ARCHIVE),
-        ".rar": ("mdi6.zip-box", C.FILE_ARCHIVE),
-        ".7z": ("mdi6.zip-box", C.FILE_ARCHIVE),
-        ".tar": ("mdi6.zip-box", C.FILE_ARCHIVE),
-        ".gz": ("mdi6.zip-box", C.FILE_ARCHIVE),
-        ".py": ("mdi6.language-python", C.FILE_CODE),
-        ".js": ("mdi6.language-javascript", C.FILE_CODE),
-        ".ts": ("mdi6.language-typescript", C.FILE_CODE),
-        ".html": ("mdi6.language-html5", C.FILE_CODE),
-        ".css": ("mdi6.language-css3", C.FILE_CODE),
-        ".java": ("mdi6.language-java", C.FILE_CODE),
-        ".cpp": ("mdi6.language-cpp", C.FILE_CODE),
-        ".c": ("mdi6.language-c", C.FILE_CODE),
-        ".go": ("mdi6.language-go", C.FILE_CODE),
-        ".rs": ("mdi6.language-rust", C.FILE_CODE),
-        ".rb": ("mdi6.language-ruby", C.FILE_CODE),
-        ".json": ("mdi6.code-json", C.FILE_CODE),
-        ".xml": ("mdi6.file-xml-box", C.FILE_CODE),
-        ".yaml": ("mdi6.file-code", C.FILE_CODE),
-        ".yml": ("mdi6.file-code", C.FILE_CODE),
-        ".sh": ("mdi6.console", C.FILE_CODE),
-        ".bat": ("mdi6.console", C.FILE_CODE),
-        ".exe": ("mdi6.application", "#858BA0"),
-    }
-    return _map.get(ext, ("mdi6.file", C.TEXT_SECONDARY))
-
-
-# Pixmap cache for file-type icons (key = "icon_name:color")
-_icon_pixmap_cache: Dict[str, QPixmap] = {}
-
-
-def _get_file_icon_pixmap(path, size: int = 20) -> QPixmap:
-    """Return a cached QPixmap for the file type."""
-    icon_name, color = _get_file_icon_info(path)
-    key = f"{icon_name}:{color}:{size}"
-    if key not in _icon_pixmap_cache:
-        _icon_pixmap_cache[key] = qta.icon(icon_name, color=color).pixmap(size, size)
-    return _icon_pixmap_cache[key]
-
-
-class ResultsItemDelegate(QStyledItemDelegate):
-    """Custom delegate for rendering search result items with highlighting support"""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        from filesearch.ui.theme import Colors, Fonts, Spacing
-
-        # Theme-aware fonts
-        self.filename_font = QFont("Segoe UI", Fonts.SIZE_BASE)
-        self.filename_font.setWeight(QFont.Weight.DemiBold)
-        self.path_font = QFont("Segoe UI", Fonts.SIZE_XS)
-        self.size_font = QFont("Segoe UI", Fonts.SIZE_XS)
-        self.size_font.setWeight(QFont.Weight.Medium)
-        self.date_font = QFont("Segoe UI", Fonts.SIZE_XS)
-
-        self.icon_cache = {}
-        self.highlight_engine = HighlightEngine()
-        self.current_query = None
-        self.highlight_color = Colors.HIGHLIGHT_BG
-        self.highlight_text_color = Colors.HIGHLIGHT_TEXT
-        self.highlight_enabled = True
-        self.highlight_style = "background"  # background, outline, or underline
-
-        # Cache theme colors
-        self._colors = Colors
-        self._spacing = Spacing
-
-    def get_file_type_icon(self, path):
-        """Get file type icon based on extension with caching (legacy fallback)"""
-        if path.is_dir():
-            return self.icon_cache.setdefault("dir", "📁")
-        ext = path.suffix.lower()
-        icon_map = {
-            ".txt": "📄", ".pdf": "📕", ".doc": "📄", ".docx": "📄",
-            ".jpg": "📷", ".jpeg": "📷", ".png": "🖼️", ".gif": "📷",
-            ".mp4": "📽️", ".avi": "📽️", ".mp3": "🎵", ".wav": "🎵",
-            ".zip": "📦", ".rar": "📦", ".exe": "⚙️", ".py": "🐍",
-            ".js": "📜", ".html": "🌐", ".css": "🎨",
-        }
-        return self.icon_cache.setdefault(ext, icon_map.get(ext, "📄"))
-
-    def paint(self, painter, option, index):
-        """Custom paint method for result items with polished theme styling"""
-        if painter is None:
-            return
-        painter.save()
-
-        # Get the SearchResult from the model
-        result = index.data(Qt.ItemDataRole.UserRole)
-        if not isinstance(result, SearchResult):
-            super().paint(painter, option, index)
-            painter.restore()
-            return
-
-        C = self._colors
-        pad = self._spacing.PADDING_ITEM
-
-        # Draw background based on state
-        if option.state & QStyle.StateFlag.State_Selected:
-            painter.fillRect(option.rect, QColor(C.ITEM_SELECTED_BG))
-        elif option.state & QStyle.StateFlag.State_MouseOver:
-            painter.fillRect(option.rect, QColor(C.ITEM_HOVER_BG))
-
-        # Draw subtle separator line at bottom
-        sep_y = option.rect.bottom()
-        painter.setPen(QColor(C.ITEM_SEPARATOR))
-        painter.drawLine(
-            option.rect.left() + pad, sep_y, option.rect.right() - pad, sep_y
-        )
-
-        # Content area with padding
-        rect = option.rect.adjusted(pad, pad - 2, -pad, -pad)
-
-        # --- Icon (QtAwesome pixmap) ---
-        icon_size = 20
-        icon_pixmap = _get_file_icon_pixmap(result.path, icon_size)
-        icon_x = rect.left()
-        icon_y = rect.top() + 2
-        painter.drawPixmap(icon_x, icon_y, icon_pixmap)
-
-        content_left = icon_x + icon_size + 8
-
-        # === Right side: Size pill and date ===
-        size_text = result.get_display_size()
-        painter.setFont(self.size_font)
-        size_fm = painter.fontMetrics()
-        pill_text_width = size_fm.horizontalAdvance(size_text)
-        pill_h = size_fm.height() + 6
-        pill_w = pill_text_width + self._spacing.PADDING_PILL * 2
-        pill_x = rect.right() - pill_w
-        pill_y = rect.top() + 2
-
-        # Draw pill background with subtle border
-        pill_rect = QRect(pill_x, pill_y, pill_w, pill_h)
-        painter.setPen(QColor(C.BORDER_DEFAULT))
-        painter.setBrush(QColor(C.SIZE_PILL_BG))
-        painter.drawRoundedRect(pill_rect, 5, 5)
-
-        # Draw pill text
-        painter.setPen(QColor(C.TEXT_SECONDARY))
-        painter.setFont(self.size_font)
-        painter.drawText(
-            pill_rect,
-            Qt.AlignmentFlag.AlignCenter,
-            size_text,
-        )
-
-        # Date (right-aligned below pill)
-        try:
-            date_text = datetime.fromtimestamp(result.modified).strftime("%b %d, %Y")
-        except Exception:
-            date_text = "Unknown"
-
-        painter.setFont(self.date_font)
-        date_fm = painter.fontMetrics()
-        date_w = date_fm.horizontalAdvance(date_text)
-        date_rect = QRect(
-            rect.right() - date_w,
-            pill_y + pill_h + 4,
-            date_w,
-            date_fm.height(),
-        )
-        painter.setPen(QColor(C.TEXT_TERTIARY))
-        painter.drawText(
-            date_rect,
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
-            date_text,
-        )
-
-        # === Left side: Filename and path ===
-        filename_width = pill_x - content_left - 12
-
-        # Filename
-        filename_rect = QRect(content_left, rect.top(), filename_width, 20)
-        filename = result.get_display_name()
-        if len(filename) > 80:
-            filename = filename[:77] + "..."
-
-        # Use highlighting if query is set
-        if (
-            self.current_query
-            and self.highlight_enabled
-            and self.highlight_engine.has_matches(filename, self.current_query)
-        ):
-            self._draw_highlighted_text(
-                painter, filename_rect, filename, self.current_query
-            )
-        else:
-            painter.setFont(self.filename_font)
-            painter.setPen(QColor(C.TEXT_PRIMARY))
-            painter.drawText(
-                filename_rect,
-                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
-                filename,
-            )
-
-        # Path (below filename)
-        path_rect = QRect(
-            content_left, filename_rect.bottom() + 2, filename_width, 16
-        )
-        painter.setFont(self.path_font)
-        path = result.get_display_path()
-        if len(path) > 80:
-            path = "..." + path[-77:]
-        painter.setPen(QColor(C.TEXT_TERTIARY))
-        painter.drawText(
-            path_rect,
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop,
-            path,
-        )
-
-        painter.restore()
-
-    def sizeHint(self, option, index: QModelIndex) -> QSize:
-        """Return the size hint for items"""
-        return QSize(400, 64)  # Spacious items with room for pill and separator
-
-    def set_query(self, query: str):
-        """Set the current search query for highlighting"""
-        self.current_query = query
-        self.highlight_engine.clear_cache()
-
-    def set_highlight_enabled(self, enabled: bool):
-        """Enable or disable highlighting"""
-        self.highlight_enabled = enabled
-
-    def set_highlight_color(self, color: str):
-        """Set the highlight color (HTML color code)"""
-        self.highlight_color = color
-
-    def set_highlight_style(self, style: str):
-        """Set the highlight style ('background', 'outline', or 'underline')"""
-        self.highlight_style = style
-
-    def _draw_highlighted_text(self, painter, rect, text: str, query: str):
-        """Draw text with highlighted matching portions using theme colors"""
-        if not text or not query or not self.highlight_enabled:
-            painter.drawText(
-                rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, text
-            )
-            return
-
-        matches = self.highlight_engine.find_matches(text, query, case_sensitive=False)
-
-        if not matches:
-            painter.drawText(
-                rect, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop, text
-            )
-            return
-
-        painter.save()
-
-        C = self._colors
-        name_without_ext, ext = self.highlight_engine._split_filename_and_ext(text)
-
-        x = rect.left()
-        y = rect.top()
-
-        last_end = 0
-
-        for start, end in matches:
-            # Draw non-matching text before this match
-            if start > last_end:
-                normal_text = name_without_ext[last_end:start]
-                painter.setFont(self.filename_font)
-                painter.setPen(QColor(C.TEXT_PRIMARY))
-                painter.drawText(x, y, normal_text)
-                x += painter.fontMetrics().horizontalAdvance(normal_text)
-
-            # Draw highlighted matching text
-            match_text = name_without_ext[start:end]
-            painter.setFont(self.filename_font)
-
-            bw = painter.fontMetrics().horizontalAdvance(match_text)
-            bh = painter.fontMetrics().height()
-
-            if self.highlight_style == "background":
-                # Rounded rect highlight with warm amber
-                highlight_rect = QRect(x - 1, y - bh + 2, bw + 2, bh)
-                painter.setPen(Qt.PenStyle.NoPen)
-                painter.setBrush(QColor(self.highlight_color))
-                painter.drawRoundedRect(highlight_rect, 3, 3)
-                painter.setPen(QColor(self.highlight_text_color))
-            elif self.highlight_style == "outline":
-                pen = painter.pen()
-                pen.setColor(QColor(self.highlight_color))
-                pen.setWidth(2)
-                painter.setPen(pen)
-                painter.drawRoundedRect(x, y - bh, bw, bh, 3, 3)
-                painter.setPen(QColor(C.TEXT_PRIMARY))
-            elif self.highlight_style == "underline":
-                pen = painter.pen()
-                pen.setColor(QColor(self.highlight_color))
-                pen.setWidth(2)
-                painter.setPen(pen)
-                painter.drawLine(x, y, x + bw, y)
-                painter.setPen(QColor(C.TEXT_PRIMARY))
-
-            painter.drawText(x, y, match_text)
-            x += bw
-
-            last_end = end
-
-        # Draw remaining non-matching text
-        if last_end < len(name_without_ext):
-            remaining_text = name_without_ext[last_end:]
-            painter.setFont(self.filename_font)
-            painter.setPen(QColor(C.TEXT_PRIMARY))
-            painter.drawText(x, y, remaining_text)
-            x += painter.fontMetrics().horizontalAdvance(remaining_text)
-
-        # Draw extension
-        if ext:
-            painter.setFont(self.filename_font)
-            painter.setPen(QColor(C.TEXT_PRIMARY))
-            painter.drawText(x, y, ext)
-
-        painter.restore()
+from filesearch.core.sort_engine import SortCriteria
+from filesearch.models.search_result import SearchResult
+from filesearch.ui.results_delegate import ResultsItemDelegate
+from filesearch.ui.results_model import ResultsModel  # noqa: F401 — re-exported
 
 
 class ResultsView(QListView):
@@ -658,17 +67,13 @@ class ResultsView(QListView):
         # Search state tracking
         self._is_searching = False
 
-        # Empty state - don't show initially
-
         # Store reference to delegate for highlighting
         self._delegate = self.itemDelegate()
 
     def _on_custom_context_menu_requested(self, pos: QPoint) -> None:
-        """
-        Handles the custom context menu request by emitting a signal with the global
+        """Handles the custom context menu request by emitting a signal with the global
         position.
         """
-        # Map the local position to global coordinates for the main window
         global_pos = self.mapToGlobal(pos)
         self.context_menu_requested.emit(global_pos)
 
@@ -772,11 +177,7 @@ class ResultsView(QListView):
         """Get the currently selected SearchResult"""
         indexes = self.selectedIndexes()
         if indexes:
-            model = self.model()
-            if model == self._empty_model:
-                return indexes[0].data(Qt.ItemDataRole.UserRole)
-            else:
-                return indexes[0].data(Qt.ItemDataRole.UserRole)
+            return indexes[0].data(Qt.ItemDataRole.UserRole)
         return None
 
     def apply_sorting(self, criteria: SortCriteria):
@@ -922,16 +323,7 @@ class ResultsView(QListView):
 
         index = self.indexAt(e.pos())
         if index.isValid():
-            # Get the visual rect of the item
             rect = self.visualRect(index)
-
-            # Calculate click position relative to the item
-            # Item layout (from ResultsItemDelegate):
-            # - Top padding: 10px
-            # - Icon/Filename: 20px height (y=10 to y=30)
-            # - Path: 16px height (starts at filename bottom) (y=32 to y=48)
-            #
-            # So if relative Y is > 34, it's likely the path area
             relative_y = e.pos().y() - rect.y()
 
             if relative_y > 34:
@@ -942,14 +334,11 @@ class ResultsView(QListView):
                     self._add_highlight_flash(index)
             else:
                 # Clicked on filename area - open file
-                # Explicitly emit doubleClicked signal to trigger file opening
-                # This ensures reliable behavior regardless of edit triggers
                 self.doubleClicked.emit(index)
 
             e.accept()
             return
 
-        # Otherwise call super implementation
         super().mouseDoubleClickEvent(e)
 
     def _on_double_clicked(self, index: QModelIndex) -> None:
@@ -965,18 +354,10 @@ class ResultsView(QListView):
         if self._is_searching:
             return
 
-        # Get the SearchResult object
-        model = self.model()
-        if model == self._empty_model:
-            result = index.data(Qt.ItemDataRole.UserRole)
-        else:
-            result = index.data(Qt.ItemDataRole.UserRole)
+        result = index.data(Qt.ItemDataRole.UserRole)
 
         if result:
-            # Emit signal for main window to handle
             self.file_open_requested.emit(result)
-
-            # Add visual feedback - brief highlight flash
             self._add_highlight_flash(index)
 
     def _add_highlight_flash(self, index: QModelIndex) -> None:
@@ -985,16 +366,10 @@ class ResultsView(QListView):
         Args:
             index: Model index of the item to highlight
         """
-        # Store original selection
         original_selection = self.selectedIndexes()
-
-        # Temporarily select and highlight the item
         self.setCurrentIndex(index)
-
-        # Force a repaint to show the highlight
         self.viewport().update()
 
-        # Use QTimer to restore original selection after brief delay
         from PyQt6.QtCore import QTimer
 
         QTimer.singleShot(150, lambda: self._restore_selection(original_selection))
@@ -1020,13 +395,10 @@ class ResultsView(QListView):
         Args:
             e: Mouse move event
         """
-        # Check if mouse is over an item
         index = self.indexAt(e.pos())
         if index.isValid():
-            # Change to pointer hand cursor over items
             self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         else:
-            # Restore default cursor
             self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
 
         super().mouseMoveEvent(e)
@@ -1039,7 +411,6 @@ class ResultsView(QListView):
         """
         self._is_searching = is_searching
 
-        # Update cursor based on search state
         if is_searching:
             self.setCursor(QCursor(Qt.CursorShape.BusyCursor))
         else:

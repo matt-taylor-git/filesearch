@@ -21,7 +21,7 @@ def search_result():
 class TestOpenWithMenu:
     """Test the Open With submenu functionality."""
 
-    @patch("filesearch.ui.main_window.get_associated_applications")
+    @patch("filesearch.ui.context_menu_handler.get_associated_applications")
     def test_populate_open_with_menu(self, mock_get_apps, search_result):
         """Test populating the Open With menu."""
         # Mock associated applications
@@ -56,7 +56,7 @@ class TestOpenWithMenu:
         assert menu.addAction.call_count == 3  # Text Editor, Vim, Choose...
         menu.addSeparator.assert_called_once()
 
-    @patch("filesearch.ui.main_window.open_with_application")
+    @patch("filesearch.ui.context_menu_handler.open_with_application")
     def test_handle_open_with_app(self, mock_open_with, search_result):
         """Test handling opening with specific app."""
         window = Mock(spec=MainWindow)
