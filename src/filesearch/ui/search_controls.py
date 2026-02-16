@@ -119,68 +119,88 @@ class SearchInputWidget(QWidget):
         return QSize(400, 60)
 
     def _setup_ui(self) -> None:
-        """Setup user interface components."""
-        # Main layout
+        """Setup user interface components as a unified search bar.
+
+        Layout: [search-icon] [QLineEdit] [clear-btn] [loading-indicator]
+        All wrapped in a single styled container.
+        """
+        # Main layout — no extra margins, the container IS the widget
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setSpacing(0)
         self.setLayout(layout)
 
-        # Label
+        # Keep label reference for backward compat but hide it
         self.label = QLabel("Search files and folders")
         self.label.setProperty("class", "search-label")
+        self.label.setVisible(False)
         layout.addWidget(self.label)
 
-        # Create a container for the search input with clear button and loading indicator
+        # Unified search bar container
         search_container = QWidget()
+        search_container.setObjectName("searchBarContainer")
         search_layout = QHBoxLayout()
-        search_layout.setContentsMargins(0, 0, 0, 0)
-        search_layout.setSpacing(0)
+        search_layout.setContentsMargins(10, 0, 6, 0)
+        search_layout.setSpacing(6)
         search_container.setLayout(search_layout)
+
+        # Search icon
+        try:
+            import qtawesome as qta
+            from filesearch.ui.theme import Colors as _C
+
+            self.search_icon = QLabel()
+            self.search_icon.setPixmap(
+                qta.icon("mdi6.magnify", color=_C.TEXT_TERTIARY).pixmap(18, 18)
+            )
+            self.search_icon.setFixedSize(18, 18)
+        except Exception:
+            self.search_icon = QLabel("🔍")
+            self.search_icon.setFixedSize(18, 18)
+        search_layout.addWidget(self.search_icon)
 
         # Search input field
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Enter filename or partial name...")
+        self.search_input.setPlaceholderText("Search files and folders...")
         self.search_input.setMaxLength(self.MAX_SEARCH_LENGTH)
         self.search_input.setProperty("class", "search-input")
         self.search_input.setMinimumHeight(36)
-        self.search_input.setMaximumWidth(900)  # Prevent expanding to window edge
 
         # Set accessibility attributes
         self.search_input.setAccessibleName("Search input")
         self.search_input.setAccessibleDescription(
             "Enter filename or partial name to search for files and folders"
         )
-
-        # Set text alignment to ensure proper vertical centering
         self.search_input.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+        search_layout.addWidget(self.search_input, 1)
 
         # Clear button
-        self.clear_button = QToolButton()
-        self.clear_button.setText("✕")
+        try:
+            import qtawesome as qta
+            from filesearch.ui.theme import Colors as _C
+
+            self.clear_button = QToolButton()
+            self.clear_button.setIcon(
+                qta.icon("mdi6.close", color=_C.TEXT_TERTIARY)
+            )
+        except Exception:
+            self.clear_button = QToolButton()
+            self.clear_button.setText("✕")
         self.clear_button.setProperty("class", "clear-button")
         self.clear_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.clear_button.setVisible(False)  # Hidden by default
+        self.clear_button.setVisible(False)
         self.clear_button.clicked.connect(self.clear_text)
         self.clear_button.setFixedSize(24, 24)
+        search_layout.addWidget(self.clear_button)
 
-        # Loading indicator (simple text for now, can be replaced with spinner)
+        # Loading indicator
         self.loading_indicator = QLabel("⟳")
         self.loading_indicator.setProperty("class", "loading-indicator")
         self.loading_indicator.setVisible(False)
         self.loading_indicator.setFixedSize(24, 24)
-
-        # Add widgets to search container
-        search_layout.addWidget(self.search_input)
-        search_layout.addWidget(self.clear_button)
         search_layout.addWidget(self.loading_indicator)
 
-        # Add search container to main layout
         layout.addWidget(search_container)
-
-        # Set widget size policy for proper sizing
-        self.setMinimumWidth(400)  # Minimum 400px as per AC
-        self.setMaximumWidth(1200)  # Prevent excessive expansion
 
         # Connect signals
         self.connect_signals()

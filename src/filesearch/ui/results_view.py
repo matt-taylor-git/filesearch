@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional, Set
 
+import qtawesome as qta
 from loguru import logger
 from PyQt6.QtCore import (
     QAbstractListModel,
@@ -16,7 +17,9 @@ from PyQt6.QtGui import (
     QColor,
     QCursor,
     QFont,
+    QIcon,
     QKeyEvent,
+    QPixmap,
     QStandardItem,
     QStandardItemModel,
     QTextDocument,
@@ -37,11 +40,13 @@ class ResultsModel(QAbstractListModel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._results = []
+        self._all_results: List[SearchResult] = []  # Unfiltered master list
+        self._results: List[SearchResult] = []  # Filtered view
         self._displayed_count = 0
         self._batch_size = 100  # Load 100 items at a time for smooth scrolling
         self._current_sort_criteria = None
         self._current_query = ""
+        self._extension_filter: List[str] = []  # Empty = show all
 
     def rowCount(self, parent=QModelIndex()):
         return self._displayed_count
@@ -134,6 +139,12 @@ class ResultsModel(QAbstractListModel):
 
     def add_result(self, result):
         """Add a single result to the model"""
+        self._all_results.append(result)
+
+        # Check if result passes current filter
+        if self._extension_filter and result.path.suffix.lower() not in self._extension_filter:
+            return  # Filtered out, don't add to visible list
+
         self.beginInsertRows(QModelIndex(), len(self._results), len(self._results))
         self._results.append(result)
 
@@ -162,6 +173,7 @@ class ResultsModel(QAbstractListModel):
     def clear(self):
         """Clear all results from the model"""
         self.beginResetModel()
+        self._all_results.clear()
         self._results.clear()
         self._displayed_count = 0
         self.endResetModel()
@@ -169,13 +181,38 @@ class ResultsModel(QAbstractListModel):
     def set_results(self, results):
         """Set all results at once (used for initial load or refresh)"""
         self.beginResetModel()
-        self._results = results
+        self._all_results = list(results)
+        if self._extension_filter:
+            self._results = [
+                r for r in self._all_results
+                if r.path.suffix.lower() in self._extension_filter
+            ]
+        else:
+            self._results = list(self._all_results)
         self._displayed_count = min(self._batch_size, len(self._results))
         self.endResetModel()
 
     def get_all_results(self):
         """Get all results (including those not yet displayed)"""
         return self._results
+
+    def set_extension_filter(self, extensions: List[str]) -> None:
+        """Filter visible results by file extension (client-side, no re-search).
+
+        Args:
+            extensions: List of extensions like ['.pdf', '.doc']. Empty = show all.
+        """
+        self._extension_filter = [e.lower() for e in extensions]
+        self.beginResetModel()
+        if self._extension_filter:
+            self._results = [
+                r for r in self._all_results
+                if r.path.suffix.lower() in self._extension_filter
+            ]
+        else:
+            self._results = list(self._all_results)
+        self._displayed_count = min(self._batch_size, len(self._results))
+        self.endResetModel()
 
     def sort_results(self, criteria: SortCriteria, query: str = ""):
         """Sort results using the specified criteria.
@@ -209,6 +246,83 @@ class ResultsModel(QAbstractListModel):
         return self._current_query
 
 
+def _get_file_icon_info(path) -> tuple:
+    """Return (qta icon name, color hex) for a file path."""
+    from filesearch.ui.theme import Colors as C
+
+    if path.is_dir():
+        return "mdi6.folder", C.FILE_FOLDER
+
+    ext = path.suffix.lower()
+    _map = {
+        ".pdf": ("mdi6.file-pdf-box", C.FILE_PDF),
+        ".doc": ("mdi6.file-word", C.FILE_DOC),
+        ".docx": ("mdi6.file-word", C.FILE_DOC),
+        ".xls": ("mdi6.file-excel", C.FILE_DOC),
+        ".xlsx": ("mdi6.file-excel", C.FILE_DOC),
+        ".ppt": ("mdi6.file-powerpoint", C.FILE_DOC),
+        ".pptx": ("mdi6.file-powerpoint", C.FILE_DOC),
+        ".txt": ("mdi6.file-document", C.FILE_DOC),
+        ".md": ("mdi6.file-document", C.FILE_DOC),
+        ".rtf": ("mdi6.file-document", C.FILE_DOC),
+        ".csv": ("mdi6.file-delimited", C.FILE_DOC),
+        ".jpg": ("mdi6.file-image", C.FILE_IMAGE),
+        ".jpeg": ("mdi6.file-image", C.FILE_IMAGE),
+        ".png": ("mdi6.file-image", C.FILE_IMAGE),
+        ".gif": ("mdi6.file-image", C.FILE_IMAGE),
+        ".bmp": ("mdi6.file-image", C.FILE_IMAGE),
+        ".svg": ("mdi6.file-image", C.FILE_IMAGE),
+        ".webp": ("mdi6.file-image", C.FILE_IMAGE),
+        ".mp4": ("mdi6.file-video", C.FILE_VIDEO),
+        ".avi": ("mdi6.file-video", C.FILE_VIDEO),
+        ".mkv": ("mdi6.file-video", C.FILE_VIDEO),
+        ".mov": ("mdi6.file-video", C.FILE_VIDEO),
+        ".wmv": ("mdi6.file-video", C.FILE_VIDEO),
+        ".mp3": ("mdi6.file-music", C.FILE_AUDIO),
+        ".wav": ("mdi6.file-music", C.FILE_AUDIO),
+        ".flac": ("mdi6.file-music", C.FILE_AUDIO),
+        ".aac": ("mdi6.file-music", C.FILE_AUDIO),
+        ".ogg": ("mdi6.file-music", C.FILE_AUDIO),
+        ".zip": ("mdi6.zip-box", C.FILE_ARCHIVE),
+        ".rar": ("mdi6.zip-box", C.FILE_ARCHIVE),
+        ".7z": ("mdi6.zip-box", C.FILE_ARCHIVE),
+        ".tar": ("mdi6.zip-box", C.FILE_ARCHIVE),
+        ".gz": ("mdi6.zip-box", C.FILE_ARCHIVE),
+        ".py": ("mdi6.language-python", C.FILE_CODE),
+        ".js": ("mdi6.language-javascript", C.FILE_CODE),
+        ".ts": ("mdi6.language-typescript", C.FILE_CODE),
+        ".html": ("mdi6.language-html5", C.FILE_CODE),
+        ".css": ("mdi6.language-css3", C.FILE_CODE),
+        ".java": ("mdi6.language-java", C.FILE_CODE),
+        ".cpp": ("mdi6.language-cpp", C.FILE_CODE),
+        ".c": ("mdi6.language-c", C.FILE_CODE),
+        ".go": ("mdi6.language-go", C.FILE_CODE),
+        ".rs": ("mdi6.language-rust", C.FILE_CODE),
+        ".rb": ("mdi6.language-ruby", C.FILE_CODE),
+        ".json": ("mdi6.code-json", C.FILE_CODE),
+        ".xml": ("mdi6.file-xml-box", C.FILE_CODE),
+        ".yaml": ("mdi6.file-code", C.FILE_CODE),
+        ".yml": ("mdi6.file-code", C.FILE_CODE),
+        ".sh": ("mdi6.console", C.FILE_CODE),
+        ".bat": ("mdi6.console", C.FILE_CODE),
+        ".exe": ("mdi6.application", "#858BA0"),
+    }
+    return _map.get(ext, ("mdi6.file", C.TEXT_SECONDARY))
+
+
+# Pixmap cache for file-type icons (key = "icon_name:color")
+_icon_pixmap_cache: Dict[str, QPixmap] = {}
+
+
+def _get_file_icon_pixmap(path, size: int = 20) -> QPixmap:
+    """Return a cached QPixmap for the file type."""
+    icon_name, color = _get_file_icon_info(path)
+    key = f"{icon_name}:{color}:{size}"
+    if key not in _icon_pixmap_cache:
+        _icon_pixmap_cache[key] = qta.icon(icon_name, color=color).pixmap(size, size)
+    return _icon_pixmap_cache[key]
+
+
 class ResultsItemDelegate(QStyledItemDelegate):
     """Custom delegate for rendering search result items with highlighting support"""
 
@@ -237,30 +351,16 @@ class ResultsItemDelegate(QStyledItemDelegate):
         self._spacing = Spacing
 
     def get_file_type_icon(self, path):
-        """Get file type icon based on extension with caching"""
+        """Get file type icon based on extension with caching (legacy fallback)"""
         if path.is_dir():
             return self.icon_cache.setdefault("dir", "📁")
         ext = path.suffix.lower()
         icon_map = {
-            ".txt": "📄",
-            ".pdf": "📕",
-            ".doc": "📄",
-            ".docx": "📄",
-            ".jpg": "📷",
-            ".jpeg": "📷",
-            ".png": "🖼️",
-            ".gif": "📷",
-            ".mp4": "📽️",
-            ".avi": "📽️",
-            ".mp3": "🎵",
-            ".wav": "🎵",
-            ".zip": "📦",
-            ".rar": "📦",
-            ".exe": "⚙️",
-            ".py": "🐍",
-            ".js": "📜",
-            ".html": "🌐",
-            ".css": "🎨",
+            ".txt": "📄", ".pdf": "📕", ".doc": "📄", ".docx": "📄",
+            ".jpg": "📷", ".jpeg": "📷", ".png": "🖼️", ".gif": "📷",
+            ".mp4": "📽️", ".avi": "📽️", ".mp3": "🎵", ".wav": "🎵",
+            ".zip": "📦", ".rar": "📦", ".exe": "⚙️", ".py": "🐍",
+            ".js": "📜", ".html": "🌐", ".css": "🎨",
         }
         return self.icon_cache.setdefault(ext, icon_map.get(ext, "📄"))
 
@@ -296,15 +396,14 @@ class ResultsItemDelegate(QStyledItemDelegate):
         # Content area with padding
         rect = option.rect.adjusted(pad, pad - 2, -pad, -pad)
 
-        # Icon
-        icon_size = 18
-        icon_rect = QRect(rect.left(), rect.top() + 2, icon_size, icon_size)
-        icon_text = self.get_file_type_icon(result.path)
-        painter.setFont(self.path_font)
-        painter.setPen(QColor(C.TEXT_PRIMARY))
-        painter.drawText(icon_rect, Qt.AlignmentFlag.AlignCenter, icon_text)
+        # --- Icon (QtAwesome pixmap) ---
+        icon_size = 20
+        icon_pixmap = _get_file_icon_pixmap(result.path, icon_size)
+        icon_x = rect.left()
+        icon_y = rect.top() + 2
+        painter.drawPixmap(icon_x, icon_y, icon_pixmap)
 
-        content_left = icon_rect.right() + 8
+        content_left = icon_x + icon_size + 8
 
         # === Right side: Size pill and date ===
         size_text = result.get_display_size()

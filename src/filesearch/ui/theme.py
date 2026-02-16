@@ -63,6 +63,23 @@ class Colors:
     DISABLED_BG = "#1A1E2E"
     DISABLED_TEXT = "#3D4360"
 
+    # Tag colors
+    TAG_RED = "#F87171"
+    TAG_BLUE = "#5B8DEF"
+    TAG_GREEN = "#34D399"
+    TAG_YELLOW = "#FBBF24"
+    TAG_PURPLE = "#A78BFA"
+
+    # File type icon colors
+    FILE_DOC = "#5B8DEF"
+    FILE_IMAGE = "#34D399"
+    FILE_VIDEO = "#F87171"
+    FILE_AUDIO = "#FBBF24"
+    FILE_ARCHIVE = "#A78BFA"
+    FILE_CODE = "#60A5FA"
+    FILE_PDF = "#EF4444"
+    FILE_FOLDER = "#FBBF24"
+
 
 class Fonts:
     """Font configuration constants."""
@@ -686,6 +703,231 @@ QFrame[class="separator"] {{
     background: {Colors.BORDER_DEFAULT};
     max-height: 1px;
     border: none;
+}}
+
+/* ===== QSplitter ===== */
+QSplitter::handle {{
+    background: {Colors.BORDER_DEFAULT};
+}}
+QSplitter::handle:horizontal {{
+    width: 1px;
+}}
+
+/* ===== Sidebar ===== */
+QWidget#sidebarWidget {{
+    background-color: {Colors.BG_SECONDARY};
+    border-right: 1px solid {Colors.BORDER_DEFAULT};
+}}
+
+QLabel[class="sidebar-title"] {{
+    font-size: {Fonts.SIZE_LG}pt;
+    font-weight: {Fonts.WEIGHT_BOLD};
+    color: {Colors.TEXT_PRIMARY};
+    padding: 4px 0px;
+}}
+
+QLabel[class="sidebar-section"] {{
+    font-size: {Fonts.SIZE_XS}pt;
+    font-weight: {Fonts.WEIGHT_SEMIBOLD};
+    color: {Colors.TEXT_TERTIARY};
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 0px;
+}}
+
+QPushButton[class="sidebar-item"] {{
+    text-align: left;
+    padding: 8px 12px;
+    border: none;
+    border-radius: {Spacing.RADIUS_SM}px;
+    background: transparent;
+    color: {Colors.TEXT_SECONDARY};
+    font-size: {Fonts.SIZE_BASE}pt;
+    font-weight: {Fonts.WEIGHT_NORMAL};
+}}
+
+QPushButton[class="sidebar-item"]:hover {{
+    background: {Colors.BG_TERTIARY};
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+QPushButton[class="sidebar-item"][active="true"] {{
+    background: {Colors.PRIMARY_LIGHT};
+    color: {Colors.PRIMARY};
+    font-weight: {Fonts.WEIGHT_SEMIBOLD};
+}}
+
+/* File type filter chips */
+QPushButton[class="filter-chip"] {{
+    padding: 5px 10px;
+    border: 1.5px solid {Colors.BORDER_DEFAULT};
+    border-radius: 14px;
+    background: transparent;
+    color: {Colors.TEXT_SECONDARY};
+    font-size: {Fonts.SIZE_XS}pt;
+    font-weight: {Fonts.WEIGHT_MEDIUM};
+}}
+
+QPushButton[class="filter-chip"]:hover {{
+    border-color: {Colors.BORDER_STRONG};
+    background: {Colors.BG_TERTIARY};
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+QPushButton[class="filter-chip"][active="true"] {{
+    border-color: {Colors.PRIMARY};
+    background: {Colors.PRIMARY_SUBTLE};
+    color: {Colors.PRIMARY};
+}}
+
+/* Tag badges */
+QPushButton[class="tag-badge"] {{
+    padding: 3px 8px;
+    border: none;
+    border-radius: 10px;
+    font-size: {Fonts.SIZE_XS}pt;
+    font-weight: {Fonts.WEIGHT_MEDIUM};
+    color: #FFFFFF;
+}}
+
+QPushButton[class="tag-badge"]:hover {{
+    opacity: 0.8;
+}}
+
+/* Storage bar */
+QProgressBar[class="storage-bar"] {{
+    border: none;
+    border-radius: 3px;
+    background: {Colors.BG_TERTIARY};
+    max-height: 6px;
+}}
+
+QProgressBar[class="storage-bar"]::chunk {{
+    background: {Colors.PRIMARY};
+    border-radius: 3px;
+}}
+
+QLabel[class="storage-text"] {{
+    font-size: {Fonts.SIZE_XS}pt;
+    color: {Colors.TEXT_TERTIARY};
+}}
+
+/* ===== Details Panel ===== */
+QWidget#detailsPanel {{
+    background-color: {Colors.BG_SECONDARY};
+    border-left: 1px solid {Colors.BORDER_DEFAULT};
+}}
+
+QLabel[class="details-header"] {{
+    font-size: {Fonts.SIZE_XS}pt;
+    font-weight: {Fonts.WEIGHT_SEMIBOLD};
+    color: {Colors.TEXT_TERTIARY};
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}}
+
+QToolButton[class="details-close"] {{
+    border: none;
+    background: transparent;
+    color: {Colors.TEXT_TERTIARY};
+    border-radius: {Spacing.RADIUS_SM}px;
+    padding: 4px;
+}}
+
+QToolButton[class="details-close"]:hover {{
+    background: {Colors.BG_TERTIARY};
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+QLabel[class="details-filename"] {{
+    font-size: {Fonts.SIZE_LG}pt;
+    font-weight: {Fonts.WEIGHT_BOLD};
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+QLabel[class="details-fileinfo"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    color: {Colors.TEXT_SECONDARY};
+}}
+
+QPushButton[class="details-open"] {{
+    font-size: {Fonts.SIZE_BASE}pt;
+    font-weight: {Fonts.WEIGHT_SEMIBOLD};
+    border: none;
+    border-radius: {Spacing.RADIUS_SM}px;
+    background-color: {Colors.PRIMARY};
+    color: #FFFFFF;
+    padding: 8px 16px;
+}}
+
+QPushButton[class="details-open"]:hover {{
+    background-color: {Colors.PRIMARY_HOVER};
+}}
+
+QPushButton[class="details-action"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    border: 1.5px solid {Colors.BORDER_DEFAULT};
+    border-radius: {Spacing.RADIUS_SM}px;
+    background: transparent;
+    color: {Colors.TEXT_SECONDARY};
+    padding: 6px 10px;
+}}
+
+QPushButton[class="details-action"]:hover {{
+    border-color: {Colors.BORDER_STRONG};
+    background: {Colors.BG_TERTIARY};
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+QLabel[class="details-meta-label"] {{
+    font-size: {Fonts.SIZE_XS}pt;
+    color: {Colors.TEXT_TERTIARY};
+}}
+
+QLabel[class="details-meta-value"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    color: {Colors.TEXT_SECONDARY};
+}}
+
+QPushButton[class="details-trash"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    border: none;
+    background: transparent;
+    color: {Colors.ERROR};
+    padding: 6px 0px;
+}}
+
+QPushButton[class="details-trash"]:hover {{
+    color: {Colors.STOP_HOVER};
+}}
+
+/* ===== Search Bar (redesigned) ===== */
+QWidget#searchBarContainer {{
+    background-color: {Colors.BG_SECONDARY};
+    border: 1.5px solid {Colors.BORDER_DEFAULT};
+    border-radius: {Spacing.RADIUS_MD}px;
+}}
+
+QWidget#searchBarContainer:focus-within {{
+    border-color: {Colors.PRIMARY};
+}}
+
+QWidget#searchBarContainer QLineEdit {{
+    border: none;
+    background: transparent;
+    padding: 8px 4px;
+    font-size: {Fonts.SIZE_BASE}pt;
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+QWidget#searchBarContainer QLineEdit:focus {{
+    border: none;
+    background: transparent;
+}}
+
+/* ===== Center Panel ===== */
+QWidget#centerPanel {{
+    background-color: {Colors.BG_PRIMARY};
 }}
 """
 

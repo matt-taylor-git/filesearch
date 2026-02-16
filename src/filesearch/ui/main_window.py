@@ -40,6 +40,7 @@ from PyQt6.QtWidgets import (  # noqa: F401
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSplitter,
     QStyle,
     QVBoxLayout,
     QWidget,
@@ -57,6 +58,7 @@ from filesearch.core.file_utils import (
 from filesearch.core.search_engine import FileSearchEngine
 from filesearch.models.search_result import SearchResult
 from filesearch.plugins.plugin_manager import PluginManager
+from filesearch.ui.details_panel import DetailsPanelWidget
 from filesearch.ui.results_view import ResultsView
 from filesearch.ui.search_controls import (
     ProgressWidget,
@@ -66,6 +68,7 @@ from filesearch.ui.search_controls import (
     StatusWidget,
 )
 from filesearch.ui.settings_dialog import SettingsDialog
+from filesearch.ui.sidebar_widget import SidebarWidget
 from filesearch.ui.sort_controls import SortControls
 
 
@@ -214,10 +217,10 @@ class MainWindow(QMainWindow):
         logger.info("MainWindow initialized")
 
     def setup_ui(self) -> None:
-        """Setup the user interface components."""
+        """Setup the user interface with 3-panel QSplitter layout."""
         # Set window properties
         self.setWindowTitle("File Search")
-        self.setMinimumSize(600, 400)
+        self.setMinimumSize(900, 550)
 
         # Create menu bar
         menu_bar = self.menuBar()
@@ -226,68 +229,94 @@ class MainWindow(QMainWindow):
             if settings_menu is not None:
                 settings_menu.addAction("Preferences...", self.show_settings_dialog)
 
-        # Create central widget
+        # Create central widget with a thin wrapper layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
+        wrapper = QVBoxLayout(central_widget)
+        wrapper.setContentsMargins(0, 0, 0, 0)
+        wrapper.setSpacing(0)
 
-        # Create main layout
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        main_layout.setSpacing(12)
-        central_widget.setLayout(main_layout)
+        # ---- Main horizontal splitter: Sidebar | Center | Details ----
+        self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
-        # Create search controls layout
-        # Search input widget
+        # --- 1. Sidebar ---
+        self.sidebar = SidebarWidget()
+        self.main_splitter.addWidget(self.sidebar)
+
+        # --- 2. Center panel ---
+        center_panel = QWidget()
+        center_panel.setObjectName("centerPanel")
+        center_layout = QVBoxLayout(center_panel)
+        center_layout.setContentsMargins(16, 12, 16, 8)
+        center_layout.setSpacing(10)
+
+        # Search input widget (redesigned search bar)
         self.query_input = SearchInputWidget(self.config_manager)
-        main_layout.addWidget(self.query_input)
+        center_layout.addWidget(self.query_input)
 
-        # Add spacing below search input
-        main_layout.addSpacing(20)
-
-        # Directory selection widget
+        # Directory selector (hidden — sidebar provides this)
         from filesearch.ui.search_controls import DirectorySelectorWidget
 
         self.directory_selector = DirectorySelectorWidget(self.config_manager)
         self.directory_selector.set_directory(self.current_directory)
-        main_layout.addWidget(self.directory_selector)
+        self.directory_selector.setVisible(False)
+        center_layout.addWidget(self.directory_selector)
 
-        # Search control widget
+        # Search control widget (hidden — search triggered by Enter / auto-search)
         self.search_control = SearchControlWidget()
-        main_layout.addWidget(self.search_control)
+        self.search_control.setVisible(False)
+        center_layout.addWidget(self.search_control)
 
         # Progress widget
         self.progress_widget = ProgressWidget()
-        main_layout.addWidget(self.progress_widget)
+        center_layout.addWidget(self.progress_widget)
 
         # Status widget
         self.status_widget = StatusWidget()
-        main_layout.addWidget(self.status_widget)
+        center_layout.addWidget(self.status_widget)
 
-        # Results area
+        # Results header + sort controls in one row
+        results_header = QHBoxLayout()
+        results_header.setSpacing(8)
         self.results_label = QLabel("RESULTS")
         self.results_label.setProperty("class", "results-header")
-        main_layout.addWidget(self.results_label)
+        results_header.addWidget(self.results_label)
 
-        # Sort controls (AC6: UI Controls)
         self.sort_controls = SortControls()
-        main_layout.addWidget(self.sort_controls)
+        results_header.addWidget(self.sort_controls)
+        results_header.addStretch()
+        center_layout.addLayout(results_header)
 
+        # Results view
         self.results_view = ResultsView()
-        main_layout.addWidget(self.results_view)
-        # Set ResultsView to occupy 70% of the available space
-        main_layout.setStretchFactor(self.results_view, 7)  # 70% of space
-        # Set stretch factors for other widgets to occupy remaining 30%
-        main_layout.setStretchFactor(self.query_input, 0)  # Fixed size
-        main_layout.setStretchFactor(self.directory_selector, 0)  # Fixed size
-        main_layout.setStretchFactor(self.search_control, 0)  # Fixed size
-        main_layout.setStretchFactor(self.progress_widget, 0)  # Fixed size
-        main_layout.setStretchFactor(self.status_widget, 0)  # Fixed size
+        center_layout.addWidget(self.results_view, 1)
+
+        self.main_splitter.addWidget(center_panel)
+
+        # --- 3. Details panel (hidden by default) ---
+        self.details_panel = DetailsPanelWidget()
+        self.main_splitter.addWidget(self.details_panel)
+
+        # Splitter sizes — sidebar 240, center stretch, details 0 (hidden)
+        self.main_splitter.setSizes([240, 600, 0])
+        self.main_splitter.setStretchFactor(0, 0)  # sidebar fixed
+        self.main_splitter.setStretchFactor(1, 1)  # center stretches
+        self.main_splitter.setStretchFactor(2, 0)  # details fixed
+        # Allow details panel (index 2) to collapse to 0
+        self.main_splitter.setCollapsible(0, False)
+        self.main_splitter.setCollapsible(1, False)
+        self.main_splitter.setCollapsible(2, True)
+
+        wrapper.addWidget(self.main_splitter)
 
         # Load and apply highlight settings from config
         self._load_highlight_settings()
 
         # Load sort settings from config
         self._load_sort_settings()
+
+        # Update sidebar tags from search history
+        self._update_sidebar_tags()
 
         # Status bar
         status_bar = self.statusBar()
@@ -342,6 +371,31 @@ class MainWindow(QMainWindow):
         self.results_view.context_menu_requested.connect(
             self._on_context_menu_requested
         )
+
+        # --- Sidebar signals ---
+        self.sidebar.directory_selected.connect(self._on_sidebar_directory_selected)
+        self.sidebar.file_type_filter_changed.connect(
+            self._on_file_type_filter_changed
+        )
+        self.sidebar.tag_clicked.connect(self._on_tag_clicked)
+
+        # --- Details panel signals ---
+        self.details_panel.open_requested.connect(self._on_file_open_requested)
+        self.details_panel.open_folder_requested.connect(
+            lambda r: self.open_selected_folder(r.path)
+        )
+        self.details_panel.copy_path_requested.connect(
+            lambda r: self._handle_context_copy_path([r])
+        )
+        self.details_panel.delete_requested.connect(
+            lambda r: self._handle_context_delete([r])
+        )
+        self.details_panel.panel_close_requested.connect(
+            self._on_details_panel_close
+        )
+
+        # --- Result selection → details panel ---
+        self.results_view.clicked.connect(self._on_result_selection_changed)
 
         logger.debug("Signals connected")
 
@@ -902,6 +956,58 @@ class MainWindow(QMainWindow):
         else:
             self.safe_status_message("Could not start rename: invalid selection")
 
+    # --- New sidebar / details panel handlers ---
+
+    def _on_sidebar_directory_selected(self, directory: Path) -> None:
+        """Handle sidebar location click — set search directory."""
+        self.current_directory = directory
+        self.directory_selector.set_directory(directory)
+        self.sidebar.set_active_location_by_path(directory)
+        logger.debug(f"Sidebar directory selected: {directory}")
+
+    def _on_file_type_filter_changed(self, extensions: list) -> None:
+        """Handle sidebar file-type filter toggle — filter results client-side."""
+        model = self.results_view._results_model
+        if model and hasattr(model, "set_extension_filter"):
+            model.set_extension_filter(extensions)
+        logger.debug(f"File type filter: {extensions or 'all'}")
+
+    def _on_tag_clicked(self, text: str) -> None:
+        """Handle sidebar tag click — set search text and start search."""
+        self.query_input.set_text(text)
+        self.start_search()
+        logger.debug(f"Tag clicked: {text}")
+
+    def _on_result_selection_changed(self, index) -> None:
+        """Handle result list selection — show details panel."""
+        if not index.isValid():
+            return
+        result = index.data(Qt.ItemDataRole.UserRole)
+        if result is not None:
+            self.details_panel.show_result(result)
+            # Ensure splitter gives the details panel width
+            sizes = self.main_splitter.sizes()
+            if sizes[2] < 10:
+                # Steal space from center panel to open details
+                details_w = 280
+                center_w = max(300, sizes[1] - details_w)
+                self.main_splitter.setSizes([sizes[0], center_w, details_w])
+
+    def _on_details_panel_close(self) -> None:
+        """Hide the details panel and reclaim space."""
+        self.details_panel.clear()
+        # Give the details panel's space back to center
+        sizes = self.main_splitter.sizes()
+        self.main_splitter.setSizes([sizes[0], sizes[1] + sizes[2], 0])
+
+    def _update_sidebar_tags(self) -> None:
+        """Load recent searches into sidebar tags."""
+        try:
+            searches = self.config_manager.get("recent.searches", [])
+            self.sidebar.set_tags(searches)
+        except Exception as e:
+            logger.warning(f"Could not load sidebar tags: {e}")
+
     def show_settings_dialog(self) -> None:
         """Show the settings dialog."""
         dialog = SettingsDialog(self.config_manager, self.plugin_manager, self)
@@ -1096,6 +1202,10 @@ class MainWindow(QMainWindow):
             and self.results_view._results_model.rowCount() > 0
         ):
             self.results_view.scrollTo(self.results_view._results_model.index(0, 0))
+
+        # Refresh sidebar tags with latest search history
+        self._update_sidebar_tags()
+
         logger.info(
             f"Search completed: {total_files} files in {total_dirs} directories"
         )
