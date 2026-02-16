@@ -316,11 +316,11 @@ class ResultsItemDelegate(QStyledItemDelegate):
         pill_x = rect.right() - pill_w
         pill_y = rect.top() + 2
 
-        # Draw pill background
+        # Draw pill background with subtle border
         pill_rect = QRect(pill_x, pill_y, pill_w, pill_h)
-        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setPen(QColor(C.BORDER_DEFAULT))
         painter.setBrush(QColor(C.SIZE_PILL_BG))
-        painter.drawRoundedRect(pill_rect, 4, 4)
+        painter.drawRoundedRect(pill_rect, 5, 5)
 
         # Draw pill text
         painter.setPen(QColor(C.TEXT_SECONDARY))

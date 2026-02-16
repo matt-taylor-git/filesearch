@@ -17,51 +17,51 @@ from PyQt6.QtWidgets import QApplication
 
 
 class Colors:
-    """Application color palette constants."""
+    """Application color palette — dark navy mode."""
 
-    # Primary
-    PRIMARY = "#2563EB"
-    PRIMARY_HOVER = "#1D4ED8"
-    PRIMARY_LIGHT = "#DBEAFE"
-    PRIMARY_SUBTLE = "#EFF6FF"
+    # Primary accent — vibrant blue
+    PRIMARY = "#5B8DEF"
+    PRIMARY_HOVER = "#4A7ADB"
+    PRIMARY_LIGHT = "#1B2A4A"
+    PRIMARY_SUBTLE = "#131C32"
 
-    # Backgrounds
-    BG_PRIMARY = "#FFFFFF"
-    BG_SECONDARY = "#F8FAFC"
-    BG_TERTIARY = "#F1F5F9"
+    # Backgrounds — layered depth
+    BG_PRIMARY = "#0D0F17"
+    BG_SECONDARY = "#131620"
+    BG_TERTIARY = "#1A1E2E"
 
-    # Borders
-    BORDER_DEFAULT = "#E2E8F0"
-    BORDER_STRONG = "#CBD5E1"
+    # Borders — subtle separation
+    BORDER_DEFAULT = "#232840"
+    BORDER_STRONG = "#2F3652"
 
-    # Text
-    TEXT_PRIMARY = "#0F172A"
-    TEXT_SECONDARY = "#475569"
-    TEXT_TERTIARY = "#94A3B8"
+    # Text — high-contrast on dark
+    TEXT_PRIMARY = "#E2E5EE"
+    TEXT_SECONDARY = "#858BA0"
+    TEXT_TERTIARY = "#525973"
 
     # Status
-    SUCCESS = "#059669"
-    ERROR = "#DC2626"
-    WARNING = "#D97706"
+    SUCCESS = "#34D399"
+    ERROR = "#F87171"
+    WARNING = "#FBBF24"
 
-    # Highlight
-    HIGHLIGHT_BG = "#FDE68A"
-    HIGHLIGHT_TEXT = "#92400E"
+    # Highlight — warm amber on dark
+    HIGHLIGHT_BG = "#C8911A"
+    HIGHLIGHT_TEXT = "#FFF8E7"
 
     # Result items
-    SIZE_PILL_BG = "#F1F5F9"
-    ITEM_SELECTED_BG = "#DBEAFE"
-    ITEM_HOVER_BG = "#F1F5F9"
-    ITEM_SEPARATOR = "#E2E8F0"
+    SIZE_PILL_BG = "#1A1E2E"
+    ITEM_SELECTED_BG = "#1B2A4A"
+    ITEM_HOVER_BG = "#171B28"
+    ITEM_SEPARATOR = "#1C2030"
 
-    # Stop button
-    STOP = "#DC2626"
-    STOP_HOVER = "#B91C1C"
-    STOP_PRESSED = "#991B1B"
+    # Stop button — red
+    STOP = "#EF4444"
+    STOP_HOVER = "#DC2626"
+    STOP_PRESSED = "#B91C1C"
 
     # Disabled
-    DISABLED_BG = "#E2E8F0"
-    DISABLED_TEXT = "#94A3B8"
+    DISABLED_BG = "#1A1E2E"
+    DISABLED_TEXT = "#3D4360"
 
 
 class Fonts:
@@ -70,11 +70,11 @@ class Fonts:
     FAMILY = "Segoe UI, system-ui, -apple-system, sans-serif"
     FAMILY_MONO = "Consolas, Menlo, monospace"
 
-    SIZE_XS = 8  # pt - metadata, timestamps
-    SIZE_SM = 9  # pt - secondary text, paths
-    SIZE_BASE = 10  # pt - body text, filenames
-    SIZE_LG = 12  # pt - labels, headings
-    SIZE_XL = 14  # pt - primary headings
+    SIZE_XS = 8   # pt — metadata, timestamps
+    SIZE_SM = 9   # pt — secondary text, paths
+    SIZE_BASE = 10  # pt — body text, filenames
+    SIZE_LG = 12  # pt — labels, headings
+    SIZE_XL = 14  # pt — primary headings
 
     WEIGHT_NORMAL = 400
     WEIGHT_MEDIUM = 500
@@ -86,24 +86,26 @@ class Spacing:
     """Spacing and dimension constants."""
 
     # Margins & Padding
-    MARGIN_MAIN = 16  # Main window margins
-    SPACING_MAIN = 12  # Main layout spacing
-    PADDING_INPUT = 8  # Input field padding
-    PADDING_ITEM = 12  # Result item padding
-    PADDING_PILL = 6  # Pill horizontal padding
+    MARGIN_MAIN = 16
+    SPACING_MAIN = 12
+    PADDING_INPUT = 10
+    PADDING_ITEM = 12
+    PADDING_PILL = 6
 
-    # Radii
-    RADIUS_SM = 4  # Small radius (pills, buttons)
-    RADIUS_MD = 6  # Medium radius (inputs, cards)
-    RADIUS_LG = 8  # Large radius (containers)
+    # Radii — rounded modern feel
+    RADIUS_SM = 6
+    RADIUS_MD = 10
+    RADIUS_LG = 12
 
     # Dimensions
-    ITEM_HEIGHT = 64  # Result item height
-    SCROLLBAR_WIDTH = 6  # Thin scrollbar
-    SEPARATOR_HEIGHT = 1  # Item separator line
+    ITEM_HEIGHT = 64
+    SCROLLBAR_WIDTH = 6
+    SEPARATOR_HEIGHT = 1
 
 
-# Complete application QSS stylesheet
+# ---------------------------------------------------------------------------
+# Complete application QSS stylesheet — dark navy mode
+# ---------------------------------------------------------------------------
 APP_STYLESHEET = f"""
 /* ===== Global ===== */
 QMainWindow {{
@@ -121,29 +123,34 @@ QMenuBar {{
     border-bottom: 1px solid {Colors.BORDER_DEFAULT};
     padding: 2px 4px;
     font-size: {Fonts.SIZE_BASE}pt;
+    color: {Colors.TEXT_SECONDARY};
 }}
 
 QMenuBar::item {{
-    padding: 4px 8px;
+    padding: 5px 10px;
     border-radius: {Spacing.RADIUS_SM}px;
+    color: {Colors.TEXT_SECONDARY};
 }}
 
 QMenuBar::item:selected {{
     background-color: {Colors.BG_TERTIARY};
+    color: {Colors.TEXT_PRIMARY};
 }}
 
 /* ===== Menus ===== */
 QMenu {{
-    background-color: {Colors.BG_PRIMARY};
+    background-color: {Colors.BG_SECONDARY};
     border: 1px solid {Colors.BORDER_DEFAULT};
     border-radius: {Spacing.RADIUS_MD}px;
-    padding: 4px;
+    padding: 6px;
     font-size: {Fonts.SIZE_BASE}pt;
+    color: {Colors.TEXT_PRIMARY};
 }}
 
 QMenu::item {{
-    padding: 6px 24px 6px 12px;
+    padding: 7px 28px 7px 14px;
     border-radius: {Spacing.RADIUS_SM}px;
+    color: {Colors.TEXT_PRIMARY};
 }}
 
 QMenu::item:selected {{
@@ -151,10 +158,14 @@ QMenu::item:selected {{
     color: {Colors.PRIMARY};
 }}
 
+QMenu::item:disabled {{
+    color: {Colors.DISABLED_TEXT};
+}}
+
 QMenu::separator {{
     height: 1px;
     background: {Colors.BORDER_DEFAULT};
-    margin: 4px 8px;
+    margin: 6px 10px;
 }}
 
 /* ===== Status Bar ===== */
@@ -162,12 +173,12 @@ QStatusBar {{
     background-color: {Colors.BG_SECONDARY};
     border-top: 1px solid {Colors.BORDER_DEFAULT};
     font-size: {Fonts.SIZE_XS}pt;
-    color: {Colors.TEXT_SECONDARY};
+    color: {Colors.TEXT_TERTIARY};
     padding: 2px 8px;
 }}
 
 QStatusBar QLabel {{
-    color: {Colors.TEXT_SECONDARY};
+    color: {Colors.TEXT_TERTIARY};
     font-size: {Fonts.SIZE_XS}pt;
     padding: 0 8px;
 }}
@@ -177,7 +188,7 @@ QLabel[class="search-label"],
 QLabel[class="directory-label"] {{
     font-size: {Fonts.SIZE_SM}pt;
     font-weight: {Fonts.WEIGHT_SEMIBOLD};
-    color: {Colors.TEXT_SECONDARY};
+    color: {Colors.TEXT_TERTIARY};
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 2px;
@@ -209,7 +220,7 @@ QLabel[class="status-summary"] {{
 QLabel[class="results-header"] {{
     font-size: {Fonts.SIZE_SM}pt;
     font-weight: {Fonts.WEIGHT_SEMIBOLD};
-    color: {Colors.TEXT_SECONDARY};
+    color: {Colors.TEXT_TERTIARY};
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }}
@@ -238,7 +249,7 @@ QLabel[class="loading-indicator"] {{
 
 QLabel[class="sort-label"] {{
     font-size: {Fonts.SIZE_SM}pt;
-    color: {Colors.TEXT_SECONDARY};
+    color: {Colors.TEXT_TERTIARY};
 }}
 
 /* ===== Line Edits ===== */
@@ -247,7 +258,7 @@ QLineEdit {{
     padding: {Spacing.PADDING_INPUT}px;
     border: 1.5px solid {Colors.BORDER_DEFAULT};
     border-radius: {Spacing.RADIUS_MD}px;
-    background: {Colors.BG_PRIMARY};
+    background: {Colors.BG_SECONDARY};
     color: {Colors.TEXT_PRIMARY};
     selection-background-color: {Colors.PRIMARY_LIGHT};
     selection-color: {Colors.PRIMARY};
@@ -267,8 +278,9 @@ QLineEdit[state="error"] {{
 }}
 
 QLineEdit:read-only {{
-    background: {Colors.BG_SECONDARY};
+    background: {Colors.BG_TERTIARY};
     color: {Colors.TEXT_SECONDARY};
+    border-color: {Colors.BORDER_DEFAULT};
 }}
 
 /* ===== Push Buttons ===== */
@@ -278,8 +290,8 @@ QPushButton {{
     border: 1.5px solid {Colors.PRIMARY};
     border-radius: {Spacing.RADIUS_SM}px;
     background-color: {Colors.PRIMARY};
-    color: white;
-    padding: 6px 14px;
+    color: #FFFFFF;
+    padding: 6px 16px;
 }}
 
 QPushButton:hover {{
@@ -288,8 +300,8 @@ QPushButton:hover {{
 }}
 
 QPushButton:pressed {{
-    background-color: #1E40AF;
-    border-color: #1E40AF;
+    background-color: #3A65B8;
+    border-color: #3A65B8;
 }}
 
 QPushButton:disabled {{
@@ -313,11 +325,24 @@ QPushButton[state="stop"]:pressed {{
     border-color: {Colors.STOP_PRESSED};
 }}
 
+/* Ghost / secondary button variant */
+QPushButton[class="ghost"] {{
+    background-color: transparent;
+    border-color: {Colors.BORDER_STRONG};
+    color: {Colors.TEXT_SECONDARY};
+}}
+
+QPushButton[class="ghost"]:hover {{
+    background-color: {Colors.BG_TERTIARY};
+    border-color: {Colors.PRIMARY};
+    color: {Colors.PRIMARY};
+}}
+
 /* ===== Tool Buttons ===== */
 QToolButton {{
     border: 1.5px solid {Colors.BORDER_DEFAULT};
     border-radius: {Spacing.RADIUS_SM}px;
-    background: {Colors.BG_PRIMARY};
+    background: {Colors.BG_SECONDARY};
     color: {Colors.TEXT_SECONDARY};
     font-weight: {Fonts.WEIGHT_BOLD};
     padding: 4px;
@@ -326,6 +351,7 @@ QToolButton {{
 QToolButton:hover {{
     background: {Colors.BG_TERTIARY};
     border-color: {Colors.BORDER_STRONG};
+    color: {Colors.TEXT_PRIMARY};
 }}
 
 QToolButton[class="clear-button"] {{
@@ -344,10 +370,10 @@ QToolButton[class="clear-button"]:hover {{
 /* ===== Combo Box ===== */
 QComboBox {{
     font-size: {Fonts.SIZE_BASE}pt;
-    padding: 4px 8px;
+    padding: 5px 10px;
     border: 1.5px solid {Colors.BORDER_DEFAULT};
     border-radius: {Spacing.RADIUS_SM}px;
-    background: {Colors.BG_PRIMARY};
+    background: {Colors.BG_SECONDARY};
     color: {Colors.TEXT_PRIMARY};
     min-width: 120px;
 }}
@@ -362,16 +388,23 @@ QComboBox:focus {{
 
 QComboBox::drop-down {{
     border: none;
-    padding-right: 6px;
+    padding-right: 8px;
+}}
+
+QComboBox::down-arrow {{
+    image: none;
+    border: none;
 }}
 
 QComboBox QAbstractItemView {{
-    background: {Colors.BG_PRIMARY};
+    background: {Colors.BG_SECONDARY};
     border: 1px solid {Colors.BORDER_DEFAULT};
     border-radius: {Spacing.RADIUS_SM}px;
     selection-background-color: {Colors.PRIMARY_LIGHT};
     selection-color: {Colors.PRIMARY};
     padding: 4px;
+    color: {Colors.TEXT_PRIMARY};
+    outline: none;
 }}
 
 /* ===== Progress Bar ===== */
@@ -475,13 +508,13 @@ QTabWidget::pane {{
 
 QTabBar::tab {{
     font-size: {Fonts.SIZE_BASE}pt;
-    padding: 8px 16px;
+    padding: 8px 18px;
     border: 1px solid {Colors.BORDER_DEFAULT};
     border-bottom: none;
     border-top-left-radius: {Spacing.RADIUS_SM}px;
     border-top-right-radius: {Spacing.RADIUS_SM}px;
     background: {Colors.BG_SECONDARY};
-    color: {Colors.TEXT_SECONDARY};
+    color: {Colors.TEXT_TERTIARY};
     margin-right: 2px;
 }}
 
@@ -505,14 +538,14 @@ QGroupBox {{
     border: 1px solid {Colors.BORDER_DEFAULT};
     border-radius: {Spacing.RADIUS_MD}px;
     margin-top: 12px;
-    padding-top: 16px;
+    padding-top: 18px;
 }}
 
 QGroupBox::title {{
     subcontrol-origin: margin;
-    left: 12px;
-    padding: 0 6px;
-    color: {Colors.TEXT_PRIMARY};
+    left: 14px;
+    padding: 0 8px;
+    color: {Colors.TEXT_SECONDARY};
 }}
 
 /* ===== Check Box ===== */
@@ -526,8 +559,8 @@ QCheckBox::indicator {{
     width: 16px;
     height: 16px;
     border: 1.5px solid {Colors.BORDER_STRONG};
-    border-radius: 3px;
-    background: {Colors.BG_PRIMARY};
+    border-radius: 4px;
+    background: {Colors.BG_SECONDARY};
 }}
 
 QCheckBox::indicator:checked {{
@@ -542,15 +575,28 @@ QCheckBox::indicator:hover {{
 /* ===== Spin Box ===== */
 QSpinBox {{
     font-size: {Fonts.SIZE_BASE}pt;
-    padding: 4px 8px;
+    padding: 5px 10px;
     border: 1.5px solid {Colors.BORDER_DEFAULT};
     border-radius: {Spacing.RADIUS_SM}px;
-    background: {Colors.BG_PRIMARY};
+    background: {Colors.BG_SECONDARY};
     color: {Colors.TEXT_PRIMARY};
 }}
 
 QSpinBox:focus {{
     border-color: {Colors.PRIMARY};
+}}
+
+QSpinBox::up-button,
+QSpinBox::down-button {{
+    background: {Colors.BG_TERTIARY};
+    border: none;
+    border-radius: 3px;
+    width: 18px;
+}}
+
+QSpinBox::up-button:hover,
+QSpinBox::down-button:hover {{
+    background: {Colors.BORDER_STRONG};
 }}
 
 /* ===== Dialog ===== */
@@ -560,9 +606,9 @@ QDialog {{
 
 /* ===== Tooltips ===== */
 QToolTip {{
-    background-color: {Colors.TEXT_PRIMARY};
-    color: {Colors.BG_PRIMARY};
-    border: none;
+    background-color: {Colors.BG_TERTIARY};
+    color: {Colors.TEXT_PRIMARY};
+    border: 1px solid {Colors.BORDER_STRONG};
     border-radius: {Spacing.RADIUS_SM}px;
     padding: 6px 10px;
     font-size: {Fonts.SIZE_SM}pt;
@@ -570,14 +616,15 @@ QToolTip {{
 
 /* ===== List Widget (Settings) ===== */
 QListWidget {{
-    background-color: {Colors.BG_PRIMARY};
+    background-color: {Colors.BG_SECONDARY};
     border: 1px solid {Colors.BORDER_DEFAULT};
     border-radius: {Spacing.RADIUS_SM}px;
     font-size: {Fonts.SIZE_BASE}pt;
+    color: {Colors.TEXT_PRIMARY};
 }}
 
 QListWidget::item {{
-    padding: 4px 8px;
+    padding: 5px 10px;
     border-radius: {Spacing.RADIUS_SM}px;
 }}
 
@@ -590,9 +637,55 @@ QListWidget::item:hover:!selected {{
     background-color: {Colors.BG_TERTIARY};
 }}
 
+/* ===== Scroll Area (Properties Dialog) ===== */
+QScrollArea {{
+    background: {Colors.BG_PRIMARY};
+    border: none;
+}}
+
+QScrollArea > QWidget > QWidget {{
+    background: {Colors.BG_PRIMARY};
+}}
+
+/* ===== Form Layout Labels (Properties Dialog) ===== */
+QFormLayout QLabel {{
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+/* ===== Message Box ===== */
+QMessageBox {{
+    background-color: {Colors.BG_PRIMARY};
+}}
+
+QMessageBox QLabel {{
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+/* ===== File Dialog ===== */
+QFileDialog {{
+    background-color: {Colors.BG_PRIMARY};
+}}
+
+/* ===== Color Dialog ===== */
+QColorDialog {{
+    background-color: {Colors.BG_PRIMARY};
+}}
+
+/* ===== Input Dialog ===== */
+QInputDialog {{
+    background-color: {Colors.BG_PRIMARY};
+}}
+
 /* ===== Dialog Button Box ===== */
 QDialogButtonBox QPushButton {{
     min-width: 80px;
+}}
+
+/* ===== Header Separator (visual divider) ===== */
+QFrame[class="separator"] {{
+    background: {Colors.BORDER_DEFAULT};
+    max-height: 1px;
+    border: none;
 }}
 """
 
@@ -614,16 +707,41 @@ def apply_theme(app: QApplication) -> None:
     # Set the global stylesheet
     app.setStyleSheet(APP_STYLESHEET)
 
-    # Configure palette for better default colors
+    # Configure palette for dark mode
     palette = app.palette()
     palette.setColor(QPalette.ColorRole.Window, QColor(Colors.BG_PRIMARY))
     palette.setColor(QPalette.ColorRole.WindowText, QColor(Colors.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.Base, QColor(Colors.BG_PRIMARY))
-    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(Colors.BG_SECONDARY))
+    palette.setColor(QPalette.ColorRole.Base, QColor(Colors.BG_SECONDARY))
+    palette.setColor(QPalette.ColorRole.AlternateBase, QColor(Colors.BG_TERTIARY))
     palette.setColor(QPalette.ColorRole.Text, QColor(Colors.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(Colors.TEXT_TERTIARY))
-    palette.setColor(QPalette.ColorRole.Highlight, QColor(Colors.PRIMARY_LIGHT))
-    palette.setColor(QPalette.ColorRole.HighlightedText, QColor(Colors.PRIMARY))
-    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(Colors.TEXT_PRIMARY))
-    palette.setColor(QPalette.ColorRole.ToolTipText, QColor(Colors.BG_PRIMARY))
+    palette.setColor(
+        QPalette.ColorRole.PlaceholderText, QColor(Colors.TEXT_TERTIARY)
+    )
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(Colors.PRIMARY))
+    palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
+    palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(Colors.BG_TERTIARY))
+    palette.setColor(QPalette.ColorRole.ToolTipText, QColor(Colors.TEXT_PRIMARY))
+    palette.setColor(QPalette.ColorRole.Button, QColor(Colors.BG_TERTIARY))
+    palette.setColor(QPalette.ColorRole.ButtonText, QColor(Colors.TEXT_PRIMARY))
+    palette.setColor(QPalette.ColorRole.BrightText, QColor(Colors.PRIMARY))
+    palette.setColor(QPalette.ColorRole.Link, QColor(Colors.PRIMARY))
+    palette.setColor(QPalette.ColorRole.LinkVisited, QColor(Colors.PRIMARY_HOVER))
+
+    # Disabled colors
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.Text,
+        QColor(Colors.DISABLED_TEXT),
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.WindowText,
+        QColor(Colors.DISABLED_TEXT),
+    )
+    palette.setColor(
+        QPalette.ColorGroup.Disabled,
+        QPalette.ColorRole.ButtonText,
+        QColor(Colors.DISABLED_TEXT),
+    )
+
     app.setPalette(palette)
