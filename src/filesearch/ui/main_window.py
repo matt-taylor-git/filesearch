@@ -36,6 +36,7 @@ from PyQt6.QtWidgets import (  # noqa: F401
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
+    get_user_folder,
     normalize_path,
     open_containing_folder,
     safe_open,
@@ -493,14 +494,13 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
     def _refresh_custom_sidebar_location(self) -> None:
         """Show the most recent custom folder in the sidebar, when available."""
-        home = Path.home()
         preset_paths = {
-            home,
-            home / "Documents",
-            home / "Desktop",
-            home / "Downloads",
-            home / "Pictures",
-            home / "Videos",
+            get_user_folder("home"),
+            get_user_folder("documents"),
+            get_user_folder("desktop"),
+            get_user_folder("downloads"),
+            get_user_folder("pictures"),
+            get_user_folder("videos"),
         }
         recent_directories = self.config_manager.get("recent.directories", [])
 

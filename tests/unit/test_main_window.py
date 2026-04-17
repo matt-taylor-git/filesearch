@@ -313,6 +313,89 @@ class TestMainWindowDirectorySelection:
         finally:
             window.close()
 
+    def test_sidebar_downloads_uses_resolved_special_folder(
+        self, qtbot, config_manager, tmp_path
+    ):
+        """Downloads preset should use the resolved OS folder path."""
+        redirected_downloads = tmp_path / "redirected-downloads"
+        redirected_downloads.mkdir()
+
+        with patch(
+            "filesearch.ui.sidebar_widget.get_user_folder"
+        ) as mock_sidebar_folder, patch(
+            "filesearch.ui.main_window.get_user_folder"
+        ) as mock_main_folder:
+            def resolve_folder(name):
+                mapping = {
+                    "home": Path.home(),
+                    "documents": Path.home() / "Documents",
+                    "desktop": Path.home() / "Desktop",
+                    "downloads": redirected_downloads,
+                    "pictures": Path.home() / "Pictures",
+                    "videos": Path.home() / "Videos",
+                }
+                return mapping[name]
+
+            mock_sidebar_folder.side_effect = resolve_folder
+            mock_main_folder.side_effect = resolve_folder
+
+            window = MainWindow(config_manager=config_manager)
+            window.show()
+            qtbot.addWidget(window)
+
+        downloads_button = next(
+            button
+            for button in window.sidebar._location_buttons
+            if button.text().strip() == "Downloads"
+        )
+
+        try:
+            qtbot.mouseClick(downloads_button, Qt.MouseButton.LeftButton)
+
+            assert window.current_directory == redirected_downloads
+            assert window.directory_selector.get_directory() == redirected_downloads
+            assert window.sidebar.get_custom_location() is None
+            assert downloads_button.property("active") == "true"
+        finally:
+            window.close()
+
+    def test_redirected_preset_folder_is_not_treated_as_custom(
+        self, qapp, config_manager, tmp_path
+    ):
+        """Resolved preset folders should not appear as custom sidebar entries."""
+        redirected_downloads = tmp_path / "redirected-downloads"
+        redirected_downloads.mkdir()
+        config_manager.set(
+            "search_preferences.default_search_directory", str(redirected_downloads)
+        )
+
+        with patch(
+            "filesearch.ui.sidebar_widget.get_user_folder"
+        ) as mock_sidebar_folder, patch(
+            "filesearch.ui.main_window.get_user_folder"
+        ) as mock_main_folder:
+            def resolve_folder(name):
+                mapping = {
+                    "home": Path.home(),
+                    "documents": Path.home() / "Documents",
+                    "desktop": Path.home() / "Desktop",
+                    "downloads": redirected_downloads,
+                    "pictures": Path.home() / "Pictures",
+                    "videos": Path.home() / "Videos",
+                }
+                return mapping[name]
+
+            mock_sidebar_folder.side_effect = resolve_folder
+            mock_main_folder.side_effect = resolve_folder
+
+            window = MainWindow(config_manager=config_manager)
+
+        try:
+            assert window.current_directory == redirected_downloads
+            assert window.sidebar.get_custom_location() is None
+        finally:
+            window.close()
+
     def test_custom_sidebar_location_reuses_saved_folder(
         self, qtbot, config_manager, tmp_path
     ):

@@ -11,6 +11,7 @@ import pytest
 
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
+    get_user_folder,
     get_file_info,
     get_file_modified_time,
     get_file_size,
@@ -504,3 +505,38 @@ class TestPathNormalizationAndValidation:
             # Restore permissions for cleanup
             os.chmod(temp_dir_path, 0o755)
             temp_dir_path.rmdir()
+
+
+class TestUserFolderResolution:
+    """Test special-folder resolution across platforms."""
+
+    def test_get_user_folder_non_windows_uses_home_fallback(self):
+        """Non-Windows platforms should keep using home-relative paths."""
+        home = Path.home()
+
+        with patch("filesearch.core.file_utils.platform.system", return_value="Linux"):
+            assert get_user_folder("home") == home
+            assert get_user_folder("downloads") == home / "Downloads"
+
+    def test_get_user_folder_windows_uses_known_folder(self):
+        """Windows should prefer known-folder lookup when available."""
+        resolved = Path(r"D:\Redirected\Downloads")
+
+        with patch("filesearch.core.file_utils.platform.system", return_value="Windows"):
+            with patch(
+                "filesearch.core.file_utils._get_windows_known_folder_path",
+                return_value=resolved,
+            ) as mock_lookup:
+                assert get_user_folder("downloads") == resolved
+                mock_lookup.assert_called_once()
+
+    def test_get_user_folder_windows_falls_back_on_lookup_failure(self):
+        """Windows should fall back to home-relative paths if lookup fails."""
+        home = Path.home()
+
+        with patch("filesearch.core.file_utils.platform.system", return_value="Windows"):
+            with patch(
+                "filesearch.core.file_utils._get_windows_known_folder_path",
+                side_effect=OSError("boom"),
+            ):
+                assert get_user_folder("downloads") == home / "Downloads"

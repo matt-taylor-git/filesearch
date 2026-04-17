@@ -4,10 +4,12 @@ This module provides utility functions for file information retrieval,
 cross-platform file opening, and directory navigation.
 """
 
+import ctypes
 import os
 import platform
 import shutil
 import subprocess
+from ctypes import wintypes
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -16,6 +18,86 @@ from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QDesktopServices
 
 from filesearch.core.exceptions import FileSearchError
+
+
+_USER_FOLDERS: Dict[str, tuple[Optional[str], Optional[str]]] = {
+    "home": (None, None),
+    "documents": ("Documents", "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}"),
+    "desktop": ("Desktop", "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}"),
+    "downloads": ("Downloads", "{374DE290-123F-4565-9164-39C4925E467B}"),
+    "pictures": ("Pictures", "{33E28130-4E1E-4676-835A-98395C3BC3BB}"),
+    "videos": ("Videos", "{18989B1D-99B5-455B-841C-AB7C74E4DDFC}"),
+}
+
+
+class _GUID(ctypes.Structure):
+    _fields_ = [
+        ("Data1", wintypes.DWORD),
+        ("Data2", wintypes.WORD),
+        ("Data3", wintypes.WORD),
+        ("Data4", ctypes.c_ubyte * 8),
+    ]
+
+
+def _guid_from_string(value: str) -> _GUID:
+    """Convert a GUID string into a ctypes structure for shell APIs."""
+    from uuid import UUID
+
+    guid = UUID(value)
+    data4 = (ctypes.c_ubyte * 8)(*guid.bytes[8:])
+    return _GUID(
+        Data1=guid.time_low,
+        Data2=guid.time_mid,
+        Data3=guid.time_hi_version,
+        Data4=data4,
+    )
+
+
+def _get_windows_known_folder_path(folder_id: str) -> Path:
+    """Resolve a Windows known folder path via SHGetKnownFolderPath."""
+    path_ptr = ctypes.c_wchar_p()
+    guid = _guid_from_string(folder_id)
+    shell32 = ctypes.windll.shell32
+    ole32 = ctypes.windll.ole32
+
+    result = shell32.SHGetKnownFolderPath(
+        ctypes.byref(guid),
+        0,
+        None,
+        ctypes.byref(path_ptr),
+    )
+    if result != 0:
+        raise OSError(f"SHGetKnownFolderPath failed with HRESULT {result}")
+
+    try:
+        return Path(path_ptr.value)
+    finally:
+        ole32.CoTaskMemFree(path_ptr)
+
+
+def get_user_folder(folder_name: str) -> Path:
+    """Resolve a user-facing special folder, with Windows known-folder support."""
+    key = folder_name.lower()
+    if key not in _USER_FOLDERS:
+        raise ValueError(f"Unsupported user folder: {folder_name}")
+
+    fallback_name, folder_id = _USER_FOLDERS[key]
+    home = Path.home()
+
+    if key == "home":
+        return home
+
+    fallback_path = home / str(fallback_name)
+    if platform.system() != "Windows" or folder_id is None:
+        return fallback_path
+
+    try:
+        return _get_windows_known_folder_path(folder_id)
+    except Exception as e:
+        logger.warning(
+            f"Falling back to default path for '{folder_name}' after lookup error: {e}"
+        )
+        return fallback_path
 
 
 def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bool]]:

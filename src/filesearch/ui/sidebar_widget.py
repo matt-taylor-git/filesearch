@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from filesearch.core.file_utils import get_user_folder
 from filesearch.ui.theme import Colors, Fonts, Spacing
 
 # File type extension mapping for client-side filtering
@@ -131,16 +132,41 @@ class SidebarWidget(QWidget):
         layout.addWidget(self._section_header("LOCATIONS"))
         layout.addSpacing(4)
 
-        home = Path.home()
         locations = [
-            ("Home", home, "mdi6.home", Colors.PRIMARY),
-            ("Documents", home / "Documents", "mdi6.file-document", Colors.TEXT_SECONDARY),
-            ("Desktop", home / "Desktop", "mdi6.monitor", Colors.TEXT_SECONDARY),
-            ("Downloads", home / "Downloads", "mdi6.download", Colors.TEXT_SECONDARY),
-            ("Pictures", home / "Pictures", "mdi6.image", Colors.TEXT_SECONDARY),
-            ("Videos", home / "Videos", "mdi6.video", Colors.TEXT_SECONDARY),
+            ("Home", get_user_folder("home"), "mdi6.home", Colors.PRIMARY),
+            (
+                "Documents",
+                get_user_folder("documents"),
+                "mdi6.file-document",
+                Colors.TEXT_SECONDARY,
+            ),
+            (
+                "Desktop",
+                get_user_folder("desktop"),
+                "mdi6.monitor",
+                Colors.TEXT_SECONDARY,
+            ),
+            (
+                "Downloads",
+                get_user_folder("downloads"),
+                "mdi6.download",
+                Colors.TEXT_SECONDARY,
+            ),
+            (
+                "Pictures",
+                get_user_folder("pictures"),
+                "mdi6.image",
+                Colors.TEXT_SECONDARY,
+            ),
+            (
+                "Videos",
+                get_user_folder("videos"),
+                "mdi6.video",
+                Colors.TEXT_SECONDARY,
+            ),
         ]
         self._location_map = {label: path for label, path, _, _ in locations}
+        home = self._location_map["Home"]
 
         for label, path, icon_name, icon_color in locations:
             btn = self._location_button(label, path, icon_name, icon_color)
