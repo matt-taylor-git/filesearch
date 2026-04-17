@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.search_engine import FileSearchEngine
+from filesearch.models.search_result import SearchResult
 from filesearch.ui.main_window import MainWindow, SearchWorker, create_main_window
 
 
@@ -141,6 +142,15 @@ class TestMainWindowUIState:
 
         assert width == 800
         assert height == 600
+
+    def test_center_tabs_include_search_and_storage(self, main_window):
+        """The center area exposes Search and Storage tabs."""
+        tab_labels = [
+            main_window.center_tabs.tabText(index)
+            for index in range(main_window.center_tabs.count())
+        ]
+
+        assert tab_labels == ["Search", "Storage"]
 
 
 class TestMainWindowSearchControls:
@@ -420,6 +430,47 @@ class TestMainWindowDirectorySelection:
             assert window.current_directory == selected_dir
             assert window.sidebar.get_custom_location() == selected_dir
             assert window.sidebar._custom_location_button.property("active") == "true"
+            assert window.storage_tab.root_path == selected_dir
+        finally:
+            window.close()
+
+    def test_storage_tab_root_tracks_directory_changes(
+        self, qtbot, config_manager, tmp_path
+    ):
+        """Changing the active folder updates the storage tab root."""
+        selected_dir = tmp_path / "workspace"
+        selected_dir.mkdir()
+
+        window = MainWindow(config_manager=config_manager)
+        window.show()
+        qtbot.addWidget(window)
+
+        try:
+            window._set_search_directory(selected_dir, persist=False, update_recent=False)
+            assert window.storage_tab.root_path == selected_dir
+        finally:
+            window.close()
+
+    def test_storage_tab_activation_hides_details_panel(
+        self, qtbot, config_manager, tmp_path
+    ):
+        """Switching to Storage collapses the right-hand details panel."""
+        selected_dir = tmp_path / "workspace"
+        selected_dir.mkdir()
+
+        window = MainWindow(config_manager=config_manager)
+        window.show()
+        qtbot.addWidget(window)
+        window._set_search_directory(selected_dir, persist=False, update_recent=False)
+
+        result = SearchResult(path=selected_dir, size=0, modified=0.0)
+        window.details_panel.show_result(result)
+        window.main_splitter.setSizes([240, 420, 280])
+
+        try:
+            window.center_tabs.setCurrentWidget(window.storage_tab)
+            qtbot.waitUntil(lambda: window.main_splitter.sizes()[2] == 0, timeout=3000)
+            assert window.main_splitter.sizes()[2] == 0
         finally:
             window.close()
 

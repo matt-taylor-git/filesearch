@@ -9,6 +9,7 @@ File Search is a desktop file-finding app built with Python and PyQt6. It combin
 - Sidebar `Choose Folder...` action for searching any custom directory
 - Search history, recent custom folders, and remembered default search location
 - File type chips, recent-search tags, and sortable result lists
+- Storage tab with a drive summary and treemap drill-down for the active folder
 - Details panel and context actions such as open, open containing folder, copy path, rename, and delete
 - Configurable settings for search behavior, highlighting, performance, and plugins
 - Cross-platform file opening helpers and executable-file safety warnings
@@ -73,6 +74,7 @@ filesearch
 3. Press `Enter` in the search box to start the search.
 4. Narrow visible results with the sidebar file-type chips.
 5. Sort the results list and inspect the selected file in the details panel.
+6. Open the `Storage` tab to visualize used space for the currently selected folder.
 
 ## Configuration
 

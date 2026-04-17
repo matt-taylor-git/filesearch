@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (  # noqa: F401
     QMainWindow,
     QMessageBox,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -59,6 +60,7 @@ from filesearch.ui.search_worker import SearchWorker  # noqa: F401 — re-export
 from filesearch.ui.settings_dialog import SettingsDialog
 from filesearch.ui.sidebar_widget import SidebarWidget
 from filesearch.ui.sort_controls import SortControls
+from filesearch.ui.storage_tab import StorageTabWidget
 
 
 class MainWindow(ContextMenuHandlerMixin, QMainWindow):
@@ -186,11 +188,34 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.sort_controls = SortControls()
         results_header.addWidget(self.sort_controls)
         results_header.addStretch()
-        center_layout.addLayout(results_header)
 
         # Results view
         self.results_view = ResultsView()
         center_layout.addWidget(self.results_view, 1)
+
+        self.center_tabs = QTabWidget()
+        self.center_tabs.setObjectName("centerTabs")
+
+        search_page = QWidget()
+        search_page.setObjectName("searchPage")
+        search_layout = QVBoxLayout(search_page)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.setSpacing(10)
+        search_layout.addWidget(self.query_input)
+        search_layout.addWidget(self.directory_selector)
+        search_layout.addWidget(self.search_control)
+        search_layout.addWidget(self.progress_widget)
+        search_layout.addWidget(self.status_widget)
+        search_layout.addLayout(results_header)
+        search_layout.addWidget(self.results_view, 1)
+
+        self.storage_tab = StorageTabWidget(
+            self.config_manager, self.current_directory
+        )
+
+        self.center_tabs.addTab(search_page, "Search")
+        self.center_tabs.addTab(self.storage_tab, "Storage")
+        center_layout.addWidget(self.center_tabs)
 
         self.main_splitter.addWidget(center_panel)
 
@@ -282,6 +307,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             self._on_file_type_filter_changed
         )
         self.sidebar.tag_clicked.connect(self._on_tag_clicked)
+        self.center_tabs.currentChanged.connect(self._on_center_tab_changed)
 
         # --- Details panel signals ---
         self.details_panel.open_requested.connect(self._on_file_open_requested)
@@ -361,6 +387,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
     def _on_result_selection_changed(self, index) -> None:
         """Handle result list selection — show details panel."""
+        if self.center_tabs.currentWidget() is self.storage_tab:
+            return
         if not index.isValid():
             return
         result = index.data(Qt.ItemDataRole.UserRole)
@@ -450,9 +478,23 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         except Exception as e:
             logger.error(f"Error saving sort criteria: {e}")
 
+    def _on_center_tab_changed(self, index: int) -> None:
+        """Keep the details panel hidden when Storage is active."""
+        if self.center_tabs.widget(index) is self.storage_tab:
+            self._on_details_panel_close()
+            if not self.storage_tab.has_analysis():
+                self.storage_tab.refresh()
+
     def _on_directory_changed(self, directory: Path) -> None:
         """Update the current search directory state."""
         self.current_directory = directory
+        self.storage_tab.set_root_path(
+            directory,
+            refresh=(
+                self.center_tabs.currentWidget() is self.storage_tab
+                or self.storage_tab.has_analysis()
+            ),
+        )
         logger.debug(f"Current search directory updated to: {directory}")
 
     def _get_startup_directory(self) -> Path:
@@ -895,6 +937,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         if self.search_worker:
             self.search_worker.stop()
             self.search_worker.wait()
+        self.storage_tab.cleanup()
         super().closeEvent(event)
 
 

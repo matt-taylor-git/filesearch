@@ -32,6 +32,7 @@ The File Search interface consists of:
 - **Search Bar**: Enter your search terms and file patterns
 - **Directory Selector**: Choose which directories to search
 - **Results Panel**: Displays found files and folders
+- **Storage Tab**: Visualizes free and used space for the selected folder with a treemap
 - **Status Bar**: Shows search progress and file opening status
 - **Sort Controls**: Options to organize your results
 
@@ -55,6 +56,22 @@ The File Search interface consists of:
 - **File Types**: Documents, images, videos, code files
 - **Size Range**: Small (<1MB), Medium (1-10MB), Large (>10MB)
 - **Date Range**: Today, This Week, This Month, Custom Range
+
+## Storage View
+
+### Visualizing Folder Usage
+
+1. Pick a folder from the left sidebar.
+2. Open the **Storage** tab in the center panel.
+3. Wait for the background scan to finish.
+4. Review the summary card for drive used/free space, selected-folder size, item count, and skipped paths.
+
+### Navigating the Treemap
+
+- **Hover a Tile**: See the file or folder name, type, size, and path in the details panel
+- **Click a Folder Tile**: Drill into that folder's contents
+- **Use Breadcrumbs**: Jump back to any parent folder in the current path
+- **Refresh**: Re-scan the active root if disk usage has changed
 
 ## Working with Results
 

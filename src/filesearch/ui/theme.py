@@ -80,6 +80,14 @@ class Colors:
     FILE_PDF = "#EF4444"
     FILE_FOLDER = "#FBBF24"
 
+    # Storage visualization
+    STORAGE_CARD = "#111827"
+    STORAGE_CARD_ALT = "#172033"
+    STORAGE_BLUE = "#4F8CF7"
+    STORAGE_GREEN = "#39C89B"
+    STORAGE_GOLD = "#D4A72C"
+    STORAGE_CORAL = "#D8665A"
+
 
 class Fonts:
     """Font configuration constants."""
@@ -928,6 +936,123 @@ QWidget#searchBarContainer QLineEdit:focus {{
 /* ===== Center Panel ===== */
 QWidget#centerPanel {{
     background-color: {Colors.BG_PRIMARY};
+}}
+
+QWidget#searchPage,
+QWidget#storagePage {{
+    background-color: {Colors.BG_PRIMARY};
+}}
+
+QPushButton[class="storage-refresh"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    border: 1.5px solid {Colors.BORDER_DEFAULT};
+    border-radius: {Spacing.RADIUS_SM}px;
+    background: {Colors.BG_SECONDARY};
+    color: {Colors.TEXT_PRIMARY};
+    padding: 6px 12px;
+}}
+
+QPushButton[class="storage-refresh"]:hover {{
+    border-color: {Colors.PRIMARY};
+    background: {Colors.PRIMARY_SUBTLE};
+}}
+
+QPushButton[class="storage-refresh"]:disabled {{
+    color: {Colors.DISABLED_TEXT};
+    border-color: {Colors.BORDER_DEFAULT};
+}}
+
+QLabel[class="storage-root-path"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    color: {Colors.TEXT_SECONDARY};
+}}
+
+QLabel[class="storage-status"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    color: {Colors.TEXT_SECONDARY};
+}}
+
+QFrame[class="storage-card"] {{
+    background-color: {Colors.BG_SECONDARY};
+    border: 1px solid {Colors.BORDER_DEFAULT};
+    border-radius: {Spacing.RADIUS_LG}px;
+}}
+
+QLabel[class="storage-metric-label"] {{
+    font-size: {Fonts.SIZE_XS}pt;
+    color: {Colors.TEXT_TERTIARY};
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}}
+
+QLabel[class="storage-metric-value"] {{
+    font-size: {Fonts.SIZE_LG}pt;
+    font-weight: {Fonts.WEIGHT_BOLD};
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+QPushButton[class="storage-breadcrumb"] {{
+    border: 1px solid {Colors.BORDER_DEFAULT};
+    border-radius: {Spacing.RADIUS_SM}px;
+    background: {Colors.BG_TERTIARY};
+    color: {Colors.TEXT_SECONDARY};
+    padding: 5px 10px;
+    font-size: {Fonts.SIZE_SM}pt;
+}}
+
+QPushButton[class="storage-breadcrumb"]:hover {{
+    color: {Colors.TEXT_PRIMARY};
+    border-color: {Colors.BORDER_STRONG};
+}}
+
+QPushButton[class="storage-breadcrumb"]:disabled {{
+    color: {Colors.DISABLED_TEXT};
+}}
+
+QLabel[class="storage-breadcrumb-divider"] {{
+    color: {Colors.TEXT_TERTIARY};
+    font-size: {Fonts.SIZE_SM}pt;
+}}
+
+QLabel[class="storage-empty-state"],
+QLabel[class="storage-error-state"] {{
+    font-size: {Fonts.SIZE_LG}pt;
+    color: {Colors.TEXT_SECONDARY};
+    padding: 24px;
+}}
+
+QLabel[class="storage-error-state"] {{
+    color: {Colors.ERROR};
+}}
+
+QLabel[class="storage-detail-section"] {{
+    font-size: {Fonts.SIZE_XS}pt;
+    font-weight: {Fonts.WEIGHT_SEMIBOLD};
+    color: {Colors.TEXT_TERTIARY};
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}}
+
+QLabel[class="storage-detail-name"] {{
+    font-size: {Fonts.SIZE_LG}pt;
+    font-weight: {Fonts.WEIGHT_BOLD};
+    color: {Colors.TEXT_PRIMARY};
+}}
+
+QLabel[class="storage-detail-meta"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    color: {Colors.TEXT_SECONDARY};
+}}
+
+QLabel[class="storage-detail-size"] {{
+    font-size: {Fonts.SIZE_BASE}pt;
+    font-weight: {Fonts.WEIGHT_SEMIBOLD};
+    color: {Colors.PRIMARY};
+}}
+
+QLabel[class="storage-detail-path"] {{
+    font-size: {Fonts.SIZE_SM}pt;
+    color: {Colors.TEXT_SECONDARY};
 }}
 """
 
