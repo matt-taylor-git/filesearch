@@ -332,6 +332,10 @@ class DirectorySelectorWidget(QWidget):
         self.directory_input.setText(str(path))
         self.directory_changed.emit(path)
 
+    def remember_directory(self, path: Path) -> None:
+        """Add a directory to recent history without changing the current input."""
+        self._add_to_recent_directories(path)
+
     def set_read_only(self, read_only: bool) -> None:
         """Set the directory input to read-only mode during search."""
         self.directory_input.setReadOnly(read_only)

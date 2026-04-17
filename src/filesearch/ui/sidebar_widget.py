@@ -74,6 +74,7 @@ class SidebarWidget(QWidget):
     directory_selected = pyqtSignal(Path)
     file_type_filter_changed = pyqtSignal(list)
     tag_clicked = pyqtSignal(str)
+    browse_requested = pyqtSignal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -86,6 +87,9 @@ class SidebarWidget(QWidget):
         self._filter_buttons: Dict[str, QPushButton] = {}
         self._active_filters: Set[str] = set()
         self._tag_buttons: List[QPushButton] = []
+        self._custom_location_button: Optional[QPushButton] = None
+        self._browse_button: Optional[QPushButton] = None
+        self._location_map: Dict[str, Path] = {}
 
         self._setup_ui()
         logger.debug("SidebarWidget initialized")
@@ -136,11 +140,36 @@ class SidebarWidget(QWidget):
             ("Pictures", home / "Pictures", "mdi6.image", Colors.TEXT_SECONDARY),
             ("Videos", home / "Videos", "mdi6.video", Colors.TEXT_SECONDARY),
         ]
+        self._location_map = {label: path for label, path, _, _ in locations}
 
         for label, path, icon_name, icon_color in locations:
             btn = self._location_button(label, path, icon_name, icon_color)
             layout.addWidget(btn)
             self._location_buttons.append(btn)
+
+        self._custom_location_button = self._location_button(
+            "Custom Folder",
+            home,
+            "mdi6.folder",
+            Colors.FILE_FOLDER,
+        )
+        self._custom_location_button.setVisible(False)
+        layout.addWidget(self._custom_location_button)
+
+        self._browse_button = QPushButton(
+            qta.icon("mdi6.folder-open", color=Colors.TEXT_SECONDARY),
+            "  Choose Folder...",
+        )
+        self._browse_button.setProperty("class", "sidebar-item")
+        self._browse_button.setProperty("active", "false")
+        self._browse_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._browse_button.setIconSize(
+            self._browse_button.iconSize().__class__(18, 18)
+        )
+        self._browse_button.clicked.connect(
+            lambda checked=False: self.browse_requested.emit()
+        )
+        layout.addWidget(self._browse_button)
 
         layout.addSpacing(16)
 
@@ -220,7 +249,9 @@ class SidebarWidget(QWidget):
         btn.setProperty("active", "false")
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setIconSize(btn.iconSize().__class__(18, 18))
-        btn.clicked.connect(lambda checked, p=path, b=btn: self._on_location_clicked(p, b))
+        btn.clicked.connect(
+            lambda checked, p=path, b=btn: self._on_location_clicked(p, b)
+        )
         return btn
 
     def _filter_chip(self, name: str, icon_name: str, color: str) -> QPushButton:
@@ -231,28 +262,15 @@ class SidebarWidget(QWidget):
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setCheckable(True)
         btn.setIconSize(btn.iconSize().__class__(14, 14))
-        btn.clicked.connect(lambda checked, n=name: self._on_filter_toggled(n, checked))
+        btn.clicked.connect(
+            lambda checked, n=name: self._on_filter_toggled(n, checked)
+        )
         return btn
 
     # --- Slots ---
 
     def _on_location_clicked(self, path: Path, button: QPushButton) -> None:
-        # Deactivate previous
-        if self._active_location is not None:
-            self._active_location.setProperty("active", "false")
-            style = self._active_location.style()
-            if style:
-                style.unpolish(self._active_location)
-                style.polish(self._active_location)
-
-        # Activate new
-        button.setProperty("active", "true")
-        style = button.style()
-        if style:
-            style.unpolish(button)
-            style.polish(button)
-        self._active_location = button
-
+        self._set_active_button(button)
         self.directory_selected.emit(path)
         logger.debug(f"Sidebar location selected: {path}")
 
@@ -282,35 +300,57 @@ class SidebarWidget(QWidget):
 
     def set_active_location_by_path(self, path: Path) -> None:
         """Highlight the sidebar location matching *path*."""
-        for btn in self._location_buttons:
-            label = btn.text().strip()
-            # Compare against known locations
-            btn.setProperty("active", "false")
-            style = btn.style()
-            if style:
-                style.unpolish(btn)
-                style.polish(btn)
+        self._set_active_button(None)
 
-        # Try to match
-        home = Path.home()
-        location_map = {
-            "Home": home,
-            "Documents": home / "Documents",
-            "Desktop": home / "Desktop",
-            "Downloads": home / "Downloads",
-            "Pictures": home / "Pictures",
-            "Videos": home / "Videos",
-        }
         for btn in self._location_buttons:
             label = btn.text().strip()
-            if location_map.get(label) == path:
-                btn.setProperty("active", "true")
-                style = btn.style()
-                if style:
-                    style.unpolish(btn)
-                    style.polish(btn)
-                self._active_location = btn
-                break
+            if self._location_map.get(label) == path:
+                self._set_active_button(btn)
+                return
+
+        if self._custom_location_button and self._custom_location_button.isVisible():
+            custom_path = self._custom_location_button.property("path")
+            if custom_path and Path(custom_path) == path:
+                self._set_active_button(self._custom_location_button)
+
+    def set_custom_location(self, path: Optional[Path]) -> None:
+        """Show or hide the custom folder location row."""
+        if self._custom_location_button is None:
+            return
+
+        if not path:
+            if self._active_location is self._custom_location_button:
+                self._set_active_button(None)
+            self._custom_location_button.setVisible(False)
+            self._custom_location_button.setToolTip("")
+            self._custom_location_button.setProperty("path", "")
+            return
+
+        folder_name = path.name or str(path)
+        self._custom_location_button.setText(f"  {folder_name}")
+        self._custom_location_button.setToolTip(str(path))
+        self._custom_location_button.setProperty("path", str(path))
+        try:
+            self._custom_location_button.clicked.disconnect()
+        except TypeError:
+            pass
+        self._custom_location_button.clicked.connect(
+            lambda checked=False, p=path, b=self._custom_location_button: (
+                self._on_location_clicked(p, b)
+            )
+        )
+        self._custom_location_button.setVisible(True)
+
+    def get_custom_location(self) -> Optional[Path]:
+        """Return the currently displayed custom folder, if any."""
+        if not self._custom_location_button:
+            return None
+
+        custom_path = self._custom_location_button.property("path")
+        if not custom_path:
+            return None
+
+        return Path(custom_path)
 
     def set_tags(self, searches: List[str]) -> None:
         """Update the recent search tags."""
@@ -367,3 +407,18 @@ class SidebarWidget(QWidget):
         for f in self._active_filters:
             extensions.extend(FILE_TYPE_EXTENSIONS.get(f, set()))
         return extensions
+
+    def _set_active_button(self, button: Optional[QPushButton]) -> None:
+        """Update sidebar active styling so only one location is highlighted."""
+        all_buttons = list(self._location_buttons)
+        if self._custom_location_button is not None:
+            all_buttons.append(self._custom_location_button)
+
+        for candidate in all_buttons:
+            candidate.setProperty("active", "true" if candidate is button else "false")
+            style = candidate.style()
+            if style:
+                style.unpolish(candidate)
+                style.polish(candidate)
+
+        self._active_location = button

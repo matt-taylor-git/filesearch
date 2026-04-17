@@ -23,6 +23,7 @@ from PyQt6.QtGui import (  # noqa: F401
 )
 from PyQt6.QtWidgets import (  # noqa: F401
     QApplication,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -34,7 +35,12 @@ from PyQt6.QtWidgets import (  # noqa: F401
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
-from filesearch.core.file_utils import open_containing_folder, safe_open
+from filesearch.core.file_utils import (
+    normalize_path,
+    open_containing_folder,
+    safe_open,
+    validate_directory,
+)
 from filesearch.core.search_engine import FileSearchEngine
 from filesearch.models.search_result import SearchResult
 from filesearch.plugins.plugin_manager import PluginManager
@@ -94,7 +100,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.is_searching = False
         self.search_results = []
         self.plugin_results = []
-        self.current_directory = Path.home()  # Initialize current directory state
+        self.current_directory = self._get_startup_directory()
         self.search_start_time = 0.0
 
         # Setup UI
@@ -211,6 +217,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
         # Update sidebar tags from search history
         self._update_sidebar_tags()
+        self._refresh_custom_sidebar_location()
+        self.sidebar.set_active_location_by_path(self.current_directory)
 
         # Status bar
         status_bar = self.statusBar()
@@ -268,6 +276,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
         # --- Sidebar signals ---
         self.sidebar.directory_selected.connect(self._on_sidebar_directory_selected)
+        self.sidebar.browse_requested.connect(self._browse_for_search_directory)
         self.sidebar.file_type_filter_changed.connect(
             self._on_file_type_filter_changed
         )
@@ -335,13 +344,6 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             logger.error(f"Error saving window settings: {e}")
 
     # --- Sidebar / details panel handlers ---
-
-    def _on_sidebar_directory_selected(self, directory: Path) -> None:
-        """Handle sidebar location click — set search directory."""
-        self.current_directory = directory
-        self.directory_selector.set_directory(directory)
-        self.sidebar.set_active_location_by_path(directory)
-        logger.debug(f"Sidebar directory selected: {directory}")
 
     def _on_file_type_filter_changed(self, extensions: list) -> None:
         """Handle sidebar file-type filter toggle — filter results client-side."""
@@ -451,6 +453,101 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         """Update the current search directory state."""
         self.current_directory = directory
         logger.debug(f"Current search directory updated to: {directory}")
+
+    def _get_startup_directory(self) -> Path:
+        """Resolve the initial search directory from config, falling back to home."""
+        configured_directory = self.config_manager.get(
+            "search_preferences.default_search_directory",
+            str(Path.home()),
+        )
+
+        try:
+            directory = normalize_path(str(configured_directory))
+            if validate_directory(directory) is None:
+                return directory
+        except Exception as e:
+            logger.warning(
+                f"Invalid configured default search directory '{configured_directory}': {e}"
+            )
+
+        return Path.home()
+
+    def _set_search_directory(
+        self, directory: Path, persist: bool = False, update_recent: bool = False
+    ) -> None:
+        """Synchronize the active search directory across UI and configuration."""
+        self.current_directory = directory
+        self.directory_selector.set_directory(directory)
+
+        if update_recent:
+            self.directory_selector.remember_directory(directory)
+            self._refresh_custom_sidebar_location()
+
+        self.sidebar.set_active_location_by_path(directory)
+
+        if persist:
+            self.config_manager.set(
+                "search_preferences.default_search_directory", str(directory)
+            )
+            self.config_manager.save()
+
+    def _refresh_custom_sidebar_location(self) -> None:
+        """Show the most recent custom folder in the sidebar, when available."""
+        home = Path.home()
+        preset_paths = {
+            home,
+            home / "Documents",
+            home / "Desktop",
+            home / "Downloads",
+            home / "Pictures",
+            home / "Videos",
+        }
+        recent_directories = self.config_manager.get("recent.directories", [])
+
+        custom_path: Optional[Path] = None
+        for directory in recent_directories:
+            candidate = Path(directory)
+            if candidate in preset_paths:
+                continue
+            if validate_directory(candidate) is None:
+                custom_path = candidate
+                break
+
+        if (
+            custom_path is None
+            and self.current_directory not in preset_paths
+            and validate_directory(self.current_directory) is None
+        ):
+            custom_path = self.current_directory
+
+        self.sidebar.set_custom_location(custom_path)
+
+    def _browse_for_search_directory(self) -> None:
+        """Open a folder picker and make the selection the active search root."""
+        initial_dir = self.current_directory
+        if validate_directory(initial_dir):
+            initial_dir = self._get_startup_directory()
+
+        selected_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Select Search Directory",
+            str(initial_dir),
+            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
+        )
+
+        if not selected_dir:
+            logger.debug("Sidebar browse cancelled")
+            return
+
+        selected_path = Path(selected_dir)
+        self._set_search_directory(selected_path, persist=True, update_recent=True)
+        self.safe_status_message(f"Search folder selected: {selected_path}")
+        logger.info(f"Search directory selected from sidebar: {selected_path}")
+
+    def _on_sidebar_directory_selected(self, directory: Path) -> None:
+        """Handle sidebar location click and update the active search directory."""
+        self._set_search_directory(directory, persist=True, update_recent=False)
+        logger.debug(f"Sidebar directory selected: {directory}")
 
     def start_search(self) -> None:
         """Start the file search operation."""

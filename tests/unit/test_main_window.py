@@ -26,9 +26,9 @@ def qapp():
 
 
 @pytest.fixture
-def config_manager():
-    """Create a mock config manager."""
-    with patch("platformdirs.user_config_dir", return_value="/tmp/test_config"):
+def config_manager(tmp_path):
+    """Create an isolated config manager for testing."""
+    with patch("platformdirs.user_config_dir", return_value=str(tmp_path)):
         manager = ConfigManager(app_name="testapp")
         yield manager
 
@@ -100,8 +100,8 @@ class TestMainWindowInitialization:
     def test_main_window_minimum_size(self, main_window):
         """Test MainWindow minimum size."""
         min_size = main_window.minimumSize()
-        assert min_size.width() == 600
-        assert min_size.height() == 400
+        assert min_size.width() == 900
+        assert min_size.height() == 550
 
 
 class TestMainWindowUIState:
@@ -243,6 +243,102 @@ class TestMainWindowSignals:
             main_window.query_input.set_focus()
             qtbot.keyPress(main_window.query_input.search_input, Qt.Key.Key_Return)
             mock_start.assert_called_once()
+
+
+class TestMainWindowDirectorySelection:
+    """Test sidebar-driven directory selection behavior."""
+
+    def test_startup_uses_default_search_directory(self, qapp, config_manager, tmp_path):
+        """Window restores the configured default directory when it is valid."""
+        default_dir = tmp_path / "search-root"
+        default_dir.mkdir()
+        config_manager.set(
+            "search_preferences.default_search_directory", str(default_dir)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+
+        try:
+            assert window.current_directory == default_dir
+            assert window.directory_selector.get_directory() == default_dir
+        finally:
+            window.close()
+
+    def test_startup_falls_back_to_home_for_missing_directory(
+        self, qapp, config_manager, tmp_path
+    ):
+        """Window falls back safely when the saved default directory is missing."""
+        missing_dir = tmp_path / "missing-root"
+        config_manager.set(
+            "search_preferences.default_search_directory", str(missing_dir)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+
+        try:
+            assert window.current_directory == Path.home()
+        finally:
+            window.close()
+
+    def test_sidebar_browse_opens_dialog_and_updates_directory(
+        self, qtbot, config_manager, tmp_path
+    ):
+        """Choosing a folder from the sidebar updates UI state and persisted config."""
+        selected_dir = tmp_path / "custom-root"
+        selected_dir.mkdir()
+
+        window = MainWindow(config_manager=config_manager)
+        window.show()
+        qtbot.addWidget(window)
+
+        with patch(
+            "filesearch.ui.main_window.QFileDialog.getExistingDirectory",
+            return_value=str(selected_dir),
+        ) as mock_dialog:
+            qtbot.mouseClick(window.sidebar._browse_button, Qt.MouseButton.LeftButton)
+
+        try:
+            mock_dialog.assert_called_once()
+            assert window.current_directory == selected_dir
+            assert window.directory_selector.get_directory() == selected_dir
+            assert (
+                config_manager.get("search_preferences.default_search_directory")
+                == str(selected_dir)
+            )
+            assert config_manager.get("recent.directories")[0] == str(selected_dir)
+            assert window.sidebar.get_custom_location() == selected_dir
+            assert window.statusBar().currentMessage() == (
+                f"Search folder selected: {selected_dir}"
+            )
+        finally:
+            window.close()
+
+    def test_custom_sidebar_location_reuses_saved_folder(
+        self, qtbot, config_manager, tmp_path
+    ):
+        """Clicking the custom sidebar row selects the saved folder without browsing."""
+        selected_dir = tmp_path / "saved-root"
+        selected_dir.mkdir()
+        config_manager.set("recent.directories", [str(selected_dir)])
+
+        window = MainWindow(config_manager=config_manager)
+        window.show()
+        qtbot.addWidget(window)
+
+        with patch(
+            "filesearch.ui.main_window.QFileDialog.getExistingDirectory"
+        ) as mock_dialog:
+            qtbot.mouseClick(
+                window.sidebar._custom_location_button, Qt.MouseButton.LeftButton
+            )
+
+        try:
+            mock_dialog.assert_not_called()
+            assert window.current_directory == selected_dir
+            assert window.sidebar.get_custom_location() == selected_dir
+            assert window.sidebar._custom_location_button.property("active") == "true"
+        finally:
+            window.close()
 
 
 class TestMainWindowResultHandling:
@@ -406,9 +502,9 @@ class TestMainWindowCloseEvent:
 class TestCreateMainWindowFunction:
     """Test cases for create_main_window function."""
 
-    def test_create_main_window(self, qapp):
+    def test_create_main_window(self, qapp, tmp_path):
         """Test create_main_window function."""
-        with patch("platformdirs.user_config_dir", return_value="/tmp/test_config"):
+        with patch("platformdirs.user_config_dir", return_value=str(tmp_path)):
             window = create_main_window()
 
             assert isinstance(window, MainWindow)
