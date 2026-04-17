@@ -3,6 +3,7 @@
 This module tests the main application entry point and core functionality.
 """
 
+import runpy
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -220,6 +221,17 @@ class TestMainFunction:
                 ):
                     result = main()
                     assert result == 1
+
+    def test_module_entry_point_invokes_main(self):
+        """Test python -m filesearch delegates to filesearch.main.main."""
+        with patch("filesearch.main.main", return_value=0) as mock_main:
+            with patch("sys.exit", side_effect=SystemExit(0)) as mock_exit:
+                with pytest.raises(SystemExit) as exc_info:
+                    runpy.run_module("filesearch.__main__", run_name="__main__")
+
+                assert exc_info.value.code == 0
+                mock_main.assert_called_once_with()
+                mock_exit.assert_called_once_with(0)
 
 
 class TestPathHandling:
