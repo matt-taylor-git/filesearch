@@ -1,188 +1,132 @@
 # File Search
 
-A cross-platform file search application with extensible plugin architecture, built with Python and PyQt6.
+File Search is a desktop file-finding app built with Python and PyQt6. It combines a fast local search engine with a polished three-panel UI, sidebar-driven search scope selection, file-type filters, sorting, details, and an extensible plugin system.
 
 ## Features
 
-- **Fast File Searching**: Efficient search across directories with real-time results
-- **Cross-Platform**: Works on Windows, macOS, and Linux
-- **Extensible Architecture**: Plugin system for custom search providers and result processors
-- **Modern UI**: Clean, polished interface built with PyQt6 and a centralized theme system
-- **Advanced Filtering**: Filter by file type, size, date, and content patterns
-- **Result Management**: Sort, filter, and export search results
-- **Performance Optimized**: Multi-threaded search with progress indication
+- Fast recursive filename search with background workers
+- Sidebar locations for `Home`, `Documents`, `Desktop`, `Downloads`, `Pictures`, and `Videos`
+- Sidebar `Choose Folder...` action for searching any custom directory
+- Search history, recent custom folders, and remembered default search location
+- File type chips, recent-search tags, and sortable result lists
+- Details panel and context actions such as open, open containing folder, copy path, rename, and delete
+- Configurable settings for search behavior, highlighting, performance, and plugins
+- Cross-platform file opening helpers and executable-file safety warnings
+
+## Requirements
+
+- Python 3.9+
+- Git
 
 ## Installation
 
-### Prerequisites
+### Runtime setup
 
-- Python 3.9 or higher
-- Git
-
-### Setup
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/filesearch/filesearch.git
+git clone https://github.com/matt-taylor-git/filesearch.git
 cd filesearch
-```
 
-2. Create a virtual environment:
-```bash
 # Windows
 python -m venv venv
 venv\Scripts\activate
 
-# macOS/Linux
+# macOS / Linux
 python3 -m venv venv
 source venv/bin/activate
-```
 
-3. Install dependencies:
-```bash
 pip install -r requirements.txt
-```
-
-4. Install development dependencies (optional):
-```bash
-pip install -r requirements-dev.txt
-```
-
-5. Install the local package:
-```bash
 pip install -e .
 ```
 
-## Usage
+### Development setup
 
-### Running the Application
+```bash
+pip install -r requirements-dev.txt
+pre-commit install
+```
+
+## Running the app
 
 ```bash
 # From source
 python -m filesearch
 
-# Or if installed via pip
+# If installed as a script entrypoint
 filesearch
 ```
 
-### Command Line Options
+### Command-line options
 
-```bash
-python -m filesearch [options]
-
-Options:
-  --help     Show help message
-  --version  Show version information
+```text
+--help, -h     Show help
+--version, -v  Show version information
+--debug        Enable debug logging
+--info         Enable info logging
+--warning      Enable warning-only logging
+--error        Enable error-only logging
 ```
+
+## How to use
+
+1. Pick a search location from the left sidebar, or use `Choose Folder...` to browse for any folder.
+2. Enter a filename pattern such as `*.py`, `report*`, or `invoice?.pdf`.
+3. Press `Enter` in the search box to start the search.
+4. Narrow visible results with the sidebar file-type chips.
+5. Sort the results list and inspect the selected file in the details panel.
+
+## Configuration
+
+The app stores configuration as JSON using `platformdirs`. Settings include:
+
+- default search directory
+- case sensitivity
+- hidden-file behavior
+- result limits
+- excluded file extensions
+- highlight settings
+- plugin settings
+
+The main config file is created automatically in the user's platform-specific config directory as `config.json`.
 
 ## Development
 
-### Project Structure
+### Useful commands
 
-```
-filesearch/
-├── src/filesearch/          # Main package
-│   ├── core/               # Core functionality
-│   ├── plugins/            # Plugin architecture
-│   └── ui/                 # User interface components (includes theme.py)
-├── tests/                  # Test suite
-├── config/                 # Configuration files
-├── docs/                   # Documentation
-├── pyproject.toml         # Project configuration
-├── requirements.txt       # Runtime dependencies
-└── requirements-dev.txt   # Development dependencies
-```
-
-### Code Quality
-
-This project uses:
-- **Black** for code formatting
-- **Flake8** for linting
-- **pytest** for testing
-- **pre-commit** hooks for automated checks
-
-Run checks manually:
 ```bash
-# Format code
+python -m pytest
+python -m pytest -m unit
+python -m pytest -m integration
+python -m pytest -m ui
+
 black src/ tests/
-
-# Lint code
 flake8 src/ tests/
-
-# Run tests
-pytest
-
-# Run with coverage
-pytest --cov=filesearch --cov-report=html
+pre-commit run --all-files
 ```
 
-### Testing
+### Project layout
 
-```bash
-# Run all tests
-pytest
+```text
+src/filesearch/
+  core/      Search engine, config, security, sorting, filesystem helpers
+  models/    Data objects such as SearchResult
+  plugins/   Plugin interfaces and built-in plugins
+  ui/        Main window, sidebar, results, settings, theme, and search controls
+  utils/     Shared helpers such as text highlighting
 
-# Run specific test types
-pytest -m unit
-pytest -m integration
-pytest -m ui
-
-# Run with verbose output
-pytest -v
+tests/
+  unit/
+  integration/
+  ui/
 ```
 
-## Architecture
+## Documentation
 
-### Core Components
+- [User guide](docs/user_guide.md)
+- [Architecture overview](docs/architecture.md)
+- [Configuration notes](docs/configuration.md)
+- [Plugin development](docs/plugin-development.md)
 
-- **Search Engine**: Multi-threaded file search with pattern matching
-- **Plugin System**: Extensible architecture for custom functionality
-- **UI Framework**: PyQt6-based interface with model-view architecture and centralized theming
-- **Theme System**: Single `theme.py` module defining colors, fonts, spacing, and QSS stylesheet
-- **Configuration**: TOML-based configuration with environment overrides
-- **Logging**: Structured logging with rotation and compression
+## Repository
 
-### Technology Stack
-
-- **Python 3.9+**: Modern Python with type hints
-- **PyQt6**: Cross-platform GUI framework
-- **loguru**: Structured logging
-- **platformdirs**: Platform-specific directory paths
-- **natsort**: Natural sorting of search results
-- **pytest**: Testing framework with pytest-qt for UI testing
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run tests and linting
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to the branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-### Development Setup
-
-1. Install pre-commit hooks:
-```bash
-pre-commit install
-```
-
-2. Run tests before committing:
-```bash
-pytest
-```
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-- 📖 [Documentation](docs/)
-- 🐛 [Issue Tracker](https://github.com/filesearch/filesearch/issues)
-- 💬 [Discussions](https://github.com/filesearch/filesearch/discussions)
-
-## Roadmap
-
-See our [project roadmap](docs/roadmap.md) for upcoming features and improvements.
+- Repository: https://github.com/matt-taylor-git/filesearch
+- Issues: https://github.com/matt-taylor-git/filesearch/issues
