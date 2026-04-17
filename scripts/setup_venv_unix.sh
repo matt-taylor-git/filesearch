@@ -36,6 +36,10 @@ pip install -r requirements.txt
 echo "Installing development dependencies..."
 pip install -r requirements-dev.txt
 
+# Install the local package so `python -m filesearch` and `filesearch` work
+echo "Installing File Search package..."
+pip install -e .
+
 # Install pre-commit hooks
 echo "Installing pre-commit hooks..."
 pre-commit install

@@ -145,3 +145,4 @@ logs/
 MagicMock/
 .aider*
 .claude/settings.local.json
+.codex

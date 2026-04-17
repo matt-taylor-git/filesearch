@@ -48,6 +48,11 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
 
+5. Install the local package:
+```bash
+pip install -e .
+```
+
 ## Usage
 
 ### Running the Application

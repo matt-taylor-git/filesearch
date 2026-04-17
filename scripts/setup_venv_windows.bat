@@ -51,6 +51,10 @@ REM Install development dependencies
 echo Installing development dependencies...
 pip install -r requirements-dev.txt
 
+REM Install the local package so `python -m filesearch` and `filesearch` work
+echo Installing File Search package...
+pip install -e .
+
 REM Install pre-commit hooks
 echo Installing pre-commit hooks...
 pre-commit install
