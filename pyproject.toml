@@ -44,6 +44,10 @@ dev = [
     "flake8>=6.0.0",
     "pre-commit>=3.0.0",
 ]
+release = [
+    "pyinstaller>=6.6.0",
+    "pillow>=10.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/filesearch/filesearch"
@@ -55,6 +59,9 @@ filesearch = "filesearch.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+filesearch = ["resources/icons/*"]
 
 [tool.black]
 line-length = 88

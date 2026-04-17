@@ -6,12 +6,18 @@ the GUI event loop.
 """
 
 import sys
-from pathlib import Path
 from typing import Optional
 
 from loguru import logger
 
-from filesearch import __version__, get_project_root
+from filesearch import (
+    APP_AUTHOR,
+    APP_DISPLAY_NAME,
+    APP_INTERNAL_NAME,
+    __version__,
+    get_project_root,
+)
+from filesearch.core.runtime_paths import ensure_log_dir, get_app_icon_path
 
 
 def setup_logging(log_level: str = "INFO") -> None:
@@ -20,22 +26,10 @@ def setup_logging(log_level: str = "INFO") -> None:
     Args:
         log_level: The logging level (DEBUG, INFO, WARNING, ERROR).
     """
-    # Create logs directory if it doesn't exist
-    log_dir = get_project_root() / "logs"
-    log_dir.mkdir(exist_ok=True)
+    log_dir = ensure_log_dir(APP_INTERNAL_NAME, APP_AUTHOR)
 
     # Remove default handler
     logger.remove()
-
-    # Add console handler
-    logger.add(
-        sys.stderr,
-        level=log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-        "<level>{level: <8}</level> | "
-        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-        "<level>{message}</level>",
-    )
 
     # Add file handler with rotation
     logger.add(
@@ -52,7 +46,19 @@ def setup_logging(log_level: str = "INFO") -> None:
         ),
     )
 
+    # Windowed packaged builds may not provide a console stream.
+    if sys.stderr is not None and hasattr(sys.stderr, "write"):
+        logger.add(
+            sys.stderr,
+            level=log_level,
+            format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<level>{level: <8}</level> | "
+            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
+            "<level>{message}</level>",
+        )
+
     logger.info("Logging initialized with level: {}", log_level)
+    logger.info("Log directory: {}", log_dir)
 
 
 def parse_arguments() -> Optional[str]:
@@ -116,11 +122,30 @@ def main() -> int:
         # Initialize and start the GUI application
         logger.info("Initializing GUI application")
 
+        from PyQt6.QtCore import QTimer
+        from PyQt6.QtGui import QIcon
         from PyQt6.QtWidgets import QApplication
 
         from filesearch.core.config_manager import ConfigManager
         from filesearch.plugins.plugin_manager import PluginManager
         from filesearch.ui.main_window import MainWindow
+
+        app = QApplication(sys.argv)
+        app.setApplicationName(APP_DISPLAY_NAME)
+        app.setApplicationDisplayName(APP_DISPLAY_NAME)
+        app.setOrganizationName(APP_AUTHOR)
+
+        from filesearch.ui.theme import apply_theme
+
+        apply_theme(app)
+
+        icon_path = get_app_icon_path()
+        app_icon = QIcon(str(icon_path))
+        if not app_icon.isNull():
+            app.setWindowIcon(app_icon)
+            logger.info("Application icon loaded from {}", icon_path)
+        else:
+            logger.warning("Application icon could not be loaded from {}", icon_path)
 
         # Initialize components
         config_manager = ConfigManager()
@@ -130,20 +155,40 @@ def main() -> int:
         loaded_plugins = plugin_manager.load_plugins()
         logger.info("Loaded {} plugins", len(loaded_plugins))
 
-        # Create and show main window
-        app = QApplication(sys.argv)
-
-        from filesearch.ui.theme import apply_theme
-
-        apply_theme(app)
-
         window = MainWindow(config_manager, plugin_manager)
+        if not app_icon.isNull():
+            window.setWindowIcon(app_icon)
         window.show()
+
+        def ensure_window_visible() -> None:
+            window.showNormal()
+            window.raise_()
+            window.activateWindow()
+
+        QTimer.singleShot(0, ensure_window_visible)
 
         logger.info("Application initialized successfully")
         return app.exec()
 
     except Exception as e:
+        try:
+            from PyQt6.QtWidgets import QApplication, QMessageBox
+
+            app = QApplication.instance()
+            if app is None:
+                app = QApplication(sys.argv)
+
+            QMessageBox.critical(
+                None,
+                APP_DISPLAY_NAME,
+                (
+                    "File Search could not start.\n\n"
+                    f"{type(e).__name__}: {e}\n\n"
+                    "See the log file for more details."
+                ),
+            )
+        except Exception:
+            pass
         logger.exception("Fatal error in main application: {}", e)
         return 1
 

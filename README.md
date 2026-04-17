@@ -56,6 +56,8 @@ python -m filesearch
 filesearch
 ```
 
+The app now ships with a bundled application icon in `src/filesearch/resources/icons/`.
+
 ### Command-line options
 
 ```text
@@ -104,6 +106,33 @@ black src/ tests/
 flake8 src/ tests/
 pre-commit run --all-files
 ```
+
+### Release packaging
+
+Standalone desktop bundles are produced with PyInstaller for Windows, macOS, and Linux.
+
+```bash
+pip install -e .[release]
+python scripts/build_release.py
+```
+
+The script creates:
+
+- `dist/FileSearch-windows.zip`
+- `dist/FileSearch-macos.zip`
+- `dist/FileSearch-linux.tar.gz`
+
+Depending on the OS you run it on, it builds the native artifact for that platform only.
+
+### GitHub Releases
+
+Pushing a version tag such as `v0.1.0` triggers `.github/workflows/release.yml`, which:
+
+- validates the tag matches `filesearch.__version__`
+- builds native standalone bundles on Windows, macOS, and Linux
+- uploads the packaged artifacts to the matching GitHub Release
+
+The first packaged releases are unsigned, so Windows SmartScreen and macOS Gatekeeper may display warnings until code signing is added.
 
 ### Project layout
 

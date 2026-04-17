@@ -13,6 +13,8 @@ import pytest
 from filesearch import __version__, get_project_root, get_version
 from filesearch.main import main, parse_arguments, setup_logging
 
+TEST_LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
+
 
 class TestVersionInfo:
     """Test version information functions."""
@@ -111,37 +113,43 @@ class TestArgumentParsing:
 class TestLoggingSetup:
     """Test logging configuration."""
 
-    def test_setup_logging_creates_log_directory(self, tmp_path):
+    def test_setup_logging_creates_log_directory(self):
         """Test that setup_logging creates log directory."""
-        with patch("filesearch.main.get_project_root", return_value=tmp_path):
+        with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
             setup_logging("INFO")
-            log_dir = tmp_path / "logs"
-            assert log_dir.exists()
-            assert log_dir.is_dir()
+            assert TEST_LOG_DIR.exists()
+            assert TEST_LOG_DIR.is_dir()
 
-    def test_setup_logging_info_level(self, tmp_path):
+    def test_setup_logging_info_level(self):
         """Test logging setup with INFO level."""
-        with patch("filesearch.main.get_project_root", return_value=tmp_path):
+        with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
             setup_logging("INFO")
             # Should not raise any exceptions
 
-    def test_setup_logging_debug_level(self, tmp_path):
+    def test_setup_logging_debug_level(self):
         """Test logging setup with DEBUG level."""
-        with patch("filesearch.main.get_project_root", return_value=tmp_path):
+        with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
             setup_logging("DEBUG")
             # Should not raise any exceptions
 
-    def test_setup_logging_warning_level(self, tmp_path):
+    def test_setup_logging_warning_level(self):
         """Test logging setup with WARNING level."""
-        with patch("filesearch.main.get_project_root", return_value=tmp_path):
+        with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
             setup_logging("WARNING")
             # Should not raise any exceptions
 
-    def test_setup_logging_error_level(self, tmp_path):
+    def test_setup_logging_error_level(self):
         """Test logging setup with ERROR level."""
-        with patch("filesearch.main.get_project_root", return_value=tmp_path):
+        with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
             setup_logging("ERROR")
             # Should not raise any exceptions
+
+    def test_setup_logging_without_stderr(self):
+        """Test logging setup for windowed builds without a console stream."""
+        with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
+            with patch("filesearch.main.sys.stderr", None):
+                setup_logging("INFO")
+                assert TEST_LOG_DIR.exists()
 
 
 class TestMainFunction:
@@ -161,10 +169,10 @@ class TestMainFunction:
                 main()
             assert exc_info.value.code == 0
 
-    def test_main_success(self, tmp_path):
+    def test_main_success(self):
         """Test successful main execution."""
         with patch.object(sys, "argv", ["filesearch"]):
-            with patch("filesearch.main.get_project_root", return_value=tmp_path):
+            with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
                 with patch("PyQt6.QtWidgets.QApplication") as mock_app:
                     # Mock components to avoid GUI creation issues
                     with patch(
@@ -187,10 +195,10 @@ class TestMainFunction:
                                 assert result == 0
                                 mock_main_window.assert_called_once()
 
-    def test_main_with_debug_logging(self, tmp_path):
+    def test_main_with_debug_logging(self):
         """Test main with debug logging."""
         with patch.object(sys, "argv", ["filesearch", "--debug"]):
-            with patch("filesearch.main.get_project_root", return_value=tmp_path):
+            with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
                 with patch("PyQt6.QtWidgets.QApplication") as mock_app:
                     with patch(
                         "filesearch.core.config_manager.ConfigManager"
@@ -212,10 +220,10 @@ class TestMainFunction:
                                 assert result == 0
                                 mock_main_window.assert_called_once()
 
-    def test_main_error_handling(self, tmp_path):
+    def test_main_error_handling(self):
         """Test main error handling."""
         with patch.object(sys, "argv", ["filesearch"]):
-            with patch("filesearch.main.get_project_root", return_value=tmp_path):
+            with patch("filesearch.main.ensure_log_dir", return_value=TEST_LOG_DIR):
                 with patch(
                     "filesearch.main.setup_logging", side_effect=Exception("Test error")
                 ):

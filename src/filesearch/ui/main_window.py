@@ -19,6 +19,7 @@ from PyQt6.QtCore import (  # noqa: F401
 )
 from PyQt6.QtGui import (  # noqa: F401
     QAction,
+    QIcon,
     QKeySequence,
 )
 from PyQt6.QtWidgets import (  # noqa: F401
@@ -43,9 +44,11 @@ from filesearch.core.file_utils import (
     safe_open,
     validate_directory,
 )
+from filesearch.core.runtime_paths import get_app_icon_path
 from filesearch.core.search_engine import FileSearchEngine
 from filesearch.models.search_result import SearchResult
 from filesearch.plugins.plugin_manager import PluginManager
+from filesearch import APP_DISPLAY_NAME
 from filesearch.ui.context_menu_handler import ContextMenuHandlerMixin
 from filesearch.ui.details_panel import DetailsPanelWidget
 from filesearch.ui.results_view import ResultsView
@@ -122,7 +125,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
     def setup_ui(self) -> None:
         """Setup the user interface with 3-panel QSplitter layout."""
         # Set window properties
-        self.setWindowTitle("File Search")
+        self.setWindowTitle(APP_DISPLAY_NAME)
+        self.setWindowIcon(QIcon(str(get_app_icon_path())))
         self.setMinimumSize(900, 550)
 
         # Create menu bar

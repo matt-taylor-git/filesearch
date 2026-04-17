@@ -6,9 +6,15 @@ This document describes the configuration system for the File Search application
 
 File Search uses a JSON-based configuration system with cross-platform support. Configuration is automatically stored in platform-appropriate locations:
 
-- **Windows**: `%APPDATA%\filesearch\config.json`
+- **Windows**: `%LOCALAPPDATA%\filesearch\filesearch\config.json`
 - **macOS**: `~/Library/Application Support/filesearch/config.json`
 - **Linux**: `~/.config/filesearch/config.json`
+
+Application logs are stored separately in the platform log directory:
+
+- **Windows**: `%LOCALAPPDATA%\filesearch\filesearch\Logs\filesearch.log`
+- **macOS**: `~/Library/Logs/filesearch/filesearch.log`
+- **Linux**: `~/.local/state/filesearch/log/filesearch.log` or the platformdirs-equivalent user log directory
 
 The configuration file is automatically created on first launch with sensible defaults. You can manually edit the JSON file, but it's recommended to use the built-in Settings dialog for safety.
 

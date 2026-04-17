@@ -30,6 +30,7 @@ MANIFEST
 # PyInstaller
 *.manifest
 *.spec
+!filesearch.spec
 
 # Installer logs
 pip-log.txt
@@ -143,6 +144,7 @@ config/*.local.toml
 logs/
 *.log
 MagicMock/
+.tmp/
 .aider*
 .claude/settings.local.json
 .codex
