@@ -35,6 +35,7 @@ from PyQt6.QtWidgets import (  # noqa: F401
     QWidget,
 )
 
+from filesearch import APP_DISPLAY_NAME
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
@@ -48,7 +49,6 @@ from filesearch.core.runtime_paths import get_app_icon_path
 from filesearch.core.search_engine import FileSearchEngine
 from filesearch.models.search_result import SearchResult
 from filesearch.plugins.plugin_manager import PluginManager
-from filesearch import APP_DISPLAY_NAME
 from filesearch.ui.context_menu_handler import ContextMenuHandlerMixin
 from filesearch.ui.details_panel import DetailsPanelWidget
 from filesearch.ui.results_view import ResultsView
@@ -213,9 +213,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         search_layout.addLayout(results_header)
         search_layout.addWidget(self.results_view, 1)
 
-        self.storage_tab = StorageTabWidget(
-            self.config_manager, self.current_directory
-        )
+        self.storage_tab = StorageTabWidget(self.config_manager, self.current_directory)
 
         self.center_tabs.addTab(search_page, "Search")
         self.center_tabs.addTab(self.storage_tab, "Storage")
@@ -307,9 +305,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         # --- Sidebar signals ---
         self.sidebar.directory_selected.connect(self._on_sidebar_directory_selected)
         self.sidebar.browse_requested.connect(self._browse_for_search_directory)
-        self.sidebar.file_type_filter_changed.connect(
-            self._on_file_type_filter_changed
-        )
+        self.sidebar.file_type_filter_changed.connect(self._on_file_type_filter_changed)
         self.sidebar.tag_clicked.connect(self._on_tag_clicked)
         self.center_tabs.currentChanged.connect(self._on_center_tab_changed)
 
@@ -324,9 +320,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.details_panel.delete_requested.connect(
             lambda r: self._handle_context_delete([r])
         )
-        self.details_panel.panel_close_requested.connect(
-            self._on_details_panel_close
-        )
+        self.details_panel.panel_close_requested.connect(self._on_details_panel_close)
 
         # --- Result selection → details panel ---
         self.results_view.clicked.connect(self._on_result_selection_changed)

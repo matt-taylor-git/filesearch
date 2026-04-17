@@ -518,34 +518,34 @@ class ConfigManager:
 
     def add_recent_file(self, file_path: Path) -> None:
         """Add a file to the recently opened files list.
-        
+
         Args:
             file_path: Path to the file to add
         """
         try:
             recent_files = self.get("recent_files.opened_files", [])
-            
+
             # Remove if already exists (move to top)
             recent_files = [str(f) for f in recent_files if str(f) != str(file_path)]
-            
+
             # Add to beginning of list
             recent_files.insert(0, str(file_path))
-            
+
             # Limit to max count
             max_count = self.get("recent_files.max_count", 10)
             recent_files = recent_files[:max_count]
-            
+
             # Save updated list
             self.set("recent_files.opened_files", recent_files)
-            
+
             logger.debug(f"Added to recent files: {file_path}")
-            
+
         except Exception as e:
             logger.error(f"Error adding recent file: {e}")
 
     def get_recent_files(self) -> list[Path]:
         """Get the list of recently opened files.
-        
+
         Returns:
             List of Path objects for recently opened files
         """

@@ -90,7 +90,11 @@ class SortControls(QWidget):
         criteria = self.sort_combo.currentData()
         if criteria:
             # Update button icon/text based on direction
-            if criteria in [SortCriteria.NAME_DESC, SortCriteria.SIZE_DESC, SortCriteria.DATE_ASC]:
+            if criteria in [
+                SortCriteria.NAME_DESC,
+                SortCriteria.SIZE_DESC,
+                SortCriteria.DATE_ASC,
+            ]:
                 self.reverse_button.setText("⬇")
             else:
                 self.reverse_button.setText("⬆")

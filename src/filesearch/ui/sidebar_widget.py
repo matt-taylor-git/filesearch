@@ -28,28 +28,99 @@ from filesearch.ui.theme import Colors, Fonts, Spacing
 # File type extension mapping for client-side filtering
 FILE_TYPE_EXTENSIONS: Dict[str, Set[str]] = {
     "Documents": {
-        ".txt", ".pdf", ".doc", ".docx", ".odt", ".rtf", ".xls", ".xlsx",
-        ".ppt", ".pptx", ".csv", ".md", ".tex", ".epub",
+        ".txt",
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".odt",
+        ".rtf",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".csv",
+        ".md",
+        ".tex",
+        ".epub",
     },
     "Images": {
-        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp", ".ico",
-        ".tiff", ".tif", ".raw", ".psd",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".bmp",
+        ".svg",
+        ".webp",
+        ".ico",
+        ".tiff",
+        ".tif",
+        ".raw",
+        ".psd",
     },
     "Videos": {
-        ".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".m4v",
-        ".mpg", ".mpeg",
+        ".mp4",
+        ".avi",
+        ".mkv",
+        ".mov",
+        ".wmv",
+        ".flv",
+        ".webm",
+        ".m4v",
+        ".mpg",
+        ".mpeg",
     },
     "Audio": {
-        ".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma", ".m4a", ".opus",
+        ".mp3",
+        ".wav",
+        ".flac",
+        ".aac",
+        ".ogg",
+        ".wma",
+        ".m4a",
+        ".opus",
     },
     "Archives": {
-        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz", ".iso",
+        ".zip",
+        ".rar",
+        ".7z",
+        ".tar",
+        ".gz",
+        ".bz2",
+        ".xz",
+        ".iso",
     },
     "Code": {
-        ".py", ".js", ".ts", ".jsx", ".tsx", ".html", ".css", ".scss",
-        ".java", ".c", ".cpp", ".h", ".hpp", ".cs", ".go", ".rs", ".rb",
-        ".php", ".swift", ".kt", ".sh", ".bat", ".ps1", ".sql", ".json",
-        ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg",
+        ".py",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".html",
+        ".css",
+        ".scss",
+        ".java",
+        ".c",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".cs",
+        ".go",
+        ".rs",
+        ".rb",
+        ".php",
+        ".swift",
+        ".kt",
+        ".sh",
+        ".bat",
+        ".ps1",
+        ".sql",
+        ".json",
+        ".xml",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".cfg",
     },
 }
 
@@ -288,9 +359,7 @@ class SidebarWidget(QWidget):
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setCheckable(True)
         btn.setIconSize(btn.iconSize().__class__(14, 14))
-        btn.clicked.connect(
-            lambda checked, n=name: self._on_filter_toggled(n, checked)
-        )
+        btn.clicked.connect(lambda checked, n=name: self._on_filter_toggled(n, checked))
         return btn
 
     # --- Slots ---
@@ -416,11 +485,9 @@ class SidebarWidget(QWidget):
             self._storage_bar.setRange(0, 100)
             self._storage_bar.setValue(used_pct)
 
-            used_gb = usage.used / (1024 ** 3)
-            total_gb = usage.total / (1024 ** 3)
-            self._storage_label.setText(
-                f"{used_gb:.1f} GB of {total_gb:.1f} GB used"
-            )
+            used_gb = usage.used / (1024**3)
+            total_gb = usage.total / (1024**3)
+            self._storage_label.setText(f"{used_gb:.1f} GB of {total_gb:.1f} GB used")
         except Exception as e:
             logger.warning(f"Could not read disk usage: {e}")
             self._storage_bar.setRange(0, 100)

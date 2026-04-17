@@ -48,6 +48,8 @@ class StorageWorker(QThread):
         self.analyzer.cancel()
         logger.info("Storage worker stop requested")
 
-    def _on_progress(self, current_path: str, item_count: int, skipped_count: int) -> None:
+    def _on_progress(
+        self, current_path: str, item_count: int, skipped_count: int
+    ) -> None:
         """Forward progress notifications to the UI thread."""
         self.progress_update.emit(current_path, item_count, skipped_count)

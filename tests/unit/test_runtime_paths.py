@@ -10,6 +10,7 @@ from filesearch.core.runtime_paths import (
     get_resource_path,
 )
 
+
 def test_get_resource_path_resolves_packaged_icon():
     """Resources should resolve from the installed package tree."""
     icon_path = get_resource_path("resources", "icons", "app_icon.png")

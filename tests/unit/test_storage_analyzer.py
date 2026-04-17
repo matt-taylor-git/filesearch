@@ -103,7 +103,9 @@ class TestStorageAnalyzer:
         assert result.summary.total_size == 6
         assert result.summary.skipped_count >= 1
 
-    def test_hidden_filter_tracks_existing_config_behavior(self, tmp_path, config_manager):
+    def test_hidden_filter_tracks_existing_config_behavior(
+        self, tmp_path, config_manager
+    ):
         """Dot-hidden names follow the shared include_hidden_files preference."""
         (tmp_path / ".secret.txt").write_bytes(b"a" * 4)
         (tmp_path / "visible.txt").write_bytes(b"b" * 3)
@@ -117,7 +119,9 @@ class TestStorageAnalyzer:
         hidden_included = analyzer.analyze(tmp_path)
         assert hidden_included.summary.total_size == 7
 
-    def test_reports_drive_totals_from_disk_usage(self, tmp_path, config_manager, monkeypatch):
+    def test_reports_drive_totals_from_disk_usage(
+        self, tmp_path, config_manager, monkeypatch
+    ):
         """Drive summary values come from shutil.disk_usage for the selected root."""
         (tmp_path / "visible.txt").write_bytes(b"x" * 5)
         disk_usage = namedtuple("usage", "total used free")(300, 180, 120)

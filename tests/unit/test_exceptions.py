@@ -150,7 +150,7 @@ class TestExceptionHierarchy:
             ConfigError("test"),
             UIError("test"),
         ]
-        
+
         for error in exceptions:
             assert isinstance(error, FileSearchError)
             assert isinstance(error, Exception)
@@ -159,10 +159,10 @@ class TestExceptionHierarchy:
         """Test that exceptions can be raised and caught properly."""
         with pytest.raises(FileSearchError):
             raise SearchError("Test search error")
-        
+
         with pytest.raises(SearchError):
             raise SearchError("Specific search error")
-        
+
         with pytest.raises(FileSearchError):
             raise PluginError("Test plugin error")
 
@@ -170,6 +170,6 @@ class TestExceptionHierarchy:
         """Test exception chaining."""
         original_error = ValueError("Original error")
         search_error = SearchError("Search failed", cause=original_error)
-        
+
         assert search_error.cause == original_error
         assert isinstance(search_error.cause, ValueError)

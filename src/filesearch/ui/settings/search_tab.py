@@ -139,9 +139,7 @@ class SearchSettingsTab(QWidget):
         extensions = []
         for i in range(self.exclude_list.count()):
             extensions.append(self.exclude_list.item(i).text())
-        config_manager.set(
-            "search_preferences.file_extensions_to_exclude", extensions
-        )
+        config_manager.set("search_preferences.file_extensions_to_exclude", extensions)
 
     def browse_default_directory(self) -> None:
         """Open directory browser for default search directory."""

@@ -95,8 +95,8 @@ class Fonts:
     FAMILY = "Segoe UI, system-ui, -apple-system, sans-serif"
     FAMILY_MONO = "Consolas, Menlo, monospace"
 
-    SIZE_XS = 8   # pt — metadata, timestamps
-    SIZE_SM = 9   # pt — secondary text, paths
+    SIZE_XS = 8  # pt — metadata, timestamps
+    SIZE_SM = 9  # pt — secondary text, paths
     SIZE_BASE = 10  # pt — body text, filenames
     SIZE_LG = 12  # pt — labels, headings
     SIZE_XL = 14  # pt — primary headings
@@ -1081,9 +1081,7 @@ def apply_theme(app: QApplication) -> None:
     palette.setColor(QPalette.ColorRole.Base, QColor(Colors.BG_SECONDARY))
     palette.setColor(QPalette.ColorRole.AlternateBase, QColor(Colors.BG_TERTIARY))
     palette.setColor(QPalette.ColorRole.Text, QColor(Colors.TEXT_PRIMARY))
-    palette.setColor(
-        QPalette.ColorRole.PlaceholderText, QColor(Colors.TEXT_TERTIARY)
-    )
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(Colors.TEXT_TERTIARY))
     palette.setColor(QPalette.ColorRole.Highlight, QColor(Colors.PRIMARY))
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
     palette.setColor(QPalette.ColorRole.ToolTipBase, QColor(Colors.BG_TERTIARY))

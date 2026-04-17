@@ -74,7 +74,13 @@ class SettingsDialog(QDialog):
         ``dialog.search_tab.default_dir_input`` transparently.
         """
         # Avoid infinite recursion during init (before tabs are created)
-        tabs = ("search_tab", "ui_tab", "performance_tab", "highlight_tab", "plugin_tab")
+        tabs = (
+            "search_tab",
+            "ui_tab",
+            "performance_tab",
+            "highlight_tab",
+            "plugin_tab",
+        )
         for tab_name in tabs:
             try:
                 tab = object.__getattribute__(self, tab_name)

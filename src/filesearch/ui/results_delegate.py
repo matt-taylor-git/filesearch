@@ -260,9 +260,7 @@ class ResultsItemDelegate(QStyledItemDelegate):
             )
 
         # Path (below filename)
-        path_rect = QRect(
-            content_left, filename_rect.bottom() + 2, filename_width, 16
-        )
+        path_rect = QRect(content_left, filename_rect.bottom() + 2, filename_width, 16)
         painter.setFont(self.path_font)
         path = result.get_display_path()
         if len(path) > 80:
@@ -305,9 +303,7 @@ class ResultsItemDelegate(QStyledItemDelegate):
             )
             return
 
-        matches = self.highlight_engine.find_matches(
-            text, query, case_sensitive=False
-        )
+        matches = self.highlight_engine.find_matches(text, query, case_sensitive=False)
 
         if not matches:
             painter.drawText(

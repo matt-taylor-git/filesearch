@@ -118,6 +118,7 @@ class SearchInputWidget(QWidget):
         # Search icon
         try:
             import qtawesome as qta
+
             from filesearch.ui.theme import Colors as _C
 
             self.search_icon = QLabel()
@@ -148,12 +149,11 @@ class SearchInputWidget(QWidget):
         # Clear button
         try:
             import qtawesome as qta
+
             from filesearch.ui.theme import Colors as _C
 
             self.clear_button = QToolButton()
-            self.clear_button.setIcon(
-                qta.icon("mdi6.close", color=_C.TEXT_TERTIARY)
-            )
+            self.clear_button.setIcon(qta.icon("mdi6.close", color=_C.TEXT_TERTIARY))
         except Exception:
             self.clear_button = QToolButton()
             self.clear_button.setText("\u2715")

@@ -204,9 +204,9 @@ class DirectorySelectorWidget(QWidget):
         try:
             # Constraint: Store and retrieve recent directories from
             # ConfigManager (max 5)
-            self.recent_directories = self.config_manager.get(
-                "recent.directories", []
-            )[:5]
+            self.recent_directories = self.config_manager.get("recent.directories", [])[
+                :5
+            ]
             logger.debug(f"Loaded {len(self.recent_directories)} recent directories")
         except Exception as e:
             logger.error(f"Error loading recent directories: {e}")

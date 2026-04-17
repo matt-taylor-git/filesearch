@@ -214,9 +214,13 @@ class TestSortByDate:
         """Create results with various dates."""
         base_time = datetime.now().timestamp()
         return [
-            SearchResult(Path("old.txt"), 100, base_time - 864000, "test"),  # 10 days ago
+            SearchResult(
+                Path("old.txt"), 100, base_time - 864000, "test"
+            ),  # 10 days ago
             SearchResult(Path("new.txt"), 100, base_time, "test"),
-            SearchResult(Path("middle.txt"), 100, base_time - 432000, "test"),  # 5 days ago
+            SearchResult(
+                Path("middle.txt"), 100, base_time - 432000, "test"
+            ),  # 5 days ago
         ]
 
     def test_date_descending_newest_first(self, dated_results):
@@ -262,9 +266,21 @@ class TestSortByType:
         assert sorted_results[0].filename == "folder"
 
         # Then files should be grouped by extension
-        txt_files = [r for r in sorted_results if not r.is_directory and r.filename.endswith(".txt")]
-        jpg_files = [r for r in sorted_results if not r.is_directory and r.filename.endswith(".jpg")]
-        pdf_files = [r for r in sorted_results if not r.is_directory and r.filename.endswith(".pdf")]
+        txt_files = [
+            r
+            for r in sorted_results
+            if not r.is_directory and r.filename.endswith(".txt")
+        ]
+        jpg_files = [
+            r
+            for r in sorted_results
+            if not r.is_directory and r.filename.endswith(".jpg")
+        ]
+        pdf_files = [
+            r
+            for r in sorted_results
+            if not r.is_directory and r.filename.endswith(".pdf")
+        ]
 
         assert len(txt_files) == 2
         assert len(jpg_files) == 1

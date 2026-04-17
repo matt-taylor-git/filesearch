@@ -171,9 +171,11 @@ class TestPluginManager:
         mock_glob.return_value = [mock_file]
 
         # Mock the import process
-        with patch("importlib.util.spec_from_file_location") as mock_spec, patch(
-            "importlib.util.module_from_spec"
-        ) as mock_module, patch("inspect.getmembers") as mock_members:
+        with (
+            patch("importlib.util.spec_from_file_location") as mock_spec,
+            patch("importlib.util.module_from_spec") as mock_module,
+            patch("inspect.getmembers") as mock_members,
+        ):
             mock_spec.return_value = Mock()
             mock_spec.return_value.loader = Mock()
             mock_module_obj = Mock()

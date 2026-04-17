@@ -48,7 +48,9 @@ class SortEngine:
     """
 
     @staticmethod
-    def sort_by_name(results: List[SearchResult], reverse: bool = False) -> List[SearchResult]:
+    def sort_by_name(
+        results: List[SearchResult], reverse: bool = False
+    ) -> List[SearchResult]:
         """Sort results alphabetically by filename using natural sorting.
 
         Folders are grouped separately and sorted before files.
@@ -69,19 +71,27 @@ class SortEngine:
 
         # Sort folders
         folder_names = [f.path.name for f in folders]
-        sorted_folder_indices = natsorted(range(len(folder_names)), key=lambda i: folder_names[i].lower(), reverse=reverse)
+        sorted_folder_indices = natsorted(
+            range(len(folder_names)),
+            key=lambda i: folder_names[i].lower(),
+            reverse=reverse,
+        )
         sorted_folders = [folders[i] for i in sorted_folder_indices]
 
         # Sort files
         file_names = [f.path.name for f in files]
-        sorted_file_indices = natsorted(range(len(file_names)), key=lambda i: file_names[i].lower(), reverse=reverse)
+        sorted_file_indices = natsorted(
+            range(len(file_names)), key=lambda i: file_names[i].lower(), reverse=reverse
+        )
         sorted_files = [files[i] for i in sorted_file_indices]
 
         # Combine: folders first, then files
         return sorted_folders + sorted_files
 
     @staticmethod
-    def sort_by_size(results: List[SearchResult], reverse: bool = False) -> List[SearchResult]:
+    def sort_by_size(
+        results: List[SearchResult], reverse: bool = False
+    ) -> List[SearchResult]:
         """Sort results by file size.
 
         Folders are treated as size 0 and placed based on sort direction.
@@ -96,6 +106,7 @@ class SortEngine:
 
         AC2 Implementation: Size sorting with folder handling
         """
+
         def _get_sort_key(result: SearchResult) -> tuple:
             """Create sort key that handles folders appropriately."""
             is_directory = result.path.is_dir()
@@ -114,7 +125,9 @@ class SortEngine:
         return sorted(results, key=_get_sort_key)
 
     @staticmethod
-    def sort_by_date(results: List[SearchResult], reverse: bool = False) -> List[SearchResult]:
+    def sort_by_date(
+        results: List[SearchResult], reverse: bool = False
+    ) -> List[SearchResult]:
         """Sort results by modification date.
 
         Args:
@@ -129,7 +142,9 @@ class SortEngine:
         return sorted(results, key=lambda r: r.modified, reverse=not reverse)
 
     @staticmethod
-    def sort_by_type(results: List[SearchResult], reverse: bool = False) -> List[SearchResult]:
+    def sort_by_type(
+        results: List[SearchResult], reverse: bool = False
+    ) -> List[SearchResult]:
         """Sort results by file type.
 
         Groups items by type: folders first, then files sorted by extension.
@@ -144,6 +159,7 @@ class SortEngine:
 
         AC4 Implementation: Type grouping with alphabetical sorting
         """
+
         def _get_type_sort_key(result: SearchResult) -> tuple:
             """Create sort key for type-based sorting."""
             if result.path.is_dir():
@@ -162,7 +178,9 @@ class SortEngine:
         return sorted_results
 
     @staticmethod
-    def sort_by_relevance(results: List[SearchResult], query: str) -> List[SearchResult]:
+    def sort_by_relevance(
+        results: List[SearchResult], query: str
+    ) -> List[SearchResult]:
         """Sort results by relevance to search query.
 
         Calculates match score based on query position in filename:
@@ -215,7 +233,9 @@ class SortEngine:
         return sorted(results, key=_calculate_relevance, reverse=True)
 
     @classmethod
-    def sort(cls, results: List[SearchResult], criteria: SortCriteria, query: str = "") -> List[SearchResult]:
+    def sort(
+        cls, results: List[SearchResult], criteria: SortCriteria, query: str = ""
+    ) -> List[SearchResult]:
         """Sort results using the specified criteria.
 
         Args:

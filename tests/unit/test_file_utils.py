@@ -11,10 +11,10 @@ import pytest
 
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
-    get_user_folder,
     get_file_info,
     get_file_modified_time,
     get_file_size,
+    get_user_folder,
     is_directory,
     normalize_path,
     open_containing_folder,
@@ -213,8 +213,8 @@ class TestRevealFileInFolder:
     ):
         """Test revealing file on Linux with nautilus."""
         mock_system.return_value = "Linux"
-        mock_which.side_effect = (
-            lambda x: "/usr/bin/nautilus" if x == "nautilus" else None
+        mock_which.side_effect = lambda x: (
+            "/usr/bin/nautilus" if x == "nautilus" else None
         )
         mock_popen.return_value = Mock()
 
@@ -235,8 +235,8 @@ class TestRevealFileInFolder:
     ):
         """Test revealing file on Linux with dolphin."""
         mock_system.return_value = "Linux"
-        mock_which.side_effect = (
-            lambda x: "/usr/bin/dolphin" if x == "dolphin" else None
+        mock_which.side_effect = lambda x: (
+            "/usr/bin/dolphin" if x == "dolphin" else None
         )
         mock_popen.return_value = Mock()
 
@@ -522,7 +522,9 @@ class TestUserFolderResolution:
         """Windows should prefer known-folder lookup when available."""
         resolved = Path(r"D:\Redirected\Downloads")
 
-        with patch("filesearch.core.file_utils.platform.system", return_value="Windows"):
+        with patch(
+            "filesearch.core.file_utils.platform.system", return_value="Windows"
+        ):
             with patch(
                 "filesearch.core.file_utils._get_windows_known_folder_path",
                 return_value=resolved,
@@ -534,7 +536,9 @@ class TestUserFolderResolution:
         """Windows should fall back to home-relative paths if lookup fails."""
         home = Path.home()
 
-        with patch("filesearch.core.file_utils.platform.system", return_value="Windows"):
+        with patch(
+            "filesearch.core.file_utils.platform.system", return_value="Windows"
+        ):
             with patch(
                 "filesearch.core.file_utils._get_windows_known_folder_path",
                 side_effect=OSError("boom"),

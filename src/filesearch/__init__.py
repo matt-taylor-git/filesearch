@@ -10,7 +10,9 @@ Version: 0.1.0
 __version__ = "0.1.0"
 __author__ = "FileSearch Team"
 __email__ = "team@filesearch.dev"
-__description__ = "A cross-platform file search application with extensible plugin architecture"
+__description__ = (
+    "A cross-platform file search application with extensible plugin architecture"
+)
 __license__ = "MIT"
 APP_DISPLAY_NAME = "File Search"
 APP_INTERNAL_NAME = "filesearch"
@@ -23,7 +25,7 @@ from typing import Union
 
 def get_project_root() -> Path:
     """Get the project root directory.
-    
+
     Returns:
         Path: The absolute path to the project root directory.
     """
@@ -32,7 +34,7 @@ def get_project_root() -> Path:
 
 def get_version() -> str:
     """Get the current version of the application.
-    
+
     Returns:
         str: The version string (e.g., "0.1.0").
     """
@@ -41,7 +43,7 @@ def get_version() -> str:
 
 __all__ = [
     "__version__",
-    "__author__", 
+    "__author__",
     "__description__",
     "APP_AUTHOR",
     "APP_DISPLAY_NAME",

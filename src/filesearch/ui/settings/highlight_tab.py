@@ -126,9 +126,7 @@ class HighlightSettingsTab(QWidget):
             "highlighting.case_sensitive",
             self.highlight_case_sensitive_check.isChecked(),
         )
-        config_manager.set(
-            "highlighting.color", self.highlight_color_input.text()
-        )
+        config_manager.set("highlighting.color", self.highlight_color_input.text())
 
         style_map = {0: "background", 1: "outline", 2: "underline"}
         highlight_style = style_map.get(

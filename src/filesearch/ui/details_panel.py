@@ -146,9 +146,7 @@ class DetailsPanelWidget(QWidget):
         header_row.addStretch()
 
         self._close_btn = QToolButton()
-        self._close_btn.setIcon(
-            qta.icon("mdi6.close", color=Colors.TEXT_TERTIARY)
-        )
+        self._close_btn.setIcon(qta.icon("mdi6.close", color=Colors.TEXT_TERTIARY))
         self._close_btn.setProperty("class", "details-close")
         self._close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._close_btn.setFixedSize(24, 24)
@@ -264,9 +262,7 @@ class DetailsPanelWidget(QWidget):
 
         # Icon
         icon_name, icon_color = _get_file_type_icon_info(path)
-        self._icon_label.setPixmap(
-            qta.icon(icon_name, color=icon_color).pixmap(48, 48)
-        )
+        self._icon_label.setPixmap(qta.icon(icon_name, color=icon_color).pixmap(48, 48))
 
         # Filename
         self._filename_label.setText(path.name)

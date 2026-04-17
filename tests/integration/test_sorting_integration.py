@@ -158,9 +158,7 @@ class TestSortingIntegration:
         assert sorted_results[0].path.is_dir()
 
         # Then files grouped by extension
-        extensions = [
-            r.path.suffix for r in sorted_results[1:] if not r.path.is_dir()
-        ]
+        extensions = [r.path.suffix for r in sorted_results[1:] if not r.path.is_dir()]
         assert extensions == sorted(extensions)  # Should be alphabetically sorted
 
     def test_end_to_end_relevance_sorting(self, tmp_path):

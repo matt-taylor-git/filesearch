@@ -222,11 +222,10 @@ class TestMainWindowSignals:
 
     def test_signals_connected(self, qtbot, config_manager):
         """Test that signals are properly connected."""
-        with patch(
-            "filesearch.ui.main_window.MainWindow.start_search"
-        ) as mock_start, patch(
-            "filesearch.ui.main_window.MainWindow.stop_search"
-        ) as mock_stop:
+        with (
+            patch("filesearch.ui.main_window.MainWindow.start_search") as mock_start,
+            patch("filesearch.ui.main_window.MainWindow.stop_search") as mock_stop,
+        ):
             main_window = MainWindow(config_manager=config_manager)
             main_window.show()
             qtbot.addWidget(main_window)
@@ -258,7 +257,9 @@ class TestMainWindowSignals:
 class TestMainWindowDirectorySelection:
     """Test sidebar-driven directory selection behavior."""
 
-    def test_startup_uses_default_search_directory(self, qapp, config_manager, tmp_path):
+    def test_startup_uses_default_search_directory(
+        self, qapp, config_manager, tmp_path
+    ):
         """Window restores the configured default directory when it is valid."""
         default_dir = tmp_path / "search-root"
         default_dir.mkdir()
@@ -311,10 +312,9 @@ class TestMainWindowDirectorySelection:
             mock_dialog.assert_called_once()
             assert window.current_directory == selected_dir
             assert window.directory_selector.get_directory() == selected_dir
-            assert (
-                config_manager.get("search_preferences.default_search_directory")
-                == str(selected_dir)
-            )
+            assert config_manager.get(
+                "search_preferences.default_search_directory"
+            ) == str(selected_dir)
             assert config_manager.get("recent.directories")[0] == str(selected_dir)
             assert window.sidebar.get_custom_location() == selected_dir
             assert window.statusBar().currentMessage() == (
@@ -330,11 +330,13 @@ class TestMainWindowDirectorySelection:
         redirected_downloads = tmp_path / "redirected-downloads"
         redirected_downloads.mkdir()
 
-        with patch(
-            "filesearch.ui.sidebar_widget.get_user_folder"
-        ) as mock_sidebar_folder, patch(
-            "filesearch.ui.main_window.get_user_folder"
-        ) as mock_main_folder:
+        with (
+            patch(
+                "filesearch.ui.sidebar_widget.get_user_folder"
+            ) as mock_sidebar_folder,
+            patch("filesearch.ui.main_window.get_user_folder") as mock_main_folder,
+        ):
+
             def resolve_folder(name):
                 mapping = {
                     "home": Path.home(),
@@ -379,11 +381,13 @@ class TestMainWindowDirectorySelection:
             "search_preferences.default_search_directory", str(redirected_downloads)
         )
 
-        with patch(
-            "filesearch.ui.sidebar_widget.get_user_folder"
-        ) as mock_sidebar_folder, patch(
-            "filesearch.ui.main_window.get_user_folder"
-        ) as mock_main_folder:
+        with (
+            patch(
+                "filesearch.ui.sidebar_widget.get_user_folder"
+            ) as mock_sidebar_folder,
+            patch("filesearch.ui.main_window.get_user_folder") as mock_main_folder,
+        ):
+
             def resolve_folder(name):
                 mapping = {
                     "home": Path.home(),
@@ -446,7 +450,9 @@ class TestMainWindowDirectorySelection:
         qtbot.addWidget(window)
 
         try:
-            window._set_search_directory(selected_dir, persist=False, update_recent=False)
+            window._set_search_directory(
+                selected_dir, persist=False, update_recent=False
+            )
             assert window.storage_tab.root_path == selected_dir
         finally:
             window.close()

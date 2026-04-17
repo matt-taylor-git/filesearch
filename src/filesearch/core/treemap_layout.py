@@ -104,7 +104,10 @@ def _worst_ratio(row: Sequence[tuple[Any, float]], short_side: float) -> float:
         return float("inf")
 
     side_squared = short_side * short_side
-    return max((side_squared * max_area) / (row_sum * row_sum), (row_sum * row_sum) / (side_squared * min_area))
+    return max(
+        (side_squared * max_area) / (row_sum * row_sum),
+        (row_sum * row_sum) / (side_squared * min_area),
+    )
 
 
 def _layout_row(

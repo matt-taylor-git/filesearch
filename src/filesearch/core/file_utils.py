@@ -19,7 +19,6 @@ from PyQt6.QtGui import QDesktopServices
 
 from filesearch.core.exceptions import FileSearchError
 
-
 _USER_FOLDERS: Dict[str, tuple[Optional[str], Optional[str]]] = {
     "home": (None, None),
     "documents": ("Documents", "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}"),
