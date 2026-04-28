@@ -71,18 +71,35 @@ class TestFileSearchEngine:
         assert search_engine._match_pattern("test.txt", "test.txt") is True
         assert search_engine._match_pattern("test.txt", "other.txt") is False
 
+    def test_match_pattern_partial_plain_query(self, search_engine):
+        """Test plain queries match filename substrings."""
+        assert search_engine._match_pattern("main.py", "main") is True
+        assert search_engine._match_pattern("monthly_report.txt", "report") is True
+        assert search_engine._match_pattern("main.py", "missing") is False
+
     def test_match_pattern_wildcard(self, search_engine):
         """Test wildcard pattern matching."""
         assert search_engine._match_pattern("test.txt", "*.txt") is True
         assert search_engine._match_pattern("test.py", "*.txt") is False
         assert search_engine._match_pattern("test.txt", "test.*") is True
         assert search_engine._match_pattern("other.txt", "test.*") is False
+        assert search_engine._match_pattern("report_monthly.txt", "report*") is True
+        assert search_engine._match_pattern("monthly_report.txt", "report*") is False
+        assert search_engine._match_pattern("test1.txt", "test[0-9].txt") is True
 
     def test_match_pattern_case_insensitive(self, search_engine):
         """Test case-insensitive pattern matching."""
         assert search_engine._match_pattern("Test.TXT", "*.txt") is True
         assert search_engine._match_pattern("TEST.PY", "*.py") is True
         assert search_engine._match_pattern("test.TXT", "*.TXT") is True
+        assert search_engine._match_pattern("MAIN.py", "main") is True
+
+    def test_match_pattern_case_sensitive_partial(self, search_engine):
+        """Test case-sensitive matching also applies to plain partial queries."""
+        search_engine.case_sensitive = True
+
+        assert search_engine._match_pattern("MAIN.py", "main") is False
+        assert search_engine._match_pattern("MAIN.py", "MAIN") is True
 
     def test_search_with_txt_files(self, search_engine, temp_dir):
         """Test searching for .txt files."""
@@ -107,9 +124,25 @@ class TestFileSearchEngine:
         assert len(results) == 1
         assert results[0]["name"] == "README.md"
 
+    def test_search_with_partial_filename(self, search_engine, temp_dir):
+        """Test searching with a plain partial filename query."""
+        main_file = temp_dir / "main.py"
+        main_file.write_text("print('main')")
+
+        results = list(search_engine.search(temp_dir, "main"))
+
+        assert len(results) == 1
+        assert results[0]["name"] == "main.py"
+
     def test_search_no_matches(self, search_engine, temp_dir):
         """Test search with no matching files."""
         results = list(search_engine.search(temp_dir, "*.nonexistent"))
+
+        assert len(results) == 0
+
+    def test_search_plain_query_no_matches(self, search_engine, temp_dir):
+        """Test plain partial query with no matching filenames."""
+        results = list(search_engine.search(temp_dir, "missing"))
 
         assert len(results) == 0
 

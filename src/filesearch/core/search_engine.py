@@ -123,21 +123,31 @@ class FileSearchEngine(QObject):
         """Reset cancellation state for new search."""
         self._cancelled = False
 
+    def _has_wildcard_syntax(self, pattern: str) -> bool:
+        """Return whether pattern contains explicit fnmatch wildcard syntax."""
+        return any(char in pattern for char in "*?") or (
+            "[" in pattern and "]" in pattern
+        )
+
     def _match_pattern(self, filename: str, pattern: str) -> bool:
         """Check if filename matches search pattern.
 
         Args:
             filename: Name of file to check
-            pattern: Search pattern (supports wildcards with fnmatch)
+            pattern: Search pattern or partial filename
 
         Returns:
             True if filename matches pattern, False otherwise
         """
         try:
+            search_pattern = (
+                pattern if self._has_wildcard_syntax(pattern) else f"*{pattern}*"
+            )
+
             if self.case_sensitive:
-                return fnmatch.fnmatch(filename, pattern)
+                return fnmatch.fnmatch(filename, search_pattern)
             else:
-                return fnmatch.fnmatch(filename.lower(), pattern.lower())
+                return fnmatch.fnmatch(filename.lower(), search_pattern.lower())
         except Exception as e:
             logger.error(
                 f"Error matching pattern '{pattern}' against '{filename}': {e}"

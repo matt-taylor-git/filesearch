@@ -73,7 +73,7 @@ The app now ships with a bundled application icon in `src/filesearch/resources/i
 ## How to use
 
 1. Pick a search location from the left sidebar, or use `Choose Folder...` to browse for any folder.
-2. Enter a filename pattern such as `*.py`, `report*`, or `invoice?.pdf`.
+2. Enter a filename or partial name such as `main` or `report`, or use a wildcard pattern such as `*.py` or `invoice?.pdf`.
 3. Press `Enter` in the search box to start the search.
 4. Narrow visible results with the sidebar file-type chips.
 5. Sort the results list and inspect the selected file in the details panel.

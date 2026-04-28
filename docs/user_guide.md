@@ -29,7 +29,7 @@ filesearch
 
 The File Search interface consists of:
 
-- **Search Bar**: Enter your search terms and file patterns
+- **Search Bar**: Enter filenames, partial names, and wildcard patterns
 - **Directory Selector**: Choose which directories to search
 - **Results Panel**: Displays found files and folders
 - **Storage Tab**: Visualizes free and used space for the selected folder with a treemap
@@ -47,9 +47,8 @@ The File Search interface consists of:
 
 ### Search Patterns
 
-- **Text Search**: Find files containing specific text
-- **File Name Patterns**: Use wildcards like `*.txt` or `document?.pdf`
-- **Combined Search**: `*.py AND "import os"`
+- **Partial Names**: Type plain text like `main` or `report` to match filenames containing that text
+- **File Name Patterns**: Use wildcards like `*.txt`, `report*`, or `document?.pdf`
 
 ### Search Filters
 
