@@ -5,6 +5,7 @@ with search input, directory selection, and results display functionality.
 """
 
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
@@ -66,6 +67,14 @@ from filesearch.ui.sort_controls import SortControls
 from filesearch.ui.storage_tab import StorageTabWidget
 
 
+@dataclass(frozen=True)
+class SearchRequest:
+    """Snapshot of the inputs used for one worker-backed search."""
+
+    directory: Path
+    query: str
+
+
 class MainWindow(ContextMenuHandlerMixin, QMainWindow):
     """Main application window for the file search tool.
 
@@ -108,6 +117,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.plugin_results = []
         self.current_directory = self._get_startup_directory()
         self.search_start_time = 0.0
+        self._active_search_request: Optional[SearchRequest] = None
+        self._pending_search_request: Optional[SearchRequest] = None
+        self._cancel_requested = False
 
         # Setup UI
         self.setup_ui()
@@ -279,6 +291,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.query_input.query_empty_changed.connect(
             self.search_control.set_query_empty
         )
+        self.query_input.query_empty_changed.connect(self._on_query_empty_changed)
 
         # Directory selector signals
         self.directory_selector.directory_changed.connect(self._on_directory_changed)
@@ -353,6 +366,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
     def _on_results_count_update(self, increment: int, total: int) -> None:
         """Handle results count update from search engine."""
+        if self._cancel_requested:
+            return
         self.status_widget.update_status("searching", total)
 
     def save_window_settings(self) -> None:
@@ -532,6 +547,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             )
             self.config_manager.save()
 
+        self._restart_search_after_directory_change(directory)
+
     def _refresh_custom_sidebar_location(self) -> None:
         """Show the most recent custom folder in the sidebar, when available."""
         preset_paths = {
@@ -589,25 +606,85 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self._set_search_directory(directory, persist=True, update_recent=False)
         logger.debug(f"Sidebar directory selected: {directory}")
 
-    def start_search(self) -> None:
-        """Start the file search operation."""
-        if self.is_searching:
-            logger.warning("Search already in progress")
+    def _on_query_empty_changed(self, is_empty: bool) -> None:
+        """Cancel the running search when the query is cleared."""
+        if not is_empty:
             return
 
-        # Get search parameters
-        directory = self.current_directory
-        query = self.query_input.get_text()
+        self._pending_search_request = None
+        if self.is_searching:
+            self.results_view.clear_results()
+            self.status_widget.update_status("ready", 0)
+            self._request_search_cancel("Search cancelled")
 
-        # Validate inputs
-        if not directory or not query:
-            self.safe_status_message("Please enter both directory and search pattern")
+    def _restart_search_after_directory_change(self, directory: Path) -> None:
+        """Queue a restart when location changes while a search is active."""
+        if not self.is_searching:
+            return
+
+        query = self.query_input.get_text()
+        if not query:
+            self._pending_search_request = None
+            self._request_search_cancel("Search cancelled")
             return
 
         if not directory.exists():
-            self.safe_status_message(f"Directory does not exist: {directory}")
+            self._pending_search_request = None
+            self._request_search_cancel(f"Directory does not exist: {directory}")
             return
 
+        self._pending_search_request = SearchRequest(directory, query)
+        self._request_search_cancel(f"Restarting search in {directory}...")
+
+    def _request_search_cancel(self, status_message: str = "Stopping search...") -> None:
+        """Request cooperative cancellation for the current worker."""
+        if not self.is_searching or not self.search_worker:
+            return
+
+        if self._cancel_requested:
+            self.safe_status_message(status_message)
+            return
+
+        self._cancel_requested = True
+        self.search_worker.stop()
+        self.safe_status_message(status_message)
+        logger.info("Search stop requested")
+
+    def _get_current_search_request(self) -> Optional[SearchRequest]:
+        """Build and validate a search request from current UI state."""
+        directory = self.current_directory
+        query = self.query_input.get_text()
+
+        if not directory or not query:
+            self.safe_status_message("Please enter both directory and search pattern")
+            return None
+
+        if not directory.exists():
+            self.safe_status_message(f"Directory does not exist: {directory}")
+            return None
+
+        return SearchRequest(directory, query)
+
+    def start_search(self, *_args) -> None:
+        """Start the file search operation."""
+        search_request = self._get_current_search_request()
+        if search_request is None:
+            return
+
+        if self.is_searching:
+            self._pending_search_request = search_request
+            self._request_search_cancel(
+                f"Restarting search in {search_request.directory}..."
+            )
+            logger.info("Search restart requested while another search is active")
+            return
+
+        self._start_search_request(search_request)
+
+    def _start_search_request(self, search_request: SearchRequest) -> None:
+        """Start a worker for an already validated search request."""
+        directory = search_request.directory
+        query = search_request.query
         # Set the query for highlighting (pass to results view)
         self.results_view.set_query(query)
 
@@ -620,6 +697,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
         # Update UI state
         self.is_searching = True
+        self._active_search_request = search_request
+        self._pending_search_request = None
+        self._cancel_requested = False
         self.search_control.set_state(SearchState.RUNNING)
         self.query_input.set_loading_state(True)
         self.query_input.set_error_state(False)
@@ -643,12 +723,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
     def stop_search(self) -> None:
         """Stop the current search operation."""
-        if not self.is_searching or not self.search_worker:
-            return
-
-        self.search_worker.stop()
-        self.safe_status_message("Stopping search...")
-        logger.info("Search stop requested")
+        self._pending_search_request = None
+        self._request_search_cancel()
 
     def on_result_found(self, result: dict, result_number: int) -> None:
         """Handle search result found signal.
@@ -657,6 +733,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             result: Result dictionary
             result_number: Result number
         """
+        if self._cancel_requested:
+            return
+
         self.search_results.append(result)
 
         # Create SearchResult and add to results view
@@ -684,10 +763,32 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             current_dir: Current directory being searched
             files_found: Number of files found so far
         """
+        if self._cancel_requested:
+            return
+
         self.safe_status_message(
             f"Searching {current_dir}... Found {files_found} files"
         )
         logger.debug(f"Progress: {progress}% in {current_dir}, {files_found} files")
+
+    def _finish_search_worker(self) -> tuple[float, Optional[SearchRequest]]:
+        """Reset worker/UI state and return terminal-search metadata."""
+        duration = time.time() - self.search_start_time
+        search_request = self._active_search_request
+        self.reset_search_ui()
+
+        return duration, search_request
+
+    def _maybe_run_pending_search(self) -> bool:
+        """Start the latest queued restart request, if one exists."""
+        pending_request = self._pending_search_request
+        if pending_request is None:
+            return False
+
+        self._pending_search_request = None
+        self.safe_status_message(f"Restarting search in {pending_request.directory}...")
+        self._start_search_request(pending_request)
+        return True
 
     def on_search_complete(self, total_files: int, total_dirs: int) -> None:
         """Handle search complete signal.
@@ -696,15 +797,40 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             total_files: Total files found
             total_dirs: Total directories searched
         """
-        duration = time.time() - self.search_start_time
-        self.progress_widget.set_completed_state(total_files)
+        was_cancelled = self._cancel_requested
+        duration, search_request = self._finish_search_worker()
+        if was_cancelled and self._maybe_run_pending_search():
+            logger.info("Previous search cancelled; queued search started")
+            return
+
         self.progress_widget.hide_progress()
-        self.reset_search_ui()
+        if was_cancelled:
+            if not self.query_input.get_text():
+                self.status_widget.update_status("ready", 0)
+                self.safe_status_message("Search cancelled")
+                logger.info("Search cancelled as worker completed")
+                return
+
+            self.status_widget.update_status(
+                "completed",
+                total_files,
+                query=search_request.query if search_request else "",
+                directory=str(search_request.directory) if search_request else "",
+                duration=duration,
+            )
+            self.safe_status_message(f"Search stopped: {total_files} files found")
+            logger.info(
+                f"Search stopped after completion race: {total_files} files in "
+                f"{total_dirs} directories"
+            )
+            return
+
+        self.progress_widget.set_completed_state(total_files)
         self.status_widget.update_status(
             "completed",
             total_files,
-            query=self.query_input.get_text(),
-            directory=str(self.current_directory),
+            query=search_request.query if search_request else "",
+            directory=str(search_request.directory) if search_request else "",
             duration=duration,
         )
         self.safe_status_message(
@@ -732,14 +858,23 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             files_found: Files found before stopping
             dirs_searched: Directories searched before stopping
         """
-        duration = time.time() - self.search_start_time
+        duration, search_request = self._finish_search_worker()
         self.progress_widget.hide_progress()
-        self.reset_search_ui()
+        if self._maybe_run_pending_search():
+            logger.info("Search stopped; queued search started")
+            return
+
+        if not self.query_input.get_text():
+            self.status_widget.update_status("ready", 0)
+            self.safe_status_message("Search cancelled")
+            logger.info("Search cancelled after query was cleared")
+            return
+
         self.status_widget.update_status(
             "completed",
             files_found,
-            query=self.query_input.get_text(),
-            directory=str(self.current_directory),
+            query=search_request.query if search_request else "",
+            directory=str(search_request.directory) if search_request else "",
             duration=duration,
         )
         self.safe_status_message(f"Search stopped: {files_found} files found")
@@ -754,9 +889,15 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             error_message: Error message
             error_code: Error code
         """
+        was_cancelled = self._cancel_requested
         self.progress_widget.set_error_state(error_message)
         self.progress_widget.hide_progress()
         self.reset_search_ui()
+
+        if was_cancelled and self._maybe_run_pending_search():
+            logger.info("Search errored after cancellation; queued search started")
+            return
+
         self.query_input.set_error_state(True)
         self.status_widget.set_error_message(error_message)
         self.safe_status_message(f"Error: {error_message}")
@@ -765,6 +906,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
     def reset_search_ui(self) -> None:
         """Reset UI to ready state after search completes."""
         self.is_searching = False
+        self._active_search_request = None
+        self._cancel_requested = False
         self.search_control.set_state(SearchState.IDLE)
         self.query_input.set_loading_state(False)
         self.directory_selector.set_read_only(False)

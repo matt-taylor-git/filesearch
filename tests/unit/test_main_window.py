@@ -13,7 +13,12 @@ from PyQt6.QtWidgets import QApplication
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.search_engine import FileSearchEngine
 from filesearch.models.search_result import SearchResult
-from filesearch.ui.main_window import MainWindow, SearchWorker, create_main_window
+from filesearch.ui.main_window import (
+    MainWindow,
+    SearchRequest,
+    SearchWorker,
+    create_main_window,
+)
 
 
 # Create QApplication instance for tests
@@ -38,6 +43,8 @@ def config_manager(tmp_path):
 def main_window(qapp, config_manager):
     """Create a MainWindow instance for testing."""
     window = MainWindow(config_manager)
+    window.query_input.auto_search_enabled = False
+    window.query_input._debounce_timer.stop()
     yield window
     window.close()
 
@@ -195,6 +202,121 @@ class TestMainWindowSearchControls:
                 from filesearch.ui.search_controls import SearchState
 
                 assert main_window.search_control.get_state() == SearchState.RUNNING
+
+    def test_start_search_while_running_queues_restart(self, main_window, tmp_path):
+        """Starting a new search cancels the current worker and stores latest input."""
+        first_dir = tmp_path / "first"
+        second_dir = tmp_path / "second"
+        first_dir.mkdir()
+        second_dir.mkdir()
+
+        mock_worker = Mock()
+        main_window.search_worker = mock_worker
+        main_window.is_searching = True
+        main_window.current_directory = second_dir
+        main_window.query_input.set_text("*.py")
+
+        main_window.start_search()
+
+        mock_worker.stop.assert_called_once()
+        assert main_window._cancel_requested is True
+        assert main_window._pending_search_request.directory == second_dir
+        assert main_window._pending_search_request.query == "*.py"
+        assert "Restarting search" in main_window.statusBar().currentMessage()
+
+    def test_search_stopped_starts_queued_restart(self, main_window, tmp_path):
+        """A stopped worker hands off to the most recent queued search request."""
+        next_dir = tmp_path / "next"
+        next_dir.mkdir()
+
+        main_window.is_searching = True
+        main_window._cancel_requested = True
+        main_window._active_search_request = SearchRequest(tmp_path, "*.txt")
+        main_window._pending_search_request = SearchRequest(next_dir, "*.py")
+
+        with patch.object(main_window, "_start_search_request") as mock_start:
+            main_window.on_search_stopped(3, 1)
+
+        mock_start.assert_called_once_with(SearchRequest(next_dir, "*.py"))
+        assert "Search stopped" not in main_window.statusBar().currentMessage()
+
+    def test_cancelled_search_complete_is_reported_as_stopped(self, main_window):
+        """A completion race after cancellation still presents as a stopped search."""
+        main_window.is_searching = True
+        main_window._cancel_requested = True
+        main_window.query_input.set_text("*.txt")
+        main_window._active_search_request = SearchRequest(Path("/old"), "*.txt")
+
+        main_window.on_search_complete(4, 2)
+
+        assert main_window.is_searching is False
+        assert (
+            "Search stopped: 4 files found"
+            in main_window.statusBar().currentMessage()
+        )
+
+    def test_clearing_query_while_searching_cancels_without_restart(self, main_window):
+        """Clearing the query stops the worker and clears pending restart state."""
+        mock_worker = Mock()
+        main_window.search_worker = mock_worker
+        main_window.is_searching = True
+        main_window._pending_search_request = Mock()
+
+        main_window.query_input.set_text("*.txt")
+        main_window.query_input.clear_text()
+
+        mock_worker.stop.assert_called_once()
+        assert main_window._cancel_requested is True
+        assert main_window._pending_search_request is None
+        assert main_window.status_widget.get_current_status() == "ready"
+
+    def test_sidebar_location_change_queues_restart(self, main_window, tmp_path):
+        """Changing location during a search queues a restart for the new folder."""
+        selected_dir = tmp_path / "selected"
+        selected_dir.mkdir()
+        mock_worker = Mock()
+        main_window.search_worker = mock_worker
+        main_window.is_searching = True
+        main_window.query_input.set_text("*.md")
+
+        main_window._set_search_directory(
+            selected_dir, persist=False, update_recent=False
+        )
+
+        mock_worker.stop.assert_called_once()
+        assert main_window._pending_search_request.directory == selected_dir
+        assert main_window._pending_search_request.query == "*.md"
+
+    def test_progress_after_cancel_does_not_overwrite_status(self, main_window):
+        """Late progress updates from the old worker are ignored after cancellation."""
+        main_window._cancel_requested = True
+        main_window.safe_status_message("Restarting search...")
+
+        main_window.on_progress_update(50, "/old", 10)
+
+        assert main_window.statusBar().currentMessage() == "Restarting search..."
+
+    def test_repeated_restart_replaces_pending_request(self, main_window, tmp_path):
+        """Only the newest restart request is kept while cancellation is pending."""
+        first_dir = tmp_path / "first"
+        second_dir = tmp_path / "second"
+        first_dir.mkdir()
+        second_dir.mkdir()
+        mock_worker = Mock()
+        main_window.search_worker = mock_worker
+        main_window.is_searching = True
+
+        main_window.current_directory = first_dir
+        main_window.query_input.set_text("first")
+        main_window.start_search()
+
+        main_window.current_directory = second_dir
+        main_window.query_input.set_text("second")
+        main_window.start_search()
+
+        assert mock_worker.stop.call_count == 1
+        assert main_window._pending_search_request.directory == second_dir
+        assert main_window._pending_search_request.query == "second"
 
     def test_stop_search_when_not_searching(self, main_window):
         """Test stopping search when not currently searching."""
@@ -525,6 +647,7 @@ class TestMainWindowResultHandling:
     def test_on_search_stopped(self, main_window):
         """Test handling search stop."""
         main_window.is_searching = True
+        main_window.query_input.set_text("*.txt")
 
         main_window.on_search_stopped(3, 1)
 
