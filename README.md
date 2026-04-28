@@ -5,6 +5,7 @@ File Search is a desktop file-finding app built with Python and PyQt6. It combin
 ## Features
 
 - Fast recursive filename search with background workers
+- Restartable searches: clearing the query cancels the active scan, and changing location or starting a new query restarts cleanly
 - Sidebar locations for `Home`, `Documents`, `Desktop`, `Downloads`, `Pictures`, and `Videos`
 - Sidebar `Choose Folder...` action for searching any custom directory
 - Search history, recent custom folders, and remembered default search location
@@ -78,6 +79,8 @@ The app now ships with a bundled application icon in `src/filesearch/resources/i
 5. Sort the results list and inspect the selected file in the details panel.
 6. Open the `Storage` tab to visualize used space for the currently selected folder.
 
+If a search is already running, changing the query or selected location requests cancellation of the active scan. The app then starts the latest valid query/location automatically once the previous worker stops. Clearing the search box cancels the current scan without starting another one.
+
 ## Configuration
 
 The app stores configuration as JSON using `platformdirs`. Settings include:
@@ -106,6 +109,14 @@ black src/ tests/
 flake8 src/ tests/
 pre-commit run --all-files
 ```
+
+For PyQt tests in headless or automation contexts, run with Qt's offscreen platform:
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m pytest tests/unit/test_main_window.py
+```
+
+Some local macOS shells may not expose a `python` shim even when a virtualenv exists; using `venv/bin/python -m pytest ...` is equivalent.
 
 ### Release packaging
 

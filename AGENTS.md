@@ -25,6 +25,14 @@ flake8 src/ tests/
 pre-commit run --all-files
 ```
 
+If the local shell has no `python` shim, use the project virtualenv directly, for example `venv/bin/python -m filesearch --debug` or `venv/bin/python -m pytest ...`.
+
+For PyQt tests in headless automation, prefer:
+
+```bash
+QT_QPA_PLATFORM=offscreen python -m pytest tests/unit/test_main_window.py
+```
+
 ## Repository map
 
 ```text
@@ -50,6 +58,7 @@ tests/ui/                              UI tests with pytest-qt
 - Use `loguru` for logging; do not add `print()` debugging.
 - Keep business logic in `core/`; avoid UI imports there.
 - Keep UI responsive. Long-running work belongs in workers/threads and should communicate via Qt signals.
+- Search cancellation/restart is managed by `MainWindow`: keep one active filesystem worker at a time, queue only the latest restart request, and ignore stale progress/results after cancellation.
 - Keep visual styling centralized in `src/filesearch/ui/theme.py`.
 - Do not introduce widget-level inline `setStyleSheet()` calls when a theme/QSS update will do.
 - Preserve the sidebar-first search-scope UX. The hidden `DirectorySelectorWidget` exists as shared state plumbing, not as the primary visible control.
@@ -60,6 +69,8 @@ tests/ui/                              UI tests with pytest-qt
 - Prefer focused tests when changing a small area.
 - Add or update unit tests when changing sidebar behavior, search controls, or config-driven startup behavior.
 - UI tests rely on `pytest-qt`; environment-specific temp-directory permission issues can affect local runs, so prefer `python -m pytest` and isolate failures carefully.
+- On macOS/headless runs, use `QT_QPA_PLATFORM=offscreen` to avoid Cocoa initialization failures.
+- Be careful with tests that can open modal dialogs or trigger real searches via auto-search debounce; isolate them and clean up any hung pytest process before continuing.
 
 ## Documentation to keep in sync
 
