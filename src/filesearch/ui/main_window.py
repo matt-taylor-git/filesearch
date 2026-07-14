@@ -22,6 +22,7 @@ from PyQt6.QtGui import (  # noqa: F401
     QAction,
     QIcon,
     QKeySequence,
+    QShortcut,
 )
 from PyQt6.QtWidgets import (  # noqa: F401
     QApplication,
@@ -30,6 +31,8 @@ from PyQt6.QtWidgets import (  # noqa: F401
     QLabel,
     QMainWindow,
     QMessageBox,
+    QPushButton,
+    QSizePolicy,
     QSplitter,
     QTabWidget,
     QVBoxLayout,
@@ -41,6 +44,7 @@ from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
     get_user_folder,
+    list_directory_entries,
     normalize_path,
     open_containing_folder,
     safe_open,
@@ -120,6 +124,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self._active_search_request: Optional[SearchRequest] = None
         self._pending_search_request: Optional[SearchRequest] = None
         self._cancel_requested = False
+        # Browse history for Back navigation (most recent previous folders last)
+        self._directory_history: List[Path] = []
+        self._max_directory_history = 50
 
         # Setup UI
         self.setup_ui()
@@ -131,6 +138,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
         # Setup context menu actions
         self._setup_context_menu()
+
+        # Idle: show current folder contents instead of a blank results pane
+        self._show_idle_folder_listing()
 
         logger.info("MainWindow initialized")
 
@@ -194,9 +204,37 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.status_widget = StatusWidget()
         center_layout.addWidget(self.status_widget)
 
-        # Results header + sort controls in one row
+        # Results header: browse nav + label + sort
         results_header = QHBoxLayout()
         results_header.setSpacing(8)
+
+        import qtawesome as qta
+
+        from filesearch.ui.theme import Colors
+
+        self.back_button = QPushButton(
+            qta.icon("mdi6.arrow-left", color=Colors.TEXT_SECONDARY), " Back"
+        )
+        self.back_button.setProperty("class", "browse-nav")
+        self.back_button.setToolTip("Go back to previous folder (Alt+Left)")
+        self.back_button.setEnabled(False)
+        self.back_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.back_button.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
+        results_header.addWidget(self.back_button)
+
+        self.up_button = QPushButton(
+            qta.icon("mdi6.arrow-up", color=Colors.TEXT_SECONDARY), " Up"
+        )
+        self.up_button.setProperty("class", "browse-nav")
+        self.up_button.setToolTip("Go to parent folder (Alt+Up)")
+        self.up_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.up_button.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
+        )
+        results_header.addWidget(self.up_button)
+
         self.results_label = QLabel("RESULTS")
         self.results_label.setProperty("class", "results-header")
         results_header.addWidget(self.results_label)
@@ -204,6 +242,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.sort_controls = SortControls()
         results_header.addWidget(self.sort_controls)
         results_header.addStretch()
+
+        self._update_browse_nav_buttons()
 
         # Results view
         self.results_view = ResultsView()
@@ -307,9 +347,17 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
         # Results view signals
         self.results_view.file_open_requested.connect(self._on_file_open_requested)
-        self.results_view.folder_open_requested.connect(
-            lambda r: self.open_selected_folder(r.path)
-        )
+        # Path-area double-click: open containing folder in Explorer for files;
+        # for directory rows, navigate in-app (same as primary open).
+        self.results_view.folder_open_requested.connect(self._on_folder_open_requested)
+
+        # Browse navigation (back / up)
+        self.back_button.clicked.connect(self._navigate_back)
+        self.up_button.clicked.connect(self._navigate_up)
+        self._shortcut_nav_back = QShortcut(QKeySequence("Alt+Left"), self)
+        self._shortcut_nav_back.activated.connect(self._navigate_back)
+        self._shortcut_nav_up = QShortcut(QKeySequence("Alt+Up"), self)
+        self._shortcut_nav_up.activated.connect(self._navigate_up)
         # Context menu request signal from ResultsView
         self.results_view.context_menu_requested.connect(
             self._on_context_menu_requested
@@ -508,7 +556,39 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
                 or self.storage_tab.has_analysis()
             ),
         )
+        # Refresh folder listing when idle (no active search / empty query)
+        self._show_idle_folder_listing()
         logger.debug(f"Current search directory updated to: {directory}")
+
+    def _show_idle_folder_listing(self, force: bool = False) -> None:
+        """Show immediate contents of the current folder when not searching.
+
+        When the query is empty and no search is active (or ``force`` is True),
+        populate the results area with the current folder's children so the
+        pane is never blank on startup or after returning to idle.
+
+        Args:
+            force: When True, load the listing even if a search is still
+                finishing cancellation (caller already requested cancel).
+        """
+        if not force and self.is_searching:
+            return
+        if self.query_input.get_text().strip():
+            return
+
+        entries = list_directory_entries(self.current_directory)
+        self.results_view.set_query("")
+        self.results_view.set_results(entries)
+        self.status_widget.update_status("ready", len(entries))
+        if entries:
+            self.safe_status_message(
+                f"Browsing {self.current_directory} ({len(entries)} items)"
+            )
+        else:
+            self.safe_status_message(f"Browsing {self.current_directory} (empty)")
+        logger.debug(
+            f"Idle folder listing: {len(entries)} items in {self.current_directory}"
+        )
 
     def _get_startup_directory(self) -> Path:
         """Resolve the initial search directory from config, falling back to home."""
@@ -528,10 +608,103 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
         return Path.home()
 
+    def _paths_equal(self, left: Path, right: Path) -> bool:
+        """Compare paths in a case-aware, resolved way when possible."""
+        try:
+            return left.resolve() == right.resolve()
+        except OSError:
+            return left == right
+
+    def _push_directory_history(self, directory: Path) -> None:
+        """Record a directory for Back navigation."""
+        if self._directory_history and self._paths_equal(
+            self._directory_history[-1], directory
+        ):
+            return
+        self._directory_history.append(directory)
+        if len(self._directory_history) > self._max_directory_history:
+            self._directory_history = self._directory_history[
+                -self._max_directory_history :
+            ]
+
+    def _update_browse_nav_buttons(self) -> None:
+        """Enable/disable Back and Up based on history and parent path."""
+        if hasattr(self, "back_button"):
+            self.back_button.setEnabled(bool(self._directory_history))
+        if hasattr(self, "up_button"):
+            parent = self.current_directory.parent
+            can_go_up = (
+                parent != self.current_directory
+                and validate_directory(parent) is None
+            )
+            self.up_button.setEnabled(can_go_up)
+
+    def _navigate_back(self) -> None:
+        """Return to the previous folder in browse history."""
+        if not self._directory_history:
+            return
+
+        previous = self._directory_history.pop()
+        error = validate_directory(previous)
+        if error is not None:
+            self.safe_status_message(f"Cannot go back: {error}")
+            logger.warning(f"Back navigation failed for {previous}: {error}")
+            self._update_browse_nav_buttons()
+            return
+
+        if self.query_input.get_text().strip():
+            self.query_input.set_text("")
+
+        self._set_search_directory(
+            previous,
+            persist=True,
+            update_recent=False,
+            record_history=False,
+        )
+        self.safe_status_message(f"Back to {previous}")
+        logger.info(f"Navigated back to directory: {previous}")
+
+    def _navigate_up(self) -> None:
+        """Navigate to the parent of the current folder."""
+        parent = self.current_directory.parent
+        if self._paths_equal(parent, self.current_directory):
+            return
+        error = validate_directory(parent)
+        if error is not None:
+            self.safe_status_message(f"Cannot go up: {error}")
+            logger.warning(f"Up navigation failed for {parent}: {error}")
+            return
+
+        if self.query_input.get_text().strip():
+            self.query_input.set_text("")
+
+        self._set_search_directory(parent, persist=True, update_recent=True)
+        self.safe_status_message(f"Up to {parent}")
+        logger.info(f"Navigated up to directory: {parent}")
+
     def _set_search_directory(
-        self, directory: Path, persist: bool = False, update_recent: bool = False
+        self,
+        directory: Path,
+        persist: bool = False,
+        update_recent: bool = False,
+        record_history: bool = True,
     ) -> None:
-        """Synchronize the active search directory across UI and configuration."""
+        """Synchronize the active search directory across UI and configuration.
+
+        Args:
+            directory: Folder to make current.
+            persist: Save as default search directory in config.
+            update_recent: Add to recent directories / custom sidebar entry.
+            record_history: When True, push the previous folder onto the Back stack.
+        """
+        previous = self.current_directory
+        if (
+            record_history
+            and previous is not None
+            and not self._paths_equal(previous, directory)
+        ):
+            self._push_directory_history(previous)
+
         self.current_directory = directory
         self.directory_selector.set_directory(directory)
 
@@ -547,6 +720,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             )
             self.config_manager.save()
 
+        self._update_browse_nav_buttons()
         self._restart_search_after_directory_change(directory)
 
     def _refresh_custom_sidebar_location(self) -> None:
@@ -607,15 +781,18 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         logger.debug(f"Sidebar directory selected: {directory}")
 
     def _on_query_empty_changed(self, is_empty: bool) -> None:
-        """Cancel the running search when the query is cleared."""
+        """Cancel the running search when the query is cleared; restore browse list."""
         if not is_empty:
             return
 
         self._pending_search_request = None
         if self.is_searching:
-            self.results_view.clear_results()
             self.status_widget.update_status("ready", 0)
             self._request_search_cancel("Search cancelled")
+            # Show folder listing immediately while cancel completes
+            self._show_idle_folder_listing(force=True)
+        else:
+            self._show_idle_folder_listing()
 
     def _restart_search_after_directory_change(self, directory: Path) -> None:
         """Queue a restart when location changes while a search is active."""
@@ -626,6 +803,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         if not query:
             self._pending_search_request = None
             self._request_search_cancel("Search cancelled")
+            self._show_idle_folder_listing(force=True)
             return
 
         if not directory.exists():
@@ -806,7 +984,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.progress_widget.hide_progress()
         if was_cancelled:
             if not self.query_input.get_text():
-                self.status_widget.update_status("ready", 0)
+                self._show_idle_folder_listing()
                 self.safe_status_message("Search cancelled")
                 logger.info("Search cancelled as worker completed")
                 return
@@ -865,7 +1043,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             return
 
         if not self.query_input.get_text():
-            self.status_widget.update_status("ready", 0)
+            self._show_idle_folder_listing()
             self.safe_status_message("Search cancelled")
             logger.info("Search cancelled after query was cleared")
             return
@@ -959,19 +1137,55 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             # Restore cursor
             QApplication.restoreOverrideCursor()
 
+    def _navigate_into_directory(self, directory: Path) -> None:
+        """Make ``directory`` the current folder and show its immediate contents.
+
+        Used when the user double-clicks (or otherwise opens) a folder row in
+        the results list so browsing works like a simple folder explorer.
+        Clears any active query so the idle listing shows the new folder.
+        """
+        error = validate_directory(directory)
+        if error is not None:
+            self.safe_status_message(f"Cannot open folder: {error}")
+            logger.warning(f"Navigate into directory failed for {directory}: {error}")
+            return
+
+        # Browse mode: clear query so idle listing loads the destination folder
+        if self.query_input.get_text().strip():
+            self.query_input.set_text("")
+
+        self._set_search_directory(directory, persist=True, update_recent=True)
+        self.safe_status_message(f"Opened folder: {directory}")
+        logger.info(f"Navigated into directory: {directory}")
+
+    def _on_folder_open_requested(self, search_result: SearchResult) -> None:
+        """Handle path-area / open-containing-folder requests from the results view.
+
+        Directory rows navigate in-app. File rows open the parent folder in the
+        system file manager.
+        """
+        try:
+            if search_result.path.is_dir():
+                self._navigate_into_directory(search_result.path)
+            else:
+                self.open_selected_folder(search_result.path)
+        except Exception as e:
+            self.safe_status_message(f"Error opening folder: {e}")
+            logger.error(f"Error handling folder open for {search_result.path}: {e}")
+
     def _on_file_open_requested(self, search_result: SearchResult) -> None:
         """Handle file/folder opening request from results view.
 
-        Files open with the default application. Folders open in the
-        system file manager.
+        Files open with the default application. Folders become the current
+        search/browse root and the results list shows their contents.
 
         Args:
             search_result: SearchResult object for the item to open
         """
         try:
-            # Folders open in the file manager, not via safe_open
+            # Folders: navigate in-app (browse into folder)
             if search_result.path.is_dir():
-                self.open_selected_folder(search_result.path)
+                self._navigate_into_directory(search_result.path)
                 return
 
             # Get security manager for executable warnings

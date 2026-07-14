@@ -315,25 +315,38 @@ class ResultsView(QListView):
     def mouseDoubleClickEvent(self, e) -> None:
         """Handle mouse double click events.
 
-        Overridden to distinguish between clicking on filename (open file)
-        and clicking on path (open containing folder).
+        For directory rows, any double-click opens/navigates into the folder
+        (``file_open_requested``). For files, double-click on the filename
+        opens the file; double-click on the path area opens the containing
+        folder in the system file manager.
         """
         if self._is_searching:
             return
 
         index = self.indexAt(e.pos())
         if index.isValid():
+            result = index.data(Qt.ItemDataRole.UserRole)
+            # Folder rows: whole row navigates into the folder (browse)
+            if result is not None and getattr(result, "path", None) is not None:
+                try:
+                    is_directory = result.path.is_dir()
+                except OSError:
+                    is_directory = False
+                if is_directory:
+                    self.doubleClicked.emit(index)
+                    e.accept()
+                    return
+
             rect = self.visualRect(index)
             relative_y = e.pos().y() - rect.y()
 
             if relative_y > 34:
-                # Clicked on path area - open folder
-                result = index.data(Qt.ItemDataRole.UserRole)
+                # File path area - open containing folder in system file manager
                 if result:
                     self.folder_open_requested.emit(result)
                     self._add_highlight_flash(index)
             else:
-                # Clicked on filename area - open file
+                # Filename area - open file
                 self.doubleClicked.emit(index)
 
             e.accept()

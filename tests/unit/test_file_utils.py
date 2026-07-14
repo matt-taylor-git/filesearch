@@ -17,6 +17,7 @@ from filesearch.core.file_utils import (
     get_file_size,
     get_user_folder,
     is_directory,
+    list_directory_entries,
     list_drive_usage,
     normalize_path,
     open_containing_folder,
@@ -24,6 +25,7 @@ from filesearch.core.file_utils import (
     safe_open,
     validate_directory,
 )
+from filesearch.models.search_result import SearchResult
 
 
 class TestGetFileInfo:
@@ -93,6 +95,58 @@ class TestGetFileInfo:
             assert info["name"] == "测试文件.txt"
             assert info["type"] == ".txt"
             assert info["is_directory"] is False
+
+
+class TestListDirectoryEntries:
+    """Test cases for list_directory_entries (idle folder browse helper)."""
+
+    def test_lists_immediate_files_and_subdirs(self, tmp_path):
+        """Immediate children become SearchResult rows with known names."""
+        (tmp_path / "alpha.txt").write_text("a")
+        (tmp_path / "beta.log").write_text("b")
+        (tmp_path / "subdir").mkdir()
+        (tmp_path / "subdir" / "nested.txt").write_text("nested")
+
+        results = list_directory_entries(tmp_path)
+
+        names = [r.path.name for r in results]
+        assert names == ["subdir", "alpha.txt", "beta.log"]
+        assert all(isinstance(r, SearchResult) for r in results)
+        assert results[0].is_directory is True
+        assert results[1].is_directory is False
+        # Nested file is not listed (non-recursive)
+        assert "nested.txt" not in names
+
+    def test_stable_case_insensitive_name_order(self, tmp_path):
+        """Directories first, then files; both sorted by name case-insensitively."""
+        (tmp_path / "Zed.txt").write_text("z")
+        (tmp_path / "able.txt").write_text("a")
+        (tmp_path / "Middle").mkdir()
+        (tmp_path / "early").mkdir()
+
+        results = list_directory_entries(tmp_path)
+        names = [r.path.name for r in results]
+
+        assert names == ["early", "Middle", "able.txt", "Zed.txt"]
+
+    def test_empty_directory_returns_empty_list(self, tmp_path):
+        """Empty folder yields no rows."""
+        assert list_directory_entries(tmp_path) == []
+
+    def test_missing_directory_returns_empty_list(self, tmp_path):
+        """Missing path does not raise; returns empty list."""
+        missing = tmp_path / "does-not-exist"
+        assert list_directory_entries(missing) == []
+
+    def test_file_sizes_and_modified_populated(self, tmp_path):
+        """File size and modified timestamp come from the filesystem."""
+        target = tmp_path / "data.bin"
+        target.write_bytes(b"12345")
+
+        results = list_directory_entries(tmp_path)
+        assert len(results) == 1
+        assert results[0].size == 5
+        assert results[0].modified > 0
 
 
 class TestSafeOpen:

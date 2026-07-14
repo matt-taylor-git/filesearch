@@ -729,12 +729,13 @@ class TestMainWindowFileOperations:
             status_message = main_window.statusBar().currentMessage()
             assert f"Opened folder: {folder}" in status_message
 
-    def test_open_requested_directory_opens_in_file_manager(
+    def test_open_requested_directory_navigates_into_folder(
         self, main_window, tmp_path
     ):
-        """Open action on a folder result should use the file manager, not safe_open."""
+        """Open action on a folder result navigates into it (in-app browse)."""
         folder = tmp_path / "blender"
         folder.mkdir()
+        (folder / "inside.txt").write_text("nested")
         result = SearchResult(
             path=folder,
             size=0,
@@ -747,8 +748,10 @@ class TestMainWindowFileOperations:
             ) as mock_safe_open:
                 main_window._on_file_open_requested(result)
 
-                mock_open_folder.assert_called_once_with(folder)
+                mock_open_folder.assert_not_called()
                 mock_safe_open.assert_not_called()
+                assert main_window.current_directory == folder
+                assert "inside.txt" in _result_names(main_window)
 
     def test_open_selected_folder_error(self, main_window):
         """Test error when opening a selected folder."""
@@ -822,3 +825,299 @@ class TestCreateMainWindowFunction:
         assert window.config_manager == config_manager
 
         window.close()
+
+
+def _result_names(window: MainWindow) -> list[str]:
+    """Return display names from the results model (empty for placeholder rows)."""
+    model = window.results_view.model()
+    if model is None:
+        return []
+    names: list[str] = []
+    for row in range(model.rowCount()):
+        index = model.index(row, 0)
+        result = index.data(Qt.ItemDataRole.UserRole)
+        if result is not None:
+            names.append(result.path.name)
+    return names
+
+
+class TestIdleFolderListing:
+    """Idle results pane shows current-folder contents when not searching."""
+
+    def test_startup_lists_current_folder_contents(
+        self, qapp, config_manager, tmp_path
+    ):
+        """On open with empty query, results list immediate folder children."""
+        root = tmp_path / "startup-root"
+        root.mkdir()
+        (root / "readme.md").write_text("hi")
+        (root / "docs").mkdir()
+        config_manager.set(
+            "search_preferences.default_search_directory", str(root)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+        try:
+            assert window.is_searching is False
+            assert window.query_input.get_text() == ""
+            names = _result_names(window)
+            assert "readme.md" in names
+            assert "docs" in names
+            # Not the old blank placeholder
+            model = window.results_view.model()
+            display = model.index(0, 0).data(Qt.ItemDataRole.DisplayRole)
+            assert "Enter a search term" not in str(display)
+        finally:
+            window.close()
+
+    def test_directory_change_while_idle_refreshes_listing(
+        self, qapp, config_manager, tmp_path
+    ):
+        """Changing folder while idle reloads that folder's children."""
+        first = tmp_path / "first"
+        second = tmp_path / "second"
+        first.mkdir()
+        second.mkdir()
+        (first / "only-first.txt").write_text("1")
+        (second / "only-second.txt").write_text("2")
+        (second / "nested").mkdir()
+        config_manager.set(
+            "search_preferences.default_search_directory", str(first)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+        try:
+            assert "only-first.txt" in _result_names(window)
+
+            window._set_search_directory(second, persist=False, update_recent=False)
+
+            names = _result_names(window)
+            assert "only-second.txt" in names
+            assert "nested" in names
+            assert "only-first.txt" not in names
+        finally:
+            window.close()
+
+    def test_search_replaces_listing_then_clear_restores(
+        self, qapp, config_manager, tmp_path
+    ):
+        """Starting a search replaces idle listing; clearing query restores it."""
+        root = tmp_path / "search-root"
+        root.mkdir()
+        (root / "keep-me.txt").write_text("keep")
+        (root / "other.log").write_text("other")
+        config_manager.set(
+            "search_preferences.default_search_directory", str(root)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+        window.query_input.auto_search_enabled = False
+        window.query_input._debounce_timer.stop()
+        try:
+            assert "keep-me.txt" in _result_names(window)
+
+            window.query_input.set_text("*.txt")
+            with patch("filesearch.ui.main_window.SearchWorker") as mock_worker_class:
+                mock_worker = Mock()
+                mock_worker_class.return_value = mock_worker
+                window.start_search()
+
+            # Searching UI takes over (placeholder "Searching...")
+            searching_display = (
+                window.results_view.model()
+                .index(0, 0)
+                .data(Qt.ItemDataRole.DisplayRole)
+            )
+            assert "Searching" in str(searching_display)
+            assert window.is_searching is True
+
+            # Simulate worker finishing with one match (not the full folder list)
+            match = SearchResult(
+                path=root / "keep-me.txt",
+                size=4,
+                modified=1.0,
+            )
+            window.results_view.set_results([match])
+            window.is_searching = False
+            window.reset_search_ui()
+            assert _result_names(window) == ["keep-me.txt"]
+
+            # Clear query → idle folder listing restored (all children)
+            window.query_input.set_text("")
+            # query_empty_changed may fire from set_text; ensure idle path runs
+            window._on_query_empty_changed(True)
+
+            names = _result_names(window)
+            assert "keep-me.txt" in names
+            assert "other.log" in names
+            assert window.is_searching is False
+        finally:
+            window.close()
+
+    def test_idle_listing_items_are_selectable_search_results(
+        self, qapp, config_manager, tmp_path
+    ):
+        """Idle rows are real SearchResult objects usable for selection/open paths."""
+        root = tmp_path / "browse-root"
+        root.mkdir()
+        target = root / "open-me.txt"
+        target.write_text("content")
+        config_manager.set(
+            "search_preferences.default_search_directory", str(root)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+        try:
+            model = window.results_view.model()
+            assert model.rowCount() >= 1
+            index = model.index(0, 0)
+            result = index.data(Qt.ItemDataRole.UserRole)
+            assert isinstance(result, SearchResult)
+            assert result.path.name == "open-me.txt"
+
+            window.results_view.setCurrentIndex(index)
+            selected = window.results_view.get_selected_result()
+            assert selected is not None
+            assert selected.path == target
+
+            # Open path reuses the same handler as search results
+            with patch.object(window, "_open_file_with_status") as mock_open:
+                with patch(
+                    "filesearch.core.security_manager.get_security_manager"
+                ) as mock_sec:
+                    sec = Mock()
+                    sec.should_warn_before_opening.return_value = (False, "")
+                    mock_sec.return_value = sec
+                    window._on_file_open_requested(selected)
+                    mock_open.assert_called_once_with(target)
+        finally:
+            window.close()
+
+    def test_double_click_folder_navigates_and_lists_children(
+        self, qapp, config_manager, tmp_path
+    ):
+        """Double-click/open on a folder row sets current folder and lists inside."""
+        root = tmp_path / "parent"
+        child = root / "photos"
+        root.mkdir()
+        child.mkdir()
+        (child / "shot.jpg").write_text("img")
+        (child / "album").mkdir()
+        (root / "readme.txt").write_text("hi")
+        config_manager.set(
+            "search_preferences.default_search_directory", str(root)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+        window.query_input.auto_search_enabled = False
+        window.query_input._debounce_timer.stop()
+        try:
+            assert "photos" in _result_names(window)
+            assert "shot.jpg" not in _result_names(window)
+
+            # Simulate results-view open request (double-click / Enter)
+            folder_result = SearchResult(
+                path=child,
+                size=0,
+                modified=child.stat().st_mtime,
+            )
+            window._on_file_open_requested(folder_result)
+
+            assert window.current_directory == child
+            assert window.directory_selector.get_directory() == child
+            names = _result_names(window)
+            assert "shot.jpg" in names
+            assert "album" in names
+            assert "readme.txt" not in names
+            assert "photos" not in names
+        finally:
+            window.close()
+
+    def test_folder_open_requested_on_directory_navigates_not_explorer(
+        self, qapp, config_manager, tmp_path
+    ):
+        """Path-area signal for a directory must navigate, not open Explorer."""
+        root = tmp_path / "root"
+        child = root / "docs"
+        root.mkdir()
+        child.mkdir()
+        (child / "note.txt").write_text("n")
+        config_manager.set(
+            "search_preferences.default_search_directory", str(root)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+        try:
+            folder_result = SearchResult(
+                path=child,
+                size=0,
+                modified=child.stat().st_mtime,
+            )
+            with patch.object(window, "open_selected_folder") as mock_explorer:
+                window._on_folder_open_requested(folder_result)
+                mock_explorer.assert_not_called()
+
+            assert window.current_directory == child
+            assert "note.txt" in _result_names(window)
+        finally:
+            window.close()
+
+    def test_navigate_back_restores_previous_folder(
+        self, qapp, config_manager, tmp_path
+    ):
+        """Back returns to the previous folder and lists its contents."""
+        root = tmp_path / "nav-root"
+        child = root / "child"
+        root.mkdir()
+        child.mkdir()
+        (root / "root-only.txt").write_text("r")
+        (child / "child-only.txt").write_text("c")
+        config_manager.set(
+            "search_preferences.default_search_directory", str(root)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+        try:
+            assert window.back_button.isEnabled() is False
+
+            window._navigate_into_directory(child)
+            assert window.current_directory == child
+            assert window.back_button.isEnabled() is True
+            assert "child-only.txt" in _result_names(window)
+            assert "root-only.txt" not in _result_names(window)
+
+            window._navigate_back()
+            assert window.current_directory == root
+            assert "root-only.txt" in _result_names(window)
+            assert "child-only.txt" not in _result_names(window)
+            assert window.back_button.isEnabled() is False
+        finally:
+            window.close()
+
+    def test_navigate_up_goes_to_parent(self, qapp, config_manager, tmp_path):
+        """Up moves to the parent folder (and records history for Back)."""
+        root = tmp_path / "up-root"
+        child = root / "nested"
+        root.mkdir()
+        child.mkdir()
+        (root / "parent-file.txt").write_text("p")
+        config_manager.set(
+            "search_preferences.default_search_directory", str(child)
+        )
+
+        window = MainWindow(config_manager=config_manager)
+        try:
+            assert window.current_directory == child
+            assert window.up_button.isEnabled() is True
+
+            window._navigate_up()
+            assert window.current_directory == root
+            assert "parent-file.txt" in _result_names(window)
+            assert "nested" in _result_names(window)
+
+            # Up recorded history so Back returns into nested
+            assert window.back_button.isEnabled() is True
+            window._navigate_back()
+            assert window.current_directory == child
+        finally:
+            window.close()

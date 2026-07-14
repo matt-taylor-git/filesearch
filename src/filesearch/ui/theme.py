@@ -1015,6 +1015,29 @@ QPushButton[class="storage-breadcrumb"]:disabled {{
     color: {Colors.DISABLED_TEXT};
 }}
 
+/* Browse Back / Up controls above search results */
+QPushButton[class="browse-nav"] {{
+    border: 1px solid {Colors.BORDER_DEFAULT};
+    border-radius: {Spacing.RADIUS_SM}px;
+    background: {Colors.BG_TERTIARY};
+    color: {Colors.TEXT_SECONDARY};
+    padding: 4px 10px;
+    font-size: {Fonts.SIZE_SM}pt;
+    min-height: 28px;
+}}
+
+QPushButton[class="browse-nav"]:hover {{
+    color: {Colors.TEXT_PRIMARY};
+    border-color: {Colors.BORDER_STRONG};
+    background: {Colors.PRIMARY_SUBTLE};
+}}
+
+QPushButton[class="browse-nav"]:disabled {{
+    color: {Colors.DISABLED_TEXT};
+    background: {Colors.DISABLED_BG};
+    border-color: {Colors.BORDER_DEFAULT};
+}}
+
 QLabel[class="storage-breadcrumb-divider"] {{
     color: {Colors.TEXT_TERTIARY};
     font-size: {Fonts.SIZE_SM}pt;

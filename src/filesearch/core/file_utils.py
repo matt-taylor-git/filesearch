@@ -20,6 +20,7 @@ from PyQt6.QtCore import QUrl
 from PyQt6.QtGui import QDesktopServices
 
 from filesearch.core.exceptions import FileSearchError
+from filesearch.models.search_result import SearchResult
 
 _USER_FOLDERS: Dict[str, tuple[Optional[str], Optional[str]]] = {
     "home": (None, None),
@@ -304,6 +305,63 @@ def list_drive_usage() -> List[DriveUsage]:
 
     drives.sort(key=sort_key)
     return drives
+
+
+def list_directory_entries(directory: Union[str, Path]) -> List[SearchResult]:
+    """List immediate children of a directory as SearchResult rows.
+
+    Non-recursive: only the given directory's direct children are returned.
+    Directories are listed first, then files; both groups are sorted by name
+    (case-insensitive) for a stable, browser-like order. Entries that cannot
+    be accessed are skipped. Returns an empty list if the path is missing or
+    not a readable directory.
+
+    Args:
+        directory: Path to the directory to list.
+
+    Returns:
+        List of SearchResult rows for files and subdirectories.
+    """
+    dir_path = Path(directory)
+    if not dir_path.is_dir():
+        logger.warning(f"Cannot list directory entries; not a directory: {directory}")
+        return []
+
+    directories: List[SearchResult] = []
+    files: List[SearchResult] = []
+
+    try:
+        with os.scandir(dir_path) as entries:
+            for entry in entries:
+                try:
+                    is_dir = entry.is_dir(follow_symlinks=False)
+                    try:
+                        stat_result = entry.stat(follow_symlinks=False)
+                        size = 0 if is_dir else int(stat_result.st_size)
+                        modified = float(stat_result.st_mtime)
+                    except OSError:
+                        size = 0
+                        modified = 0.0
+
+                    result = SearchResult(
+                        path=Path(entry.path),
+                        size=size,
+                        modified=modified,
+                    )
+                    if is_dir:
+                        directories.append(result)
+                    else:
+                        files.append(result)
+                except OSError as e:
+                    logger.debug(f"Skipping inaccessible entry in {dir_path}: {e}")
+                    continue
+    except OSError as e:
+        logger.warning(f"Failed to list directory {dir_path}: {e}")
+        return []
+
+    directories.sort(key=lambda r: r.path.name.lower())
+    files.sort(key=lambda r: r.path.name.lower())
+    return directories + files
 
 
 def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bool]]:

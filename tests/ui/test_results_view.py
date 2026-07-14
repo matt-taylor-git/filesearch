@@ -195,8 +195,10 @@ def test_searching_state_clears_previous_results(results_view, sample_results):
 
 
 def test_double_click_on_path_opens_folder(results_view, sample_results, qtbot):
-    """Test that double-clicking on the path area opens the containing folder."""
-    results_view.set_results(sample_results)
+    """Test that double-clicking on a file's path area opens the containing folder."""
+    # Only files use path-area → folder_open_requested; ensure first item is a file
+    file_only = [sample_results[0]]
+    results_view.set_results(file_only)
     results_view.resize(400, 200)  # Ensure some size
 
     # Create a signal spy
@@ -224,6 +226,34 @@ def test_double_click_on_path_opens_folder(results_view, sample_results, qtbot):
         )
 
     assert blocker.args[0] == sample_results[0]
+
+
+def test_double_click_on_directory_row_emits_file_open(results_view, tmp_path, qtbot):
+    """Directory rows always emit file_open_requested (navigate), even on path area."""
+    folder = tmp_path / "photos"
+    folder.mkdir()
+    result = SearchResult(
+        path=folder,
+        size=0,
+        modified=folder.stat().st_mtime,
+    )
+    results_view.set_results([result])
+    results_view.resize(400, 200)
+
+    from PyQt6.QtCore import QPoint
+
+    with qtbot.waitSignal(results_view.file_open_requested, timeout=1000) as blocker:
+        index = results_view.model().index(0, 0)
+        results_view.scrollTo(index)
+        rect = results_view.visualRect(index)
+        # Path area (y>34) would previously open Explorer via folder_open_requested
+        qtbot.mouseDClick(
+            results_view.viewport(),
+            Qt.MouseButton.LeftButton,
+            pos=QPoint(rect.center().x(), rect.y() + 40),
+        )
+
+    assert blocker.args[0] == result
 
 
 def test_double_click_on_filename_opens_file(results_view, sample_results, qtbot):
