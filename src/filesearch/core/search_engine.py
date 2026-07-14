@@ -1,8 +1,8 @@
-"""Core search engine module for file searching functionality.
+"""Core search engine module for file and folder searching functionality.
 
 This module provides FileSearchEngine class that implements multi-threaded
-file searching with partial matching, early termination, and generator-based
-result streaming.
+file and folder searching with partial matching, early termination, and
+generator-based result streaming.
 """
 
 import fnmatch
@@ -154,20 +154,56 @@ class FileSearchEngine(QObject):
             )
             return False
 
+    def _record_match(
+        self, path: Path, results: Set[Path], scanned_directory: Path
+    ) -> bool:
+        """Record a matching file or folder and emit throttled progress.
+
+        Args:
+            path: Matching path to add
+            results: Set collecting matches
+            scanned_directory: Directory currently being scanned (for progress)
+
+        Returns:
+            True if max_results was reached and scanning should stop
+        """
+        results.add(path)
+        logger.debug(f"Match found: {path}")
+
+        current_time = time.time() * 1000  # milliseconds
+        if current_time - self._last_status_time >= self._status_throttle_ms:
+            self.results_count_update.emit(1, len(results))
+            self._last_status_time = current_time
+
+        if self.progress_callback:
+            if current_time - self._last_progress_time >= self._progress_throttle_ms:
+                try:
+                    self.progress_callback(len(results), str(scanned_directory))
+                    self._last_progress_time = current_time
+                except Exception as e:
+                    logger.warning(f"Progress callback error: {e}")
+
+        if self.max_results > 0 and len(results) >= self.max_results:
+            self._cancelled = True
+            return True
+        return False
+
     def _scan_directory(
         self, directory: Path, pattern: str, results: Set[Path], depth: int = 0
     ) -> None:
-        """Scan a single directory for matching files.
+        """Scan a single directory for matching files and folders.
 
         Args:
             directory: Directory path to scan
             pattern: Search pattern to match
-            results: Set to store matching file paths
+            results: Set to store matching file/folder paths
             depth: Current recursion depth (for symlink cycle detection)
 
         Note:
             This method is designed to be called from worker threads.
             Uses os.scandir() for efficient directory traversal.
+            Matching directories are included in results and still scanned
+            for nested matches.
         """
         if self._should_cancel():
             logger.debug(f"Cancelling scan of {directory}")
@@ -202,47 +238,17 @@ class FileSearchEngine(QObject):
                                     continue
 
                             if self._match_pattern(entry.name, pattern):
-                                results.add(Path(entry.path))
-                                logger.debug(f"Match found: {entry.path}")
-
-                                # Emit status update (throttled)
-                                current_time = time.time() * 1000  # milliseconds
-                                if (
-                                    current_time - self._last_status_time
-                                    >= self._status_throttle_ms
+                                if self._record_match(
+                                    Path(entry.path), results, directory
                                 ):
-                                    self.results_count_update.emit(1, len(results))
-                                    self._last_status_time = current_time
-
-                                # Call progress callback if provided (throttled)
-                                if self.progress_callback:
-                                    current_time = time.time() * 1000  # milliseconds
-                                    if (
-                                        current_time - self._last_progress_time
-                                        >= self._progress_throttle_ms
-                                    ):
-                                        try:
-                                            self.progress_callback(
-                                                len(results), str(directory)
-                                            )
-                                            self._last_progress_time = current_time
-                                        except Exception as e:
-                                            logger.warning(
-                                                f"Progress callback error: {e}"
-                                            )
-
-                                # Check if we've reached max results
-                                if (
-                                    self.max_results > 0
-                                    and len(results) >= self.max_results
-                                ):
-                                    self._cancelled = True
                                     break
 
                         elif entry.is_dir():
-                            # Skip hidden directories if not including them
-                            if not self.include_hidden and entry.name.startswith("."):
-                                continue
+                            if self._match_pattern(entry.name, pattern):
+                                if self._record_match(
+                                    Path(entry.path), results, directory
+                                ):
+                                    break
 
                             # Handle symlinks with cycle detection
                             if entry.is_symlink():
@@ -312,15 +318,15 @@ class FileSearchEngine(QObject):
     def search(
         self, directory: Path, query: str
     ) -> Generator[Dict[str, Any], None, None]:
-        """Search for files matching query pattern.
+        """Search for files and folders matching query pattern.
 
         Args:
             directory: Root directory to start search from
             query: Search pattern (supports wildcards with fnmatch syntax)
 
         Yields:
-            Dict objects for matching files/results with keys:
-            'path', 'name', 'source', etc.
+            Dict objects for matching files/folders with keys:
+            'path', 'name', 'source', 'size', 'modified', 'is_directory', etc.
 
         Raises:
             SearchError: If directory doesn't exist or is not accessible
@@ -379,12 +385,15 @@ class FileSearchEngine(QObject):
                 for path in results:
                     try:
                         stat = path.stat()
+                        # Directories report 0 size for consistent UI ("Folder")
+                        size = 0 if path.is_dir() else stat.st_size
                         yield {
                             "path": str(path),
                             "name": path.name,
                             "source": "filesystem",
-                            "size": stat.st_size,
+                            "size": size,
                             "modified": stat.st_mtime,
+                            "is_directory": path.is_dir(),
                         }
                     except Exception as e:
                         logger.error(f"Error getting stat for {path}: {e}")

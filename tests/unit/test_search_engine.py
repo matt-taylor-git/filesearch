@@ -134,6 +134,49 @@ class TestFileSearchEngine:
         assert len(results) == 1
         assert results[0]["name"] == "main.py"
 
+    def test_search_includes_matching_folders(self, search_engine, temp_dir):
+        """Test that matching directories appear in search results (FR1)."""
+        project_dir = temp_dir / "my_project"
+        project_dir.mkdir()
+        (project_dir / "readme.txt").write_text("docs")
+        nested_dir = project_dir / "project_data"
+        nested_dir.mkdir()
+
+        results = list(search_engine.search(temp_dir, "project"))
+
+        result_names = {r["name"] for r in results}
+        assert "my_project" in result_names
+        assert "project_data" in result_names
+
+        folder_results = [r for r in results if r.get("is_directory")]
+        assert len(folder_results) == 2
+        assert all(r["size"] == 0 for r in folder_results)
+
+    def test_search_folder_still_scans_children(self, search_engine, temp_dir):
+        """Matching a folder should still find matching files inside it."""
+        reports = temp_dir / "reports"
+        reports.mkdir()
+        (reports / "report_q1.txt").write_text("q1")
+        (reports / "other.txt").write_text("other")
+
+        results = list(search_engine.search(temp_dir, "report"))
+
+        result_names = {r["name"] for r in results}
+        assert "reports" in result_names
+        assert "report_q1.txt" in result_names
+        assert "other.txt" not in result_names
+
+    def test_search_folder_with_wildcard(self, search_engine, temp_dir):
+        """Wildcard patterns should match folder names as well as files."""
+        (temp_dir / "docs_v1").mkdir()
+        (temp_dir / "docs_v2").mkdir()
+        (temp_dir / "docs_v1.txt").write_text("file")
+
+        results = list(search_engine.search(temp_dir, "docs_*"))
+
+        result_names = {r["name"] for r in results}
+        assert result_names == {"docs_v1", "docs_v2", "docs_v1.txt"}
+
     def test_search_no_matches(self, search_engine, temp_dir):
         """Test search with no matching files."""
         results = list(search_engine.search(temp_dir, "*.nonexistent"))

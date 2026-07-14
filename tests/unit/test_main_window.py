@@ -698,20 +698,57 @@ class TestMainWindowFileOperations:
             assert "Error opening file" in status_message
 
     def test_open_selected_folder_success(self, main_window):
-        """Test successfully opening a selected folder."""
+        """Test successfully opening containing folder for a file."""
         test_path = Path("/test/documents/report.pdf")
 
         with patch(
             "filesearch.ui.main_window.open_containing_folder"
         ) as mock_open_folder:
             mock_open_folder.return_value = True
-
-            main_window.open_selected_folder(test_path)
+            with patch.object(Path, "is_dir", return_value=False):
+                main_window.open_selected_folder(test_path)
 
             mock_open_folder.assert_called_once_with(test_path)
 
             status_message = main_window.statusBar().currentMessage()
-            assert "Opened folder: /test/documents" in status_message
+            assert f"Opened folder: {test_path.parent}" in status_message
+
+    def test_open_selected_folder_for_directory_result(self, main_window, tmp_path):
+        """Opening a folder result should open that folder itself."""
+        folder = tmp_path / "blender"
+        folder.mkdir()
+
+        with patch(
+            "filesearch.ui.main_window.open_containing_folder"
+        ) as mock_open_folder:
+            mock_open_folder.return_value = True
+
+            main_window.open_selected_folder(folder)
+
+            mock_open_folder.assert_called_once_with(folder)
+            status_message = main_window.statusBar().currentMessage()
+            assert f"Opened folder: {folder}" in status_message
+
+    def test_open_requested_directory_opens_in_file_manager(
+        self, main_window, tmp_path
+    ):
+        """Open action on a folder result should use the file manager, not safe_open."""
+        folder = tmp_path / "blender"
+        folder.mkdir()
+        result = SearchResult(
+            path=folder,
+            size=0,
+            modified=folder.stat().st_mtime,
+        )
+
+        with patch.object(main_window, "open_selected_folder") as mock_open_folder:
+            with patch(
+                "filesearch.ui.main_window.safe_open"
+            ) as mock_safe_open:
+                main_window._on_file_open_requested(result)
+
+                mock_open_folder.assert_called_once_with(folder)
+                mock_safe_open.assert_not_called()
 
     def test_open_selected_folder_error(self, main_window):
         """Test error when opening a selected folder."""
@@ -723,11 +760,13 @@ class TestMainWindowFileOperations:
             "filesearch.ui.main_window.open_containing_folder"
         ) as mock_open_folder:
             mock_open_folder.side_effect = FileSearchError("Cannot open folder")
+            # Modal dialogs block the test runner if not mocked
+            with patch("filesearch.ui.main_window.QMessageBox.critical") as mock_dialog:
+                main_window.open_selected_folder(test_path)
 
-            main_window.open_selected_folder(test_path)
-
-            status_message = main_window.statusBar().currentMessage()
-            assert "Error opening folder" in status_message
+                mock_dialog.assert_called_once()
+                status_message = main_window.statusBar().currentMessage()
+                assert "Error opening folder" in status_message
 
 
 class TestMainWindowCloseEvent:

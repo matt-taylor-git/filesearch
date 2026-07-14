@@ -933,17 +933,21 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             logger.error(f"Error opening file {file_path}: {e}")
 
     def open_selected_folder(self, file_path: Path) -> None:
-        """Open the containing folder of selected file.
+        """Open the selected folder, or the containing folder of a file.
+
+        For directory results, opens that folder itself. For files, opens
+        the parent folder and selects the file when the OS supports it.
 
         Args:
-            file_path: Path to the file
+            file_path: Path to the file or folder
         """
         # Show wait cursor
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             open_containing_folder(file_path)
-            self.safe_status_message(f"Opened folder: {file_path.parent}")
-            logger.info(f"Opened folder: {file_path.parent}")
+            opened = file_path if file_path.is_dir() else file_path.parent
+            self.safe_status_message(f"Opened folder: {opened}")
+            logger.info(f"Opened folder: {opened}")
         except FileSearchError as e:
             self.safe_status_message(f"Error opening folder: {e}")
             logger.error(f"Error opening folder for {file_path}: {e}")
@@ -956,12 +960,20 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             QApplication.restoreOverrideCursor()
 
     def _on_file_open_requested(self, search_result: SearchResult) -> None:
-        """Handle file opening request from results view.
+        """Handle file/folder opening request from results view.
+
+        Files open with the default application. Folders open in the
+        system file manager.
 
         Args:
-            search_result: SearchResult object for the file to open
+            search_result: SearchResult object for the item to open
         """
         try:
+            # Folders open in the file manager, not via safe_open
+            if search_result.path.is_dir():
+                self.open_selected_folder(search_result.path)
+                return
+
             # Get security manager for executable warnings
             from filesearch.core.security_manager import get_security_manager
 
