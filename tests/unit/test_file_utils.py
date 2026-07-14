@@ -11,11 +11,13 @@ import pytest
 
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
+    DriveUsage,
     get_file_info,
     get_file_modified_time,
     get_file_size,
     get_user_folder,
     is_directory,
+    list_drive_usage,
     normalize_path,
     open_containing_folder,
     reveal_file_in_folder,
@@ -544,3 +546,63 @@ class TestUserFolderResolution:
                 side_effect=OSError("boom"),
             ):
                 assert get_user_folder("downloads") == home / "Downloads"
+
+
+class TestListDriveUsage:
+    """Test cases for multi-drive disk usage listing."""
+
+    def test_list_drive_usage_returns_drive_usage_entries(self):
+        """Live enumeration should return at least one DriveUsage entry."""
+        drives = list_drive_usage()
+        assert drives
+        assert all(isinstance(d, DriveUsage) for d in drives)
+        assert all(d.total > 0 for d in drives)
+        assert all(d.label for d in drives)
+
+    def test_list_drive_usage_windows_includes_labeled_roots(self):
+        """Windows enumeration should include each accessible lettered drive."""
+        usage = type("Usage", (), {"total": 1000, "used": 400, "free": 600})()
+
+        with patch(
+            "filesearch.core.file_utils.platform.system", return_value="Windows"
+        ), patch(
+            "filesearch.core.file_utils._iter_windows_drive_roots",
+            return_value=[Path("C:\\"), Path("D:\\")],
+        ), patch(
+            "filesearch.core.file_utils.shutil.disk_usage", return_value=usage
+        ), patch(
+            "filesearch.core.file_utils._windows_volume_label",
+            side_effect=lambda root: (
+                "System (C:)" if str(root).upper().startswith("C") else "Data (D:)"
+            ),
+        ):
+            drives = list_drive_usage()
+
+        assert [d.label for d in drives] == ["System (C:)", "Data (D:)"]
+        assert [d.path for d in drives] == [Path("C:\\"), Path("D:\\")]
+        assert drives[0].used == 400
+        assert drives[1].total == 1000
+
+    def test_list_drive_usage_skips_unreadable_drives(self):
+        """Drives that raise OSError from disk_usage should be skipped."""
+
+        def fake_usage(path):
+            if str(path).upper().startswith("D"):
+                raise OSError("device not ready")
+            return type("Usage", (), {"total": 500, "used": 100, "free": 400})()
+
+        with patch(
+            "filesearch.core.file_utils.platform.system", return_value="Windows"
+        ), patch(
+            "filesearch.core.file_utils._iter_windows_drive_roots",
+            return_value=[Path("C:\\"), Path("D:\\")],
+        ), patch(
+            "filesearch.core.file_utils.shutil.disk_usage", side_effect=fake_usage
+        ), patch(
+            "filesearch.core.file_utils._windows_volume_label",
+            return_value="C:",
+        ):
+            drives = list_drive_usage()
+
+        assert len(drives) == 1
+        assert drives[0].path == Path("C:\\")

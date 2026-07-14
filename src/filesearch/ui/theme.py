@@ -815,6 +815,12 @@ QProgressBar[class="storage-bar"]::chunk {{
     border-radius: 3px;
 }}
 
+QLabel[class="storage-drive-label"] {{
+    font-size: {Fonts.SIZE_XS}pt;
+    font-weight: 600;
+    color: {Colors.TEXT_SECONDARY};
+}}
+
 QLabel[class="storage-text"] {{
     font-size: {Fonts.SIZE_XS}pt;
     color: {Colors.TEXT_TERTIARY};

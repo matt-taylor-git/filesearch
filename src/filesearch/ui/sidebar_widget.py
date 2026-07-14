@@ -4,7 +4,6 @@ Provides location shortcuts, file type filters, recent search tags,
 and disk storage indicator.
 """
 
-import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
@@ -22,7 +21,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from filesearch.core.file_utils import get_user_folder
+from filesearch.core.file_utils import DriveUsage, get_user_folder, list_drive_usage
 from filesearch.ui.theme import Colors, Fonts, Spacing
 
 # File type extension mapping for client-side filtering
@@ -311,19 +310,15 @@ class SidebarWidget(QWidget):
         # Stretch to push storage to bottom
         layout.addStretch()
 
-        # --- Storage ---
+        # --- Storage (all mounted drives) ---
         layout.addSpacing(8)
         layout.addWidget(self._section_header("STORAGE"))
         layout.addSpacing(4)
-        self._storage_bar = QProgressBar()
-        self._storage_bar.setProperty("class", "storage-bar")
-        self._storage_bar.setTextVisible(False)
-        self._storage_bar.setFixedHeight(6)
-        layout.addWidget(self._storage_bar)
-
-        self._storage_label = QLabel()
-        self._storage_label.setProperty("class", "storage-text")
-        layout.addWidget(self._storage_label)
+        self._storage_container = QWidget()
+        self._storage_layout = QVBoxLayout(self._storage_container)
+        self._storage_layout.setContentsMargins(0, 0, 0, 0)
+        self._storage_layout.setSpacing(10)
+        layout.addWidget(self._storage_container)
 
         self._update_storage()
 
@@ -477,22 +472,70 @@ class SidebarWidget(QWidget):
         if row is not None and len(searches[:8]) % 3 != 0:
             row.addStretch()
 
-    def _update_storage(self) -> None:
-        """Update the disk usage indicator."""
-        try:
-            usage = shutil.disk_usage(Path.home())
-            used_pct = int((usage.used / usage.total) * 100)
-            self._storage_bar.setRange(0, 100)
-            self._storage_bar.setValue(used_pct)
+    def _clear_layout(self, layout: QVBoxLayout) -> None:
+        """Remove and delete all widgets from *layout*."""
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+            child_layout = item.layout()
+            if isinstance(child_layout, QVBoxLayout):
+                self._clear_layout(child_layout)
+            elif child_layout is not None:
+                while child_layout.count():
+                    nested = child_layout.takeAt(0)
+                    nested_widget = nested.widget()
+                    if nested_widget is not None:
+                        nested_widget.deleteLater()
 
-            used_gb = usage.used / (1024**3)
-            total_gb = usage.total / (1024**3)
-            self._storage_label.setText(f"{used_gb:.1f} GB of {total_gb:.1f} GB used")
+    def _create_drive_storage_row(self, drive: DriveUsage) -> QWidget:
+        """Build a labeled usage bar for a single drive."""
+        row = QWidget()
+        row_layout = QVBoxLayout(row)
+        row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(2)
+
+        label = QLabel(drive.label)
+        label.setProperty("class", "storage-drive-label")
+        label.setToolTip(str(drive.path))
+        row_layout.addWidget(label)
+
+        bar = QProgressBar()
+        bar.setProperty("class", "storage-bar")
+        bar.setTextVisible(False)
+        bar.setFixedHeight(6)
+        used_pct = int((drive.used / drive.total) * 100) if drive.total else 0
+        bar.setRange(0, 100)
+        bar.setValue(max(0, min(100, used_pct)))
+        row_layout.addWidget(bar)
+
+        used_gb = drive.used / (1024**3)
+        total_gb = drive.total / (1024**3)
+        usage_text = QLabel(f"{used_gb:.1f} GB of {total_gb:.1f} GB used")
+        usage_text.setProperty("class", "storage-text")
+        row_layout.addWidget(usage_text)
+
+        return row
+
+    def _update_storage(self) -> None:
+        """Refresh the multi-drive storage indicators."""
+        self._clear_layout(self._storage_layout)
+
+        try:
+            drives = list_drive_usage()
         except Exception as e:
             logger.warning(f"Could not read disk usage: {e}")
-            self._storage_bar.setRange(0, 100)
-            self._storage_bar.setValue(0)
-            self._storage_label.setText("Storage info unavailable")
+            drives = []
+
+        if not drives:
+            unavailable = QLabel("Storage info unavailable")
+            unavailable.setProperty("class", "storage-text")
+            self._storage_layout.addWidget(unavailable)
+            return
+
+        for drive in drives:
+            self._storage_layout.addWidget(self._create_drive_storage_row(drive))
 
     def get_active_extensions(self) -> List[str]:
         """Return list of active filter extensions (empty = no filter)."""

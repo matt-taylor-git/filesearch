@@ -8,10 +8,12 @@ import ctypes
 import os
 import platform
 import shutil
+import string
 import subprocess
 from ctypes import wintypes
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from loguru import logger
 from PyQt6.QtCore import QUrl
@@ -97,6 +99,211 @@ def get_user_folder(folder_name: str) -> Path:
             f"Falling back to default path for '{folder_name}' after lookup error: {e}"
         )
         return fallback_path
+
+
+@dataclass(frozen=True)
+class DriveUsage:
+    """Disk usage summary for a mounted drive or volume."""
+
+    label: str
+    path: Path
+    total: int
+    used: int
+    free: int
+
+
+_UNIX_SKIP_FS_TYPES = frozenset(
+    {
+        "autofs",
+        "binfmt_misc",
+        "bpf",
+        "cgroup",
+        "cgroup2",
+        "configfs",
+        "debugfs",
+        "devpts",
+        "devtmpfs",
+        "fusectl",
+        "hugetlbfs",
+        "mqueue",
+        "nsfs",
+        "overlay",
+        "proc",
+        "pstore",
+        "rpc_pipefs",
+        "securityfs",
+        "squashfs",
+        "sysfs",
+        "tmpfs",
+        "tracefs",
+    }
+)
+
+
+def _windows_volume_label(root: Path) -> str:
+    """Return a friendly Windows volume label such as ``System (C:)``."""
+    letter = root.drive.rstrip("\\/") or str(root).rstrip("\\/")
+    try:
+        volume_name = ctypes.create_unicode_buffer(261)
+        fs_name = ctypes.create_unicode_buffer(261)
+        serial = wintypes.DWORD()
+        max_component = wintypes.DWORD()
+        fs_flags = wintypes.DWORD()
+        root_path = f"{letter}\\" if not letter.endswith("\\") else letter
+        ok = ctypes.windll.kernel32.GetVolumeInformationW(
+            root_path,
+            volume_name,
+            len(volume_name),
+            ctypes.byref(serial),
+            ctypes.byref(max_component),
+            ctypes.byref(fs_flags),
+            fs_name,
+            len(fs_name),
+        )
+        if ok and volume_name.value:
+            return f"{volume_name.value} ({letter.rstrip(':')}:)"
+    except Exception as e:
+        logger.debug(f"Could not read volume label for {root}: {e}")
+    return letter if letter.endswith(":") else f"{letter}:"
+
+
+def _iter_windows_drive_roots() -> Iterable[Path]:
+    """Yield accessible Windows drive roots (``C:\\``, ``D:\\``, ...)."""
+    get_drive_type = ctypes.windll.kernel32.GetDriveTypeW
+    # DRIVE_NO_ROOT_DIR=1, DRIVE_UNKNOWN=0 — skip both
+    for letter in string.ascii_uppercase:
+        root = Path(f"{letter}:\\")
+        try:
+            drive_type = int(get_drive_type(str(root)))
+        except Exception:
+            continue
+        if drive_type in (0, 1):
+            continue
+        yield root
+
+
+def _iter_unix_drive_roots() -> Iterable[Path]:
+    """Yield mounted filesystem roots on macOS/Linux."""
+    system = platform.system()
+    if system == "Darwin":
+        yield Path("/")
+        volumes = Path("/Volumes")
+        if volumes.is_dir():
+            try:
+                for entry in sorted(volumes.iterdir(), key=lambda p: p.name.lower()):
+                    if entry.is_dir():
+                        yield entry
+            except OSError as e:
+                logger.debug(f"Could not list /Volumes: {e}")
+        return
+
+    # Linux and other Unix: prefer /proc/mounts when available
+    mounts_file = Path("/proc/mounts")
+    if mounts_file.is_file():
+        seen_mounts: set[str] = set()
+        try:
+            for line in mounts_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
+                device, mountpoint, fstype = parts[0], parts[1], parts[2]
+                if fstype in _UNIX_SKIP_FS_TYPES:
+                    continue
+                # Prefer real block devices and common user mounts
+                if not (
+                    device.startswith("/dev/")
+                    or mountpoint == "/"
+                    or mountpoint.startswith(("/media/", "/mnt/", "/run/media/"))
+                ):
+                    continue
+                if mountpoint in seen_mounts:
+                    continue
+                seen_mounts.add(mountpoint)
+                yield Path(mountpoint)
+            return
+        except OSError as e:
+            logger.debug(f"Could not read /proc/mounts: {e}")
+
+    yield Path("/")
+    for base in (Path("/media"), Path("/mnt"), Path("/run/media")):
+        if not base.is_dir():
+            continue
+        try:
+            for entry in sorted(base.rglob("*"), key=lambda p: str(p).lower()):
+                if entry.is_dir() and entry != base:
+                    # Only include shallow user-visible mounts
+                    rel = entry.relative_to(base)
+                    if len(rel.parts) <= 2:
+                        yield entry
+        except OSError as e:
+            logger.debug(f"Could not list mounts under {base}: {e}")
+
+
+def _format_drive_label(root: Path) -> str:
+    """Build a human-readable label for a drive root."""
+    if platform.system() == "Windows":
+        return _windows_volume_label(root)
+
+    if root == Path("/"):
+        return "System (/)"
+    name = root.name.strip() or str(root)
+    return name
+
+
+def list_drive_usage() -> List[DriveUsage]:
+    """Return disk usage for all accessible mounted drives.
+
+    Each entry includes a friendly label (volume name + drive letter on Windows)
+    and total/used/free bytes from ``shutil.disk_usage``.
+    """
+    if platform.system() == "Windows":
+        roots = list(_iter_windows_drive_roots())
+    else:
+        roots = list(_iter_unix_drive_roots())
+
+    drives: List[DriveUsage] = []
+    seen_keys: set[tuple] = set()
+
+    for root in roots:
+        try:
+            usage = shutil.disk_usage(root)
+        except OSError as e:
+            logger.debug(f"Skipping drive {root}: {e}")
+            continue
+
+        # Deduplicate bind mounts on Unix; keep each lettered drive on Windows
+        if platform.system() == "Windows":
+            key: tuple = (str(root).upper(),)
+        else:
+            try:
+                key = (root.stat().st_dev, usage.total)
+            except OSError:
+                key = (usage.total, usage.used, usage.free, str(root))
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+
+        if usage.total <= 0:
+            continue
+
+        drives.append(
+            DriveUsage(
+                label=_format_drive_label(root),
+                path=root,
+                total=usage.total,
+                used=usage.used,
+                free=usage.free,
+            )
+        )
+
+    # Stable order: system/home-adjacent first, then by label
+    def sort_key(drive: DriveUsage) -> tuple:
+        path_str = str(drive.path).lower()
+        priority = 0 if path_str in ("c:\\", "/") else 1
+        return (priority, drive.label.lower(), path_str)
+
+    drives.sort(key=sort_key)
+    return drives
 
 
 def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bool]]:
