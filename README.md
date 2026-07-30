@@ -150,6 +150,7 @@ Depending on the OS you run it on, it builds the native artifact for that platfo
 
 Pushing a version tag such as `v0.1.0` triggers `.github/workflows/release.yml`, which:
 
+- waits for the complete reusable CI quality gate to pass
 - validates the tag matches `filesearch.__version__`
 - builds native standalone bundles on Windows, macOS, and Linux
 - uploads the packaged artifacts to the matching GitHub Release
