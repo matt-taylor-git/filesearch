@@ -8,12 +8,13 @@ This guide provides comprehensive instructions for setting up, developing, testi
 
 ### System Requirements
 - **Operating System**: Windows 10+, macOS 10.14+, or Linux (Ubuntu 18.04+)
-- **Python**: Version 3.9 or higher
+- **Python**: Version 3.11, 3.12, 3.13, or 3.14
 - **Memory**: Minimum 4GB RAM (8GB recommended)
 - **Storage**: 100MB free disk space for application and dependencies
 
 ### Development Tools
 - **Git**: For version control and repository management
+- **uv**: For Python installation, dependency locking, and environments
 - **Python IDE**: VS Code, PyCharm, or similar with Python support
 - **Terminal**: Command line interface for running commands
 
@@ -21,42 +22,31 @@ This guide provides comprehensive instructions for setting up, developing, testi
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/filesearch/filesearch.git
+git clone https://github.com/matt-taylor-git/filesearch.git
 cd filesearch
 ```
 
-### 2. Create Virtual Environment
+### 2. Synchronize the Locked Environment
 ```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
+uv sync --locked
 ```
 
-### 3. Install Dependencies
-```bash
-# Runtime dependencies
-pip install -r requirements.txt
+This creates `.venv` and installs File Search plus its development tools from
+`uv.lock`. Dependency changes belong in `pyproject.toml`; run `uv lock` after
+changing them and commit both files.
 
-# Development dependencies (optional)
-pip install -r requirements-dev.txt
+### 3. Install Pre-commit Hooks
+```bash
+uv run pre-commit install
 ```
 
-### 4. Install Pre-commit Hooks
-```bash
-pre-commit install
-```
-
-### 5. Verify Installation
+### 4. Verify Installation
 ```bash
 # Test application startup
-python -m filesearch --help
+uv run python -m filesearch --help
 
 # Run tests to verify environment
-pytest
+uv run pytest
 ```
 
 ## Development Workflow
@@ -66,20 +56,20 @@ pytest
 #### Development Mode
 ```bash
 # From source with debug logging
-python -m filesearch --debug
+uv run python -m filesearch --debug
 
 # With specific log level
-python -m filesearch --info
-python -m filesearch --warning
+uv run python -m filesearch --info
+uv run python -m filesearch --warning
 ```
 
 #### Installed Mode
 ```bash
 # If installed via pip
-filesearch
+uv run filesearch
 
 # Show version
-filesearch --version
+uv run filesearch --version
 ```
 
 ### Code Quality Tools
@@ -87,34 +77,34 @@ filesearch --version
 #### Code Formatting
 ```bash
 # Format all source files
-black src/ tests/
+uv run black src/ tests/
 
 # Check formatting without modifying
-black --check src/ tests/
+uv run black --check src/ tests/
 
 # Format specific file
-black src/filesearch/core/search_engine.py
+uv run black src/filesearch/core/search_engine.py
 ```
 
 #### Import Sorting
 ```bash
 # Sort imports in all files
-isort src/ tests/
+uv run isort src/ tests/
 
 # Check import sorting
-isort --check-only --profile=black src/ tests/
+uv run isort --check-only --profile=black src/ tests/
 ```
 
 #### Linting
 ```bash
 # Lint all source and test files
-flake8 src/ tests/
+uv run flake8 src/ tests/
 
 # Lint with specific configuration
-flake8 --max-line-length=88 --extend-ignore=E203,F401 src/ tests/
+uv run flake8 --max-line-length=88 --extend-ignore=E203,F401 src/ tests/
 
 # Show statistics
-flake8 --statistics src/ tests/
+uv run flake8 --statistics src/ tests/
 ```
 
 ### Testing
@@ -122,43 +112,43 @@ flake8 --statistics src/ tests/
 #### Running Tests
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run with verbose output
-pytest -v
+uv run pytest -v
 
 # Run specific test file
-pytest tests/unit/test_search_engine.py
+uv run pytest tests/unit/test_search_engine.py
 
 # Run specific test function
-pytest tests/unit/test_search_engine.py::TestFileSearchEngine::test_initialization
+uv run pytest tests/unit/test_search_engine.py::TestFileSearchEngine::test_initialization
 ```
 
 #### Test Categories
 ```bash
 # Unit tests only
-pytest -m unit
+uv run pytest -m unit
 
 # Integration tests only
-pytest -m integration
+uv run pytest -m integration
 
 # UI tests only
-pytest -m ui
+uv run pytest -m ui
 
 # Slow tests (exclude for quick testing)
-pytest -m "not slow"
+uv run pytest -m "not slow"
 ```
 
 #### Coverage Reporting
 ```bash
 # Generate coverage report
-pytest --cov=filesearch --cov-report=html
+uv run pytest --cov=filesearch --cov-report=html
 
 # Generate coverage with terminal output
-pytest --cov=filesearch --cov-report=term-missing
+uv run pytest --cov=filesearch --cov-report=term-missing
 
 # Coverage with specific threshold
-pytest --cov=filesearch --cov-fail-under=80
+uv run pytest --cov=filesearch --cov-fail-under=80
 ```
 
 ### Building and Packaging
@@ -166,31 +156,28 @@ pytest --cov=filesearch --cov-fail-under=80
 #### Development Build
 ```bash
 # Build package in development mode
-python -m build
+uv build
 
 # Build wheel only
-python -m build --wheel
+uv build --wheel
 
 # Build source distribution
-python -m build --sdist
+uv build --sdist
 ```
 
 #### Production Build
 ```bash
-# Install build dependencies
-pip install build twine
-
 # Build for distribution
-python -m build
+uv build
 
 # Check package
-twine check dist/*
+uv tool run twine check dist/*
 
 # Upload to PyPI (test)
-twine upload --repository testpypi dist/*
+uv tool run twine upload --repository testpypi dist/*
 
 # Upload to PyPI (production)
-twine upload dist/*
+uv tool run twine upload dist/*
 ```
 
 ## Architecture Overview

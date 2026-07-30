@@ -4,33 +4,33 @@ Guidance for coding agents and contributors working in this repository.
 
 ## Project summary
 
-File Search is a Python 3.9+ desktop application built with PyQt6. It provides fast recursive filename search, a three-panel UI, sidebar-based scope selection, result sorting, details/context actions, and a plugin architecture.
+File Search is a Python 3.11–3.14 desktop application built with PyQt6. It provides fast recursive filename search, a three-panel UI, sidebar-based scope selection, result sorting, details/context actions, and a plugin architecture.
 
 ## Runbook
 
 ```bash
 # Run the app
-python -m filesearch
-python -m filesearch --debug
+uv run python -m filesearch
+uv run python -m filesearch --debug
 
 # Tests
-python -m pytest
-python -m pytest -m unit
-python -m pytest -m integration
-python -m pytest -m ui
+uv run python -m pytest
+uv run python -m pytest -m unit
+uv run python -m pytest -m integration
+uv run python -m pytest -m ui
 
 # Formatting / linting
-black src/ tests/
-flake8 src/ tests/
-pre-commit run --all-files
+uv run black src/ tests/
+uv run flake8 src/ tests/
+uv run pre-commit run --all-files
 ```
 
-If the local shell has no `python` shim, use the project virtualenv directly, for example `venv/bin/python -m filesearch --debug` or `venv/bin/python -m pytest ...`.
+Run `uv sync --locked` once to create the project environment.
 
 For PyQt tests in headless automation, prefer:
 
 ```bash
-QT_QPA_PLATFORM=offscreen python -m pytest tests/unit/test_main_window.py
+QT_QPA_PLATFORM=offscreen uv run python -m pytest tests/unit/test_main_window.py
 ```
 
 ## Repository map

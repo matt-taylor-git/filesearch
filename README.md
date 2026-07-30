@@ -17,44 +17,34 @@ File Search is a desktop file-finding app built with Python and PyQt6. It combin
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.11, 3.12, 3.13, or 3.14
 - Git
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ## Installation
 
-### Runtime setup
+### Development setup
 
 ```bash
 git clone https://github.com/matt-taylor-git/filesearch.git
 cd filesearch
 
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# macOS / Linux
-python3 -m venv venv
-source venv/bin/activate
-
-pip install -r requirements.txt
-pip install -e .
+uv sync --locked
+uv run pre-commit install
 ```
 
-### Development setup
-
-```bash
-pip install -r requirements-dev.txt
-pre-commit install
-```
+`pyproject.toml` is the canonical dependency definition and `uv.lock` pins the
+resolved environment. `uv sync --locked` creates `.venv`, installs File Search,
+and installs the default development tools without modifying the lockfile.
 
 ## Running the app
 
 ```bash
 # From source
-python -m filesearch
+uv run python -m filesearch
 
 # If installed as a script entrypoint
-filesearch
+uv run filesearch
 ```
 
 The app now ships with a bundled application icon in `src/filesearch/resources/icons/`.
@@ -100,31 +90,29 @@ The main config file is created automatically in the user's platform-specific co
 ### Useful commands
 
 ```bash
-python -m pytest
-python -m pytest -m unit
-python -m pytest -m integration
-python -m pytest -m ui
+uv run python -m pytest
+uv run python -m pytest -m unit
+uv run python -m pytest -m integration
+uv run python -m pytest -m ui
 
-black src/ tests/
-flake8 src/ tests/
-pre-commit run --all-files
+uv run black src/ tests/
+uv run flake8 src/ tests/
+uv run pre-commit run --all-files
 ```
 
 For PyQt tests in headless or automation contexts, run with Qt's offscreen platform:
 
 ```bash
-QT_QPA_PLATFORM=offscreen python -m pytest tests/unit/test_main_window.py
+QT_QPA_PLATFORM=offscreen uv run python -m pytest tests/unit/test_main_window.py
 ```
-
-Some local macOS shells may not expose a `python` shim even when a virtualenv exists; using `venv/bin/python -m pytest ...` is equivalent.
 
 ### Release packaging
 
 Standalone desktop bundles are produced with PyInstaller for Windows, macOS, and Linux.
 
 ```bash
-pip install -e .[release]
-python scripts/build_release.py
+uv sync --locked --extra release
+uv run python scripts/build_release.py
 ```
 
 The script creates:
