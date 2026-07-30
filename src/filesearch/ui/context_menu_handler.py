@@ -5,13 +5,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List, cast
 
 from loguru import logger
-from PyQt6.QtCore import QMimeData, QPoint, Qt, QUrl
-from PyQt6.QtGui import QAction, QGuiApplication
+from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
     QMenu,
-    QMessageBox,
     QStyle,
 )
 
@@ -19,13 +18,12 @@ from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
     delete_file,
     get_associated_applications,
-    open_containing_folder,
-    open_with_application,
 )
 from filesearch.models.search_result import SearchResult
 from filesearch.ui.results_model import ResultsModel
 
 if TYPE_CHECKING:
+    from filesearch.core.application_runtime import DesktopEffects
     from filesearch.ui.results_view import ResultsView
 
 
@@ -85,6 +83,7 @@ class ContextMenuHandlerMixin:
 
     if TYPE_CHECKING:
         results_view: "ResultsView"
+        desktop_effects: "DesktopEffects"
 
         def safe_status_message(self, message: str) -> None: ...
 
@@ -298,7 +297,7 @@ class ContextMenuHandlerMixin:
             self.safe_status_message(
                 f"Opening {result.path.name} with {app_info['name']}..."
             )
-            open_with_application(result.path, app_info)
+            self.desktop_effects.open_with(result.path, app_info)
             self.safe_status_message(
                 f"Opened {result.path.name} with {app_info['name']}"
             )
@@ -315,17 +314,10 @@ class ContextMenuHandlerMixin:
         Args:
             result: SearchResult object
         """
-        from PyQt6.QtWidgets import QFileDialog
-
-        file_dialog = QFileDialog(self._host_widget(), "Choose Application")
-        file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-
-        if file_dialog.exec():
-            selected_files = file_dialog.selectedFiles()
-            if selected_files:
-                executable = selected_files[0]
-                app_info = {"name": Path(executable).name, "command": executable}
-                self._handle_open_with_app(app_info, result)
+        executable = self.desktop_effects.choose_application(self._host_widget())
+        if executable is not None:
+            app_info = {"name": executable.name, "command": str(executable)}
+            self._handle_open_with_app(app_info, result)
 
     def _on_context_menu_action(self, action: _ContextMenuAction) -> None:
         """Routes context menu actions to their respective handlers.
@@ -393,7 +385,7 @@ class ContextMenuHandlerMixin:
 
         result = selected_results[0]
         try:
-            open_containing_folder(result.path)
+            self.desktop_effects.reveal_file(result.path)
             self.safe_status_message("Opened containing folder")
             logger.info(f"Opened containing folder for {result.path}")
         except FileSearchError as e:
@@ -403,16 +395,13 @@ class ContextMenuHandlerMixin:
     def _handle_context_copy_path(self, selected_results: List[SearchResult]) -> None:
         """Handle Copy Path to Clipboard action."""
         try:
-            clipboard = QGuiApplication.clipboard()
-            if clipboard is None:
-                raise RuntimeError("Clipboard is unavailable")
             if len(selected_results) == 1:
                 path_text = str(selected_results[0].path)
             else:
                 paths = [str(result.path) for result in selected_results]
                 path_text = "\n".join(paths)
 
-            clipboard.setText(path_text)
+            self.desktop_effects.copy_text(path_text)
             self.safe_status_message("Path copied to clipboard")
             logger.info(f"Copied {len(selected_results)} path(s) to clipboard")
         except Exception as e:
@@ -422,10 +411,6 @@ class ContextMenuHandlerMixin:
     def _handle_context_copy_file(self, selected_results: List[SearchResult]) -> None:
         """Handle Copy File to Clipboard action."""
         try:
-            clipboard = QGuiApplication.clipboard()
-            if clipboard is None:
-                raise RuntimeError("Clipboard is unavailable")
-
             missing_files = []
             for result in selected_results:
                 if not result.path.exists():
@@ -442,17 +427,9 @@ class ContextMenuHandlerMixin:
                     )
                 return
 
-            if len(selected_results) == 1:
-                file_path = selected_results[0].path
-                file_url = QUrl.fromLocalFile(str(file_path))
-                mime_data = QMimeData()
-                mime_data.setUrls([file_url])
-                clipboard.setMimeData(mime_data)
-            else:
-                urls = [QUrl.fromLocalFile(str(r.path)) for r in selected_results]
-                mime_data = QMimeData()
-                mime_data.setUrls(urls)
-                clipboard.setMimeData(mime_data)
+            self.desktop_effects.copy_files(
+                [result.path for result in selected_results]
+            )
 
             self.safe_status_message("File copied to clipboard")
             logger.info(f"Copied {len(selected_results)} file(s) to clipboard")
@@ -476,10 +453,7 @@ class ContextMenuHandlerMixin:
 
         result = selected_results[0]
         try:
-            from filesearch.ui.dialogs.properties_dialog import PropertiesDialog
-
-            dialog = PropertiesDialog(result.path, self._host_widget())
-            dialog.exec()
+            self.desktop_effects.show_properties(self._host_widget(), result.path)
             logger.info(f"Showed properties dialog for {result.path}")
         except Exception as e:
             self.safe_status_message(f"Failed to show properties: {e}")
@@ -505,15 +479,13 @@ class ContextMenuHandlerMixin:
                 message = f"Move {item_name} to trash?"
                 title = "Confirm Delete"
 
-            reply = QMessageBox.question(
+            confirmed = self.desktop_effects.confirm(
                 self._host_widget(),
                 title,
                 message,
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
             )
 
-            if reply != QMessageBox.StandardButton.Yes:
+            if not confirmed:
                 self.safe_status_message("Delete cancelled")
                 return
 

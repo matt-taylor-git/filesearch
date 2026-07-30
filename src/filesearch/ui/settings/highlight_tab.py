@@ -8,20 +8,21 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from filesearch.core.config_manager import ConfigManager
+from filesearch.core.application_runtime import DesktopEffects
 
 
 class HighlightSettingsTab(QWidget):
     """Highlighting preferences tab widget."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, desktop_effects: DesktopEffects):
         super().__init__(parent)
+        self.desktop_effects = desktop_effects
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -138,23 +139,20 @@ class HighlightSettingsTab(QWidget):
     def choose_highlight_color(self) -> None:
         """Open color picker dialog for highlight color."""
         try:
-            from PyQt6.QtGui import QColor
-            from PyQt6.QtWidgets import QColorDialog
-
             current_color = self.highlight_color_input.text()
             if not current_color.startswith("#") or len(current_color) != 7:
                 current_color = "#FFFF99"  # Default yellow
 
-            color = QColorDialog.getColor(
-                QColor(current_color), self, "Choose Highlight Color"
+            color = self.desktop_effects.choose_color(
+                self, current_color, "Choose Highlight Color"
             )
 
-            if color.isValid():
-                self.highlight_color_input.setText(color.name())
+            if color:
+                self.highlight_color_input.setText(color)
 
         except Exception as e:
             logger.error(f"Error choosing highlight color: {e}")
-            QMessageBox.warning(
+            self.desktop_effects.show_warning(
                 self, "Color Picker Error", f"Error choosing color: {e}"
             )
 

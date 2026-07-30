@@ -147,8 +147,11 @@ class SidebarWidget(QWidget):
     tag_clicked = pyqtSignal(str)
     browse_requested = pyqtSignal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, parent: Optional[QWidget] = None, *, home_dir: Optional[Path] = None
+    ) -> None:
         super().__init__(parent)
+        self._home_dir = Path(home_dir) if home_dir is not None else Path.home()
         self.setObjectName("sidebarWidget")
         self.setFixedWidth(240)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
@@ -202,35 +205,49 @@ class SidebarWidget(QWidget):
         layout.addWidget(self._section_header("LOCATIONS"))
         layout.addSpacing(4)
 
+        def user_folder(name: str) -> Path:
+            if name == "home":
+                return self._home_dir
+            fallback_names = {
+                "documents": "Documents",
+                "desktop": "Desktop",
+                "downloads": "Downloads",
+                "pictures": "Pictures",
+                "videos": "Videos",
+            }
+            if self._home_dir != Path.home():
+                return self._home_dir / fallback_names[name]
+            return get_user_folder(name)
+
         locations = [
-            ("Home", get_user_folder("home"), "mdi6.home", Colors.PRIMARY),
+            ("Home", user_folder("home"), "mdi6.home", Colors.PRIMARY),
             (
                 "Documents",
-                get_user_folder("documents"),
+                user_folder("documents"),
                 "mdi6.file-document",
                 Colors.TEXT_SECONDARY,
             ),
             (
                 "Desktop",
-                get_user_folder("desktop"),
+                user_folder("desktop"),
                 "mdi6.monitor",
                 Colors.TEXT_SECONDARY,
             ),
             (
                 "Downloads",
-                get_user_folder("downloads"),
+                user_folder("downloads"),
                 "mdi6.download",
                 Colors.TEXT_SECONDARY,
             ),
             (
                 "Pictures",
-                get_user_folder("pictures"),
+                user_folder("pictures"),
                 "mdi6.image",
                 Colors.TEXT_SECONDARY,
             ),
             (
                 "Videos",
-                get_user_folder("videos"),
+                user_folder("videos"),
                 "mdi6.video",
                 Colors.TEXT_SECONDARY,
             ),
@@ -402,6 +419,10 @@ class SidebarWidget(QWidget):
             custom_path = self._custom_location_button.property("path")
             if custom_path and Path(custom_path) == path:
                 self._set_active_button(self._custom_location_button)
+
+    def location_path(self, label: str) -> Path:
+        """Return the configured path for a built-in location."""
+        return self._location_map[label]
 
     def set_custom_location(self, path: Optional[Path]) -> None:
         """Show or hide the custom folder location row."""

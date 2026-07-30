@@ -1,6 +1,5 @@
 """Directory selector widget for choosing search directories."""
 
-import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -9,7 +8,6 @@ from PyQt6.QtCore import QEvent, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QDragEnterEvent, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QCompleter,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -21,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from filesearch.core.config_manager import ConfigManager
+from filesearch.core.application_runtime import DesktopEffects
 from filesearch.core.file_utils import normalize_path, validate_directory
 
 
@@ -39,11 +38,14 @@ class DirectorySelectorWidget(QWidget):
 
     def __init__(
         self,
-        config_manager: Optional[ConfigManager] = None,
+        config_manager: ConfigManager,
         parent: Optional[QWidget] = None,
+        *,
+        desktop_effects: DesktopEffects,
     ):
         super().__init__(parent)
         self.config_manager = config_manager
+        self.desktop_effects = desktop_effects
         self.recent_directories: List[str] = []
         self._setup_ui()
         self._setup_style()
@@ -180,19 +182,12 @@ class DirectorySelectorWidget(QWidget):
         """Handle browse button click to open native directory selection dialog."""
         logger.debug("Browse button clicked - opening QFileDialog")
 
-        dialog_title = "Select Search Directory"
-        current_dir = str(self.get_directory())
-
-        selected_dir = QFileDialog.getExistingDirectory(
-            self,
-            dialog_title,
-            current_dir,
-            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
+        selected_path = self.desktop_effects.choose_directory(
+            self, self.get_directory(), title="Select Search Directory"
         )
 
-        if selected_dir:
-            logger.debug(f"Directory selected: {selected_dir}")
-            selected_path = Path(selected_dir)
+        if selected_path:
+            logger.debug(f"Directory selected: {selected_path}")
             self.set_directory(selected_path)
             self._add_to_recent_directories(selected_path)
         else:
@@ -221,11 +216,11 @@ class DirectorySelectorWidget(QWidget):
     def _setup_completer(self) -> None:
         """Setup auto-completer with common paths and recent directories."""
         # AC 2.3: Auto-complete common paths (home, documents, desktop)
-        home = os.path.expanduser("~")
+        home = str(self.config_manager.home_dir)
         common_paths = [
             home,
-            os.path.join(home, "Documents"),
-            os.path.join(home, "Desktop"),
+            str(Path(home) / "Documents"),
+            str(Path(home) / "Desktop"),
         ]
 
         # Include recent directories in addition
@@ -281,9 +276,7 @@ class DirectorySelectorWidget(QWidget):
 
     def _set_default_directory(self) -> None:
         """Set the default directory to the user's home directory."""
-        # AC: Default directory: user's home directory (~ or %USERPROFILE%)
-        # Dev Note: Use os.path.expanduser
-        home_dir_path = normalize_path("~")
+        home_dir_path = self.config_manager.home_dir.resolve()
         self.directory_input.setText(str(home_dir_path))
         self.directory_changed.emit(home_dir_path)
 

@@ -56,11 +56,11 @@ class TestOpenWithMenu:
         assert menu.addAction.call_count == 3  # Text Editor, Vim, Choose...
         menu.addSeparator.assert_called_once()
 
-    @patch("filesearch.ui.context_menu_handler.open_with_application")
-    def test_handle_open_with_app(self, mock_open_with, search_result):
+    def test_handle_open_with_app(self, search_result, desktop_effects):
         """Test handling opening with specific app."""
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
+        window.desktop_effects = desktop_effects
 
         window._handle_open_with_app = MainWindow._handle_open_with_app.__get__(
             window, MainWindow
@@ -70,21 +70,17 @@ class TestOpenWithMenu:
 
         window._handle_open_with_app(app_info, search_result)
 
-        mock_open_with.assert_called_once_with(search_result.path, app_info)
+        assert desktop_effects.opened_with == [(search_result.path, app_info)]
         window.safe_status_message.assert_any_call(
             f"Opening {search_result.path.name} with Text Editor..."
         )
 
-    @patch("PyQt6.QtWidgets.QFileDialog")
-    def test_handle_choose_application(self, mock_file_dialog_class, search_result):
+    def test_handle_choose_application(self, search_result, desktop_effects):
         """Test choosing application from dialog."""
         window = Mock(spec=MainWindow)
         window._handle_open_with_app = Mock()
-
-        # Mock dialog interaction
-        mock_dialog = mock_file_dialog_class.return_value
-        mock_dialog.exec.return_value = True
-        mock_dialog.selectedFiles.return_value = ["/usr/bin/gedit"]
+        window.desktop_effects = desktop_effects
+        desktop_effects.application_choice = Path("/usr/bin/gedit")
 
         window._handle_choose_application = (
             MainWindow._handle_choose_application.__get__(window, MainWindow)
@@ -98,17 +94,11 @@ class TestOpenWithMenu:
             expected_app_info, search_result
         )
 
-    @patch("PyQt6.QtWidgets.QFileDialog")
-    def test_handle_choose_application_cancelled(
-        self, mock_file_dialog_class, search_result
-    ):
+    def test_handle_choose_application_cancelled(self, search_result, desktop_effects):
         """Test choosing application cancelled."""
         window = Mock(spec=MainWindow)
         window._handle_open_with_app = Mock()
-
-        # Mock dialog cancellation
-        mock_dialog = mock_file_dialog_class.return_value
-        mock_dialog.exec.return_value = False
+        window.desktop_effects = desktop_effects
 
         window._handle_choose_application = (
             MainWindow._handle_choose_application.__get__(window, MainWindow)

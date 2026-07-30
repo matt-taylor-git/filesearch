@@ -7,15 +7,9 @@ into a tabbed settings interface.
 from typing import Optional
 
 from loguru import logger
-from PyQt6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QMessageBox,
-    QTabWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QTabWidget, QVBoxLayout, QWidget
 
+from filesearch.core.application_runtime import DesktopEffects
 from filesearch.core.config_manager import ConfigManager
 from filesearch.plugins.plugin_manager import PluginManager
 from filesearch.ui.settings.highlight_tab import HighlightSettingsTab
@@ -45,6 +39,8 @@ class SettingsDialog(QDialog):
         config_manager: ConfigManager,
         plugin_manager: Optional[PluginManager] = None,
         parent: Optional[QWidget] = None,
+        *,
+        desktop_effects: DesktopEffects,
     ):
         """Initialize the settings dialog.
 
@@ -56,6 +52,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.config_manager = config_manager
         self.plugin_manager = plugin_manager
+        self.desktop_effects = desktop_effects
         self.setWindowTitle("Settings")
         self.setMinimumSize(600, 400)
 
@@ -104,10 +101,13 @@ class SettingsDialog(QDialog):
         main_layout.addWidget(self.tabs)
 
         # Create tab instances
-        self.search_tab = SearchSettingsTab()
+        self.search_tab = SearchSettingsTab(
+            desktop_effects=self.desktop_effects,
+            home_dir=self.config_manager.home_dir,
+        )
         self.ui_tab = UISettingsTab()
         self.performance_tab = PerformanceSettingsTab()
-        self.highlight_tab = HighlightSettingsTab()
+        self.highlight_tab = HighlightSettingsTab(desktop_effects=self.desktop_effects)
 
         # Add tabs to widget
         self.tabs.addTab(self.search_tab, "Search")
@@ -116,7 +116,9 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(self.highlight_tab, "Highlighting")
 
         if self.plugin_manager:
-            self.plugin_tab = PluginSettingsTab(self.plugin_manager)
+            self.plugin_tab = PluginSettingsTab(
+                self.plugin_manager, desktop_effects=self.desktop_effects
+            )
             self.tabs.addTab(self.plugin_tab, "Plugins")
 
         # Create button box
@@ -152,7 +154,9 @@ class SettingsDialog(QDialog):
 
         except Exception as e:
             logger.error(f"Error loading settings: {e}")
-            QMessageBox.warning(self, "Load Error", f"Error loading settings: {e}")
+            self.desktop_effects.show_warning(
+                self, "Load Error", f"Error loading settings: {e}"
+            )
 
     def save_settings(self) -> None:
         """Save current settings to configuration."""
@@ -169,7 +173,9 @@ class SettingsDialog(QDialog):
 
         except Exception as e:
             logger.error(f"Error saving settings: {e}")
-            QMessageBox.critical(self, "Save Error", f"Error saving settings: {e}")
+            self.desktop_effects.show_error(
+                self, "Save Error", f"Error saving settings: {e}"
+            )
             raise
 
     def accept(self) -> None:
@@ -189,14 +195,13 @@ class SettingsDialog(QDialog):
 
     def reset_to_defaults(self) -> None:
         """Reset all settings to defaults."""
-        reply = QMessageBox.question(
+        confirmed = self.desktop_effects.confirm(
             self,
             "Reset to Defaults",
             "Are you sure you want to reset all settings to their default values?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
-        if reply == QMessageBox.StandardButton.Yes:
+        if confirmed:
             self.config_manager.reset_to_defaults()
             self.load_settings()
             logger.info("Settings reset to defaults")

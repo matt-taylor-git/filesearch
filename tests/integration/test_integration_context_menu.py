@@ -33,9 +33,9 @@ def search_results(tmp_path):
 
 
 @pytest.fixture
-def main_window(qtbot):
+def main_window(qtbot, application_runtime):
     """Create main window for integration tests."""
-    window = MainWindow()
+    window = MainWindow(runtime=application_runtime)
     qtbot.addWidget(window)
     return window
 
@@ -119,213 +119,111 @@ class TestRightClickToMenuActionFlow:
             # Verify file opening was requested
             mock_open_file.assert_called_once_with(search_results[0])
 
-    def test_copy_path_workflow_multiselect(self, main_window, qtbot, search_results):
+    def test_copy_path_workflow_multiselect(
+        self, main_window, qtbot, search_results, desktop_effects
+    ):
         """Test copying multiple file paths end-to-end."""
-        import PyQt6.QtGui
-
-        with patch("PyQt6.QtGui.QGuiApplication.clipboard") as mock_clipboard_getter:
-            mock_clipboard = Mock()
-            mock_clipboard_getter.return_value = mock_clipboard
-
-            with patch.object(main_window, "safe_status_message") as mock_status:
-                # Execute copy path action
-                main_window._handle_context_copy_path(search_results)
-
-                # Verify clipboard received the correct text
-                expected_text = f"{search_results[0].path}\n{search_results[1].path}"
-                mock_clipboard.setText.assert_called_once_with(expected_text)
-
-                # Verify status message
-                mock_status.assert_called_with("Path copied to clipboard")
+        with patch.object(main_window, "safe_status_message") as mock_status:
+            main_window._handle_context_copy_path(search_results)
+            expected_text = f"{search_results[0].path}\n{search_results[1].path}"
+            assert desktop_effects.copied_text == [expected_text]
+            mock_status.assert_called_with("Path copied to clipboard")
 
     def test_delete_confirmation_workflow_cancel(
-        self, main_window, qtbot, search_results
+        self, main_window, qtbot, search_results, desktop_effects
     ):
         """Test delete workflow when user cancels confirmation."""
-        with patch("PyQt6.QtWidgets.QMessageBox.question") as mock_question:
-            # Simulate user clicking Cancel
-            from PyQt6.QtWidgets import QMessageBox
-
-            mock_question.return_value = QMessageBox.StandardButton.No
-
-            with patch.object(main_window, "safe_status_message") as mock_status:
-                with patch.object(
-                    main_window, "_perform_delete"
-                ) as mock_perform_delete:
-                    # Execute delete action
-                    main_window._handle_context_delete([search_results[0]])
-
-                    # Verify confirmation dialog was shown
-                    mock_question.assert_called_once()
-
-                    # Verify delete was NOT performed
-                    mock_perform_delete.assert_not_called()
-
-                    # Verify cancellation message
-                    mock_status.assert_any_call("Delete cancelled")
+        desktop_effects.confirmed = False
+        with (
+            patch.object(main_window, "safe_status_message") as mock_status,
+            patch.object(main_window, "_perform_delete") as mock_perform_delete,
+        ):
+            main_window._handle_context_delete([search_results[0]])
+            mock_perform_delete.assert_not_called()
+            mock_status.assert_any_call("Delete cancelled")
 
     def test_delete_confirmation_workflow_proceed(
-        self, main_window, qtbot, search_results
+        self, main_window, qtbot, search_results, desktop_effects
     ):
         """Test delete workflow when user confirms deletion."""
-        with patch("PyQt6.QtWidgets.QMessageBox.question") as mock_question:
-            # Simulate user clicking Yes
-            from PyQt6.QtWidgets import QMessageBox
+        desktop_effects.confirmed = True
+        with patch.object(main_window, "_perform_delete") as mock_perform_delete:
+            main_window._handle_context_delete([search_results[0]])
+            mock_perform_delete.assert_called_once_with([search_results[0]], False)
 
-            mock_question.return_value = QMessageBox.StandardButton.Yes
-
-            with patch.object(main_window, "_perform_delete") as mock_perform_delete:
-                # Execute delete action
-                main_window._handle_context_delete([search_results[0]])
-
-                # Verify confirmation dialog was shown
-                mock_question.assert_called_once()
-
-                # Verify delete was performed
-                mock_perform_delete.assert_called_once_with([search_results[0]], False)
-
-    def test_properties_dialog_workflow(self, main_window, qtbot, search_results):
+    def test_properties_dialog_workflow(
+        self, main_window, qtbot, search_results, desktop_effects
+    ):
         """Test properties dialog complete workflow."""
-        from filesearch.ui.dialogs.properties_dialog import PropertiesDialog
-
-        with patch(
-            "filesearch.ui.dialogs.properties_dialog.PropertiesDialog"
-        ) as mock_dialog_class:
-            mock_dialog = Mock()
-            mock_dialog_class.return_value = mock_dialog
-            mock_dialog.exec.return_value = True
-
-            # Execute properties action
-            main_window._handle_context_properties([search_results[0]])
-
-            # Verify dialog was created correctly
-            mock_dialog_class.assert_called_once_with(
-                search_results[0].path, main_window
-            )
-
-            # Verify dialog was executed
-            mock_dialog.exec.assert_called_once()
+        main_window._handle_context_properties([search_results[0]])
+        assert desktop_effects.properties == [search_results[0].path]
 
 
 class TestErrorHandlingIntegration:
     """Test error handling across complete workflows."""
 
-    def test_file_opening_error_recovery(self, main_window, search_results):
+    def test_file_opening_error_recovery(
+        self, main_window, search_results, desktop_effects
+    ):
         """Test error handling when file opening fails."""
-        # Mock safe_open inside file_utils to raise an error
-        # This allows _on_file_open_requested to run and log the error
-        with patch("filesearch.core.file_utils.safe_open") as mock_safe_open:
-            mock_safe_open.side_effect = Exception("File opening failed")
+        main_window.results_view.set_results(search_results)
+        main_window.results_view.setCurrentIndex(
+            main_window.results_view.model().index(0, 0)
+        )
+        desktop_effects.open_file = Mock(side_effect=Exception("File opening failed"))
+        with patch.object(main_window, "safe_status_message") as mock_status:
+            main_window._on_context_menu_action(main_window.ContextMenuAction.OPEN)
+            assert any(
+                "Error checking file security" in call.args[0]
+                for call in mock_status.call_args_list
+            )
 
-            with patch.object(main_window, "safe_status_message") as mock_status:
-                # Patch logger in the module where it is used
-                # (filesearch.ui.main_window)
-                with patch("filesearch.ui.context_menu_handler.logger") as mock_logger:
-                    # Execute the action
-                    main_window._on_context_menu_action(
-                        main_window.ContextMenuAction.OPEN
-                    )
-
-                    # Verify error was logged
-                    mock_logger.error.assert_called()
-
-                    # Verify user-friendly error message (safe_open error is caught in
-                    # _open_file_with_status catches FileSearchError, generic Exception.
-                    # Wait, _open_file_with_status:
-                    #
-                    #
-                    # try: safe_open(...) except FileSearchError as e: ...
-                    # If safe_open raises generic Exception, it propagates to
-                    # _on_file_open_requested
-                    # which catches Exception and logs it.
-
-                    mock_status.assert_called()
-                    # Check if error message contains "Error checking file security" or
-                    # similar depending on where it was caught
-                    # _on_file_open_requested catches generic Exception ->
-                    # "Error checking file security: ..."
-
-                    # Actually, _open_file_with_status is called from
-                    # _on_file_open_requested _open_file_with_status doesn't catch
-                    # generic Exception.
-                    # So it goes to _on_file_open_requested except block.
-                    assert mock_logger.error.call_count > 0
-
-    def test_clipboard_failure_recovery(self, main_window, search_results):
+    def test_clipboard_failure_recovery(
+        self, main_window, search_results, desktop_effects
+    ):
         """Test clipboard operations failure recovery."""
-        with patch("PyQt6.QtGui.QGuiApplication.clipboard") as mock_clipboard_getter:
-            mock_clipboard = Mock()
-            mock_clipboard.setText.side_effect = Exception("Clipboard unavailable")
-            mock_clipboard_getter.return_value = mock_clipboard
+        desktop_effects.copy_text = Mock(side_effect=Exception("Clipboard unavailable"))
+        with patch.object(main_window, "safe_status_message") as mock_status:
+            main_window._handle_context_copy_path([search_results[0]])
+            mock_status.assert_called_with("Failed to copy path: Clipboard unavailable")
 
-            with patch.object(main_window, "safe_status_message") as mock_status:
-                with patch("filesearch.ui.context_menu_handler.logger") as mock_logger:
-                    # Execute copy path action
-                    main_window._handle_context_copy_path([search_results[0]])
-
-                    # Verify error was logged
-                    mock_logger.error.assert_called()
-
-                    # Verify user-friendly error message
-                    mock_status.assert_called_with(
-                        "Failed to copy path: Clipboard unavailable"
-                    )
-
-    def test_properties_dialog_creation_failure(self, main_window, search_results):
+    def test_properties_dialog_creation_failure(
+        self, main_window, search_results, desktop_effects
+    ):
         """Test properties dialog creation failure."""
-        with patch(
-            "filesearch.ui.dialogs.properties_dialog.PropertiesDialog"
-        ) as mock_dialog_class:
-            mock_dialog_class.side_effect = Exception("Dialog creation failed")
-
-            with patch.object(main_window, "safe_status_message") as mock_status:
-                with patch("filesearch.ui.context_menu_handler.logger") as mock_logger:
-                    # Execute properties action
-                    main_window._handle_context_properties([search_results[0]])
-
-                    # Verify error was logged and handled
-                    mock_logger.error.assert_called()
-                    mock_status.assert_called_with(
-                        "Failed to show properties: Dialog creation failed"
-                    )
+        desktop_effects.show_properties = Mock(
+            side_effect=Exception("Dialog creation failed")
+        )
+        with patch.object(main_window, "safe_status_message") as mock_status:
+            main_window._handle_context_properties([search_results[0]])
+            mock_status.assert_called_with(
+                "Failed to show properties: Dialog creation failed"
+            )
 
 
 class TestCrossPlatformFileOperations:
     """Test cross-platform file operation integration."""
 
-    @patch("filesearch.ui.context_menu_handler.open_containing_folder")
     def test_open_containing_folder_platform_integration(
-        self, mock_open_folder, main_window, search_results
+        self, main_window, search_results, desktop_effects
     ):
         """Test open containing folder works across platforms."""
         # Test that the function is called correctly
         main_window._handle_context_open_containing_folder([search_results[0]])
 
-        mock_open_folder.assert_called_once_with(search_results[0].path)
+        assert desktop_effects.revealed_files == [search_results[0].path]
 
-    def test_clipboard_operations_cross_platform(self, main_window, search_results):
+    def test_clipboard_operations_cross_platform(
+        self, main_window, search_results, desktop_effects
+    ):
         """Test clipboard operations work consistently across platforms."""
         # Test path copying
-        with patch("PyQt6.QtGui.QGuiApplication.clipboard") as mock_clipboard_getter:
-            mock_clipboard = Mock()
-            mock_clipboard_getter.return_value = mock_clipboard
-
-            main_window._handle_context_copy_path([search_results[0]])
-
-            # Verify standard text clipboard API is used
-            mock_clipboard.setText.assert_called_once_with(str(search_results[0].path))
+        main_window._handle_context_copy_path([search_results[0]])
+        assert desktop_effects.copied_text == [str(search_results[0].path)]
 
         # Test file copying (MIME data)
-        with patch("PyQt6.QtGui.QGuiApplication.clipboard") as mock_clipboard_getter:
-            mock_clipboard = Mock()
-            mock_clipboard_getter.return_value = mock_clipboard
-
-            main_window._handle_context_copy_file([search_results[0]])
-
-            # Verify MIME data API is used for file copying
-            call_args = mock_clipboard.setMimeData.call_args[0]
-            mime_data = call_args[0]
-            assert hasattr(mime_data, "setUrls")  # MIME data for files
+        main_window._handle_context_copy_file([search_results[0]])
+        assert desktop_effects.copied_files == [[search_results[0].path]]
 
 
 class TestPerformanceAndMemory:
@@ -372,23 +270,20 @@ class TestPerformanceAndMemory:
             # Operations should complete without memory issues
             # (This would fail with memory problems in real implementation)
 
-    def test_error_handling_performance(self, main_window, search_results):
+    def test_error_handling_performance(
+        self, main_window, search_results, desktop_effects
+    ):
         """Test error handling doesn't significantly impact performance."""
         import time
 
         # Cause repeated errors
-        with patch("PyQt6.QtGui.QGuiApplication.clipboard") as mock_clipboard_getter:
-            mock_clipboard = Mock()
-            mock_clipboard.setText.side_effect = Exception("Persistent error")
-            mock_clipboard_getter.return_value = mock_clipboard
+        desktop_effects.copy_text = Mock(side_effect=Exception("Persistent error"))
+        start_time = time.time()
+        for _ in range(10):
+            main_window._handle_context_copy_path([search_results[0]])
+        end_time = time.time()
 
-            start_time = time.time()
-            for _ in range(10):
-                main_window._handle_context_copy_path([search_results[0]])
-            end_time = time.time()
-
-            duration = end_time - start_time
-            # Even with errors, operations should remain reasonably fast
-            assert (
-                duration < 0.05
-            ), "Error handling too slow: {:.3f}s for 10 operations".format(duration)
+        duration = end_time - start_time
+        assert (
+            duration < 0.05
+        ), "Error handling too slow: {:.3f}s for 10 operations".format(duration)

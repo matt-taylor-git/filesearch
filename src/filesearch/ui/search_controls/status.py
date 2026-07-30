@@ -4,13 +4,10 @@ from typing import Optional
 
 from loguru import logger
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import (
-    QApplication,
-    QLabel,
-    QMenu,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import QLabel, QMenu, QVBoxLayout, QWidget
+
+from filesearch.core.application_runtime import DesktopEffects
+from filesearch.core.config_manager import ConfigManager
 
 
 class StatusWidget(QWidget):
@@ -28,13 +25,21 @@ class StatusWidget(QWidget):
     # Signals
     status_updated = pyqtSignal(str, int)  # status_message, result_count
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        *,
+        config_manager: Optional[ConfigManager] = None,
+        desktop_effects: DesktopEffects,
+    ):
         """Initialize status widget.
 
         Args:
             parent: Parent widget (optional)
         """
         super().__init__(parent)
+        self.config_manager = config_manager
+        self.desktop_effects = desktop_effects
 
         # Status state
         self.result_count = 0
@@ -163,11 +168,11 @@ class StatusWidget(QWidget):
         # Audio notification for search completion if enabled
         if status == "completed":
             try:
-                from filesearch.core.config_manager import ConfigManager
-
-                config = ConfigManager()
+                config = self.config_manager
+                if config is None:
+                    raise RuntimeError("status persistence requires a config manager")
                 if config.get("ui.audio_notification_on_search_complete", False):
-                    QApplication.beep()
+                    self.desktop_effects.beep()
                 # Persist last search summary
                 config.set("ui.last_search_summary", summary_text)
                 config.save()
@@ -200,9 +205,7 @@ class StatusWidget(QWidget):
         status_text = (
             f"{self.results_count_label.text()} {self.summary_label.text()}".strip()
         )
-        clipboard = QApplication.clipboard()
-        if clipboard:
-            clipboard.setText(status_text)
+        self.desktop_effects.copy_text(status_text)
 
     def contextMenuEvent(self, event) -> None:
         """Show context menu on right-click."""

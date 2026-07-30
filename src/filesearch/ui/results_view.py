@@ -7,6 +7,7 @@ from PyQt6.QtGui import QCursor, QStandardItem, QStandardItemModel
 from PyQt6.QtWidgets import QAbstractItemView, QListView
 
 from filesearch.core.sort_engine import SortCriteria
+from filesearch.core.application_runtime import DesktopEffects
 from filesearch.models.search_result import SearchResult
 from filesearch.ui.results_delegate import ResultsItemDelegate
 from filesearch.ui.results_model import ResultsModel  # noqa: F401 — re-exported
@@ -22,12 +23,13 @@ class ResultsView(QListView):
     # Custom signal for context menu requests
     context_menu_requested = pyqtSignal(QPoint)  # Global position of the right-click
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, desktop_effects: DesktopEffects):
         super().__init__(parent)
+        self.desktop_effects = desktop_effects
 
         # Model - use ResultsModel for virtual scrolling
         self._empty_model = QStandardItemModel()  # For empty states
-        self._results_model = None
+        self._results_model: Optional[ResultsModel] = None
         self.setModel(self._empty_model)
 
         # Enable custom context menu policy
@@ -137,9 +139,7 @@ class ResultsView(QListView):
 
     def _on_model_error(self, message: str):
         """Handle errors from the model"""
-        from PyQt6.QtWidgets import QMessageBox
-
-        QMessageBox.critical(self, "Error", message)
+        self.desktop_effects.show_error(self, "Error", message)
 
     def clear_results(self):
         """Clear all results"""

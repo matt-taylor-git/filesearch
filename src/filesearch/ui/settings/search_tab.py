@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
-    QMessageBox,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -18,13 +17,16 @@ from PyQt6.QtWidgets import (
 )
 
 from filesearch.core.config_manager import ConfigManager
+from filesearch.core.application_runtime import DesktopEffects
 
 
 class SearchSettingsTab(QWidget):
     """Search preferences tab widget."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, desktop_effects: DesktopEffects, home_dir: Path):
         super().__init__(parent)
+        self.desktop_effects = desktop_effects
+        self.home_dir = home_dir
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -149,22 +151,24 @@ class SearchSettingsTab(QWidget):
     def browse_default_directory(self) -> None:
         """Open directory browser for default search directory."""
         try:
-            from PyQt6.QtWidgets import QFileDialog
-
             current_dir = self.default_dir_input.text()
             if not current_dir:
-                current_dir = str(Path.home())
+                current_dir = str(self.home_dir)
 
-            directory = QFileDialog.getExistingDirectory(
-                self, "Select Default Search Directory", current_dir
+            directory = self.desktop_effects.choose_directory(
+                self,
+                Path(current_dir),
+                title="Select Default Search Directory",
             )
 
             if directory:
-                self.default_dir_input.setText(directory)
+                self.default_dir_input.setText(str(directory))
 
         except Exception as e:
             logger.error(f"Error browsing directory: {e}")
-            QMessageBox.warning(self, "Browse Error", f"Error browsing directory: {e}")
+            self.desktop_effects.show_warning(
+                self, "Browse Error", f"Error browsing directory: {e}"
+            )
 
     def add_extension(self) -> None:
         """Add a file extension to the exclude list."""
@@ -176,7 +180,7 @@ class SearchSettingsTab(QWidget):
             for i in range(self.exclude_list.count()):
                 item = self.exclude_list.item(i)
                 if item is not None and item.text().lower() == ext.lower():
-                    QMessageBox.warning(
+                    self.desktop_effects.show_warning(
                         self, "Duplicate Extension", f"Extension {ext} already exists."
                     )
                     self.new_ext_input.clear()

@@ -7,6 +7,7 @@ the GUI event loop.
 
 import sys
 from typing import Optional
+from pathlib import Path
 
 from loguru import logger
 
@@ -18,15 +19,19 @@ from filesearch import (
     get_project_root,
 )
 from filesearch.core.runtime_paths import ensure_log_dir, get_app_icon_path
+from filesearch.core.application_runtime import ApplicationRuntime
 
 
-def setup_logging(log_level: str = "INFO") -> None:
+def setup_logging(log_level: str = "INFO", log_dir: Optional[Path] = None) -> None:
     """Configure logging with rotating file handler.
 
     Args:
         log_level: The logging level (DEBUG, INFO, WARNING, ERROR).
     """
-    log_dir = ensure_log_dir(APP_INTERNAL_NAME, APP_AUTHOR)
+    if log_dir is None:
+        log_dir = ensure_log_dir(APP_INTERNAL_NAME, APP_AUTHOR)
+    else:
+        log_dir.mkdir(parents=True, exist_ok=True)
 
     # Remove default handler
     logger.remove()
@@ -101,20 +106,26 @@ def parse_arguments() -> Optional[str]:
     return None
 
 
-def main() -> int:
+def main(runtime: Optional[ApplicationRuntime] = None) -> int:
     """Main application entry point.
 
     Returns:
         int: Exit code (0 for success, non-zero for error).
     """
+    config_manager = None
     try:
         # Parse command-line arguments
         log_level = parse_arguments()
         if log_level is None:
             log_level = "INFO"
 
+        if runtime is None:
+            from filesearch.application import create_system_runtime
+
+            runtime = create_system_runtime()
+
         # Setup logging
-        setup_logging(log_level)
+        setup_logging(log_level, runtime.log_dir)
 
         logger.info("Starting File Search v{}", __version__)
         logger.info("Project root: {}", get_project_root())
@@ -148,14 +159,14 @@ def main() -> int:
             logger.warning("Application icon could not be loaded from {}", icon_path)
 
         # Initialize components
-        config_manager = ConfigManager()
+        config_manager = ConfigManager(runtime=runtime)
         plugin_manager = PluginManager(config_manager)
 
         # Load plugins
         loaded_plugins = plugin_manager.load_plugins()
         logger.info("Loaded {} plugins", len(loaded_plugins))
 
-        window = MainWindow(config_manager, plugin_manager)
+        window = MainWindow(config_manager, plugin_manager, runtime=runtime)
         if not app_icon.isNull():
             window.setWindowIcon(app_icon)
         window.show()
@@ -168,32 +179,32 @@ def main() -> int:
         QTimer.singleShot(0, ensure_window_visible)
 
         logger.info("Application initialized successfully")
-        return app.exec()
+        exit_code = app.exec()
+        return exit_code
 
     except Exception as e:
         try:
-            from PyQt6.QtWidgets import QApplication, QMessageBox
-
-            app_instance = QApplication.instance()
-            app = (
-                app_instance
-                if isinstance(app_instance, QApplication)
-                else QApplication(sys.argv)
+            message = (
+                "File Search could not start.\n\n"
+                f"{type(e).__name__}: {e}\n\n"
+                "See the log file for more details."
             )
+            if runtime is not None:
+                runtime.desktop_effects.show_error(None, APP_DISPLAY_NAME, message)
+            else:
+                from PyQt6.QtWidgets import QApplication, QMessageBox
 
-            QMessageBox.critical(
-                None,
-                APP_DISPLAY_NAME,
-                (
-                    "File Search could not start.\n\n"
-                    f"{type(e).__name__}: {e}\n\n"
-                    "See the log file for more details."
-                ),
-            )
+                app_instance = QApplication.instance()
+                if not isinstance(app_instance, QApplication):
+                    QApplication(sys.argv)
+                QMessageBox.critical(None, APP_DISPLAY_NAME, message)
         except Exception:
             pass
         logger.exception("Fatal error in main application: {}", e)
         return 1
+    finally:
+        if config_manager is not None:
+            config_manager.close()
 
 
 if __name__ == "__main__":

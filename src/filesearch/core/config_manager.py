@@ -28,6 +28,7 @@ else:
         QApplication = None
 
 from filesearch.core.exceptions import ConfigError
+from filesearch.core.application_runtime import ApplicationRuntime
 
 
 class ConfigManager:
@@ -45,7 +46,14 @@ class ConfigManager:
         _defaults (Dict[str, Any]): Default configuration values
     """
 
-    def __init__(self, app_name: str = "filesearch", app_author: str = "filesearch"):
+    def __init__(
+        self,
+        app_name: str = "filesearch",
+        app_author: str = "filesearch",
+        *,
+        runtime: Optional[ApplicationRuntime] = None,
+        watch_config: bool = True,
+    ):
         """Initialize the configuration manager.
 
         Args:
@@ -54,9 +62,16 @@ class ConfigManager:
         """
         self.app_name = app_name
         self.app_author = app_author
+        self.runtime = runtime
 
-        # Use platformdirs for cross-platform config directory detection
-        self.config_dir = Path(platformdirs.user_config_dir(app_name, app_author))
+        self.home_dir = runtime.home_dir if runtime is not None else Path.home()
+
+        # Explicit runtime paths take precedence over platform discovery.
+        self.config_dir = (
+            runtime.config_dir
+            if runtime is not None
+            else Path(platformdirs.user_config_dir(app_name, app_author))
+        )
         self.config_file = self.config_dir / "config.json"
 
         # Initialize configuration cache
@@ -65,7 +80,7 @@ class ConfigManager:
         # Define default configuration values matching AC requirements
         self._defaults: Dict[str, Any] = {
             "search_preferences": {
-                "default_search_directory": str(Path.home()),
+                "default_search_directory": str(self.home_dir),
                 "case_sensitive_search": False,
                 "include_hidden_files": False,
                 "max_search_results": 1000,
@@ -113,7 +128,7 @@ class ConfigManager:
         self.load()
 
         # Setup file watcher for auto-reload if Qt is available
-        if QT_AVAILABLE:
+        if QT_AVAILABLE and watch_config:
             self._setup_file_watcher()
 
     def _create_default_config(self) -> None:
@@ -521,6 +536,17 @@ class ConfigManager:
             self._reload_callbacks.remove(callback)
             logger.debug(f"Removed reload callback: {callback}")
 
+    def close(self) -> None:
+        """Release the optional Qt file watcher and registered callbacks."""
+        watcher = self._file_watcher
+        self._file_watcher = None
+        self._reload_callbacks.clear()
+        if watcher is not None:
+            paths = watcher.files() + watcher.directories()
+            if paths:
+                watcher.removePaths(paths)
+            watcher.deleteLater()
+
     def add_recent_file(self, file_path: Path) -> None:
         """Add a file to the recently opened files list.
 
@@ -572,13 +598,19 @@ class ConfigManager:
 
 # Convenience function for quick config access
 def get_config(
-    app_name: str = "filesearch", app_author: str = "filesearch"
+    app_name: str = "filesearch",
+    app_author: str = "filesearch",
+    *,
+    runtime: Optional[ApplicationRuntime] = None,
+    watch_config: bool = True,
 ) -> ConfigManager:
     """Get a ConfigManager instance.
 
     Args:
         app_name: Application name
         app_author: Application author
+        runtime: Composed application paths and desktop dependencies
+        watch_config: Whether to watch the config file for external changes
 
     Returns:
         ConfigManager instance
@@ -587,4 +619,6 @@ def get_config(
         >>> config = get_config()
         >>> max_results = config.get("search.max_results")
     """
-    return ConfigManager(app_name, app_author)
+    return ConfigManager(
+        app_name, app_author, runtime=runtime, watch_config=watch_config
+    )

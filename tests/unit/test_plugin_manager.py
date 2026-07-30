@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from filesearch.core.config_manager import ConfigManager
 from filesearch.plugins.plugin_base import SearchPlugin
 from filesearch.plugins.plugin_manager import PluginManager
 
@@ -30,26 +31,30 @@ class MockPlugin(SearchPlugin):
 class TestPluginManager:
     """Test cases for PluginManager."""
 
-    def test_initialization(self):
+    @pytest.fixture
+    def config_manager(self, application_runtime):
+        return ConfigManager(runtime=application_runtime, watch_config=False)
+
+    @pytest.fixture
+    def manager(self, config_manager):
+        return PluginManager(config_manager)
+
+    def test_initialization(self, manager, config_manager):
         """Test PluginManager initialization."""
-        manager = PluginManager()
         assert manager._plugins == {}
-        assert manager._config_manager is None
+        assert manager._config_manager is config_manager
 
-    def test_initialization_with_config_manager(self):
+    def test_initialization_with_config_manager(self, config_manager):
         """Test PluginManager initialization with config manager."""
-        mock_config = Mock()
-        manager = PluginManager(mock_config)
-        assert manager._config_manager == mock_config
+        manager = PluginManager(config_manager)
+        assert manager._config_manager == config_manager
 
-    def test_get_plugin_not_found(self):
+    def test_get_plugin_not_found(self, manager):
         """Test getting a plugin that doesn't exist."""
-        manager = PluginManager()
         assert manager.get_plugin("nonexistent") is None
 
-    def test_enable_disable_plugin(self):
+    def test_enable_disable_plugin(self, manager):
         """Test enabling and disabling plugins."""
-        manager = PluginManager()
         mock_plugin = Mock()
         mock_plugin.enabled = False
         manager._plugins["test"] = mock_plugin
@@ -68,9 +73,8 @@ class TestPluginManager:
         # Try to disable again
         assert manager.disable_plugin("test") is False
 
-    def test_unload_plugin(self):
+    def test_unload_plugin(self, manager):
         """Test unloading a plugin."""
-        manager = PluginManager()
         mock_plugin = Mock()
         manager._plugins["test"] = mock_plugin
 
@@ -78,43 +82,36 @@ class TestPluginManager:
         assert "test" not in manager._plugins
         mock_plugin.cleanup.assert_called_once()
 
-    def test_unload_plugin_not_found(self):
+    def test_unload_plugin_not_found(self, manager):
         """Test unloading a plugin that doesn't exist."""
-        manager = PluginManager()
         assert manager.unload_plugin("nonexistent") is False
 
-    def test_get_plugin_config_no_config_manager(self):
-        """Test getting plugin config without config manager."""
-        manager = PluginManager()
+    def test_get_plugin_config_default(self, manager):
+        """Test getting an absent plugin config."""
         assert manager.get_plugin_config("test") == {}
 
-    def test_get_plugin_config_with_config_manager(self):
+    def test_get_plugin_config_with_config_manager(self, config_manager):
         """Test getting plugin config with config manager."""
-        mock_config = Mock()
-        mock_config.get.return_value = {"key": "value"}
-        manager = PluginManager(mock_config)
+        config_manager.set("plugins.test", {"key": "value"})
+        config_manager.get = Mock(return_value={"key": "value"})
+        manager = PluginManager(config_manager)
 
         result = manager.get_plugin_config("test")
         assert result == {"key": "value"}
-        mock_config.get.assert_called_once_with("plugins.test", {})
+        config_manager.get.assert_called_once_with("plugins.test", {})
 
-    def test_set_plugin_config_no_config_manager(self):
-        """Test setting plugin config without config manager."""
-        manager = PluginManager()
-        assert manager.set_plugin_config("test", {"key": "value"}) is True
-
-    def test_set_plugin_config_with_config_manager(self):
+    def test_set_plugin_config_with_config_manager(self, config_manager):
         """Test setting plugin config with config manager."""
-        mock_config = Mock()
-        manager = PluginManager(mock_config)
+        config_manager.set = Mock()
+        config_manager.save = Mock()
+        manager = PluginManager(config_manager)
 
         assert manager.set_plugin_config("test", {"key": "value"}) is True
-        mock_config.set.assert_called_once_with("plugins.test", {"key": "value"})
-        mock_config.save.assert_called_once()
+        config_manager.set.assert_called_once_with("plugins.test", {"key": "value"})
+        config_manager.save.assert_called_once()
 
-    def test_get_loaded_plugins(self):
+    def test_get_loaded_plugins(self, manager):
         """Test getting list of loaded plugins."""
-        manager = PluginManager()
         mock_plugin = Mock()
         manager._plugins["test"] = mock_plugin
 
@@ -122,18 +119,16 @@ class TestPluginManager:
         assert plugins == [mock_plugin]
 
     @patch("filesearch.plugins.plugin_manager.PluginManager._discover_from_directory")
-    def test_discover_plugins(self, mock_discover):
+    def test_discover_plugins(self, mock_discover, manager):
         """Test plugin discovery."""
         mock_discover.return_value = [(MockPlugin, {})]
-        manager = PluginManager()
 
         plugins = manager.discover_plugins()
         assert len(plugins) == 1
         assert plugins[0][0] == MockPlugin
 
-    def test_load_plugin_invalid_class(self):
+    def test_load_plugin_invalid_class(self, manager):
         """Test loading an invalid plugin class."""
-        manager = PluginManager()
 
         # Mock invalid plugin class
         class InvalidPlugin:
@@ -142,9 +137,8 @@ class TestPluginManager:
         result = manager._load_plugin(InvalidPlugin, {})
         assert result is None
 
-    def test_load_plugin_valid_class(self):
+    def test_load_plugin_valid_class(self, manager):
         """Test loading a valid plugin class."""
-        manager = PluginManager()
 
         result = manager._load_plugin(MockPlugin, {})
         assert result is not None
@@ -152,10 +146,11 @@ class TestPluginManager:
 
     @patch("pathlib.Path.exists")
     @patch("pathlib.Path.glob")
-    def test_discover_from_directory_no_directory(self, mock_glob, mock_exists):
+    def test_discover_from_directory_no_directory(
+        self, mock_glob, mock_exists, manager
+    ):
         """Test discovering plugins when directory doesn't exist."""
         mock_exists.return_value = False
-        manager = PluginManager()
 
         result = manager._discover_from_directory(Path("/fake/path"))
         assert result == []
@@ -163,7 +158,9 @@ class TestPluginManager:
 
     @patch("pathlib.Path.exists")
     @patch("pathlib.Path.glob")
-    def test_discover_from_directory_with_plugins(self, mock_glob, mock_exists):
+    def test_discover_from_directory_with_plugins(
+        self, mock_glob, mock_exists, manager
+    ):
         """Test discovering plugins from directory."""
         mock_exists.return_value = True
         mock_file = Mock()
@@ -182,7 +179,6 @@ class TestPluginManager:
             mock_module.return_value = mock_module_obj
             mock_members.return_value = [("MockPlugin", MockPlugin)]
 
-            manager = PluginManager()
             result = manager._discover_from_directory(Path("/fake/path"))
 
             assert len(result) == 1

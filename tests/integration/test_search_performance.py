@@ -74,8 +74,9 @@ class TestSearchPerformance:
         # Should use less than 100MB (performance requirement)
         assert memory_used < 100, f"Search used {memory_used:.2f}MB, expected < 100MB"
 
-        # Should find all files
-        assert len(results) == 2000  # 1000 .txt + 1000 .py files
+        # Wildcard search also returns the ten matching directories; all 2,000
+        # files must still be present.
+        assert sum(Path(result["path"]).is_file() for result in results) == 2000
 
     def test_search_thread_count_configurable(self, large_temp_dir):
         """Test that search thread count is configurable and affects performance."""

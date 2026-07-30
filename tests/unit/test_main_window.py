@@ -32,17 +32,18 @@ def qapp():
 
 
 @pytest.fixture
-def config_manager(tmp_path):
+def config_manager(application_runtime):
     """Create an isolated config manager for testing."""
-    with patch("platformdirs.user_config_dir", return_value=str(tmp_path)):
-        manager = ConfigManager(app_name="testapp")
-        yield manager
+    manager = ConfigManager(
+        app_name="testapp", runtime=application_runtime, watch_config=False
+    )
+    yield manager
 
 
 @pytest.fixture
-def main_window(qapp, config_manager):
+def main_window(qapp, config_manager, application_runtime):
     """Create a MainWindow instance for testing."""
-    window = MainWindow(config_manager)
+    window = MainWindow(config_manager, runtime=application_runtime)
     window.query_input.auto_search_enabled = False
     window.query_input._debounce_timer.stop()
     yield window
@@ -138,7 +139,7 @@ class TestMainWindowUIState:
     def test_save_window_settings(self, main_window):
         """Test saving window settings."""
         # Resize window
-        main_window.resize(800, 600)
+        main_window.resize(1000, 600)
 
         # Save settings
         main_window.save_window_settings()
@@ -147,7 +148,7 @@ class TestMainWindowUIState:
         width = main_window.config_manager.get("ui.window_width")
         height = main_window.config_manager.get("ui.window_height")
 
-        assert width == 800
+        assert width == 1000
         assert height == 600
 
     def test_center_tabs_include_search_and_storage(self, main_window):
@@ -327,8 +328,7 @@ class TestMainWindowSearchControls:
 
         assert main_window.is_searching is False
         assert (
-            "Search stopped: 4 files found"
-            in main_window.statusBar().currentMessage()
+            "Search stopped: 4 files found" in main_window.statusBar().currentMessage()
         )
 
     def test_clearing_query_while_searching_cancels_without_restart(self, main_window):
@@ -490,7 +490,7 @@ class TestMainWindowDirectorySelection:
             window.close()
 
     def test_sidebar_browse_opens_dialog_and_updates_directory(
-        self, qtbot, config_manager, tmp_path
+        self, qtbot, config_manager, tmp_path, desktop_effects
     ):
         """Choosing a folder from the sidebar updates UI state and persisted config."""
         selected_dir = tmp_path / "custom-root"
@@ -500,14 +500,10 @@ class TestMainWindowDirectorySelection:
         window.show()
         qtbot.addWidget(window)
 
-        with patch(
-            "filesearch.ui.main_window.QFileDialog.getExistingDirectory",
-            return_value=str(selected_dir),
-        ) as mock_dialog:
-            qtbot.mouseClick(window.sidebar._browse_button, Qt.MouseButton.LeftButton)
+        desktop_effects.directory_choice = selected_dir
+        qtbot.mouseClick(window.sidebar._browse_button, Qt.MouseButton.LeftButton)
 
         try:
-            mock_dialog.assert_called_once()
             assert window.current_directory == selected_dir
             assert window.directory_selector.get_directory() == selected_dir
             assert config_manager.get(
@@ -528,12 +524,9 @@ class TestMainWindowDirectorySelection:
         redirected_downloads = tmp_path / "redirected-downloads"
         redirected_downloads.mkdir()
 
-        with (
-            patch(
-                "filesearch.ui.sidebar_widget.get_user_folder"
-            ) as mock_sidebar_folder,
-            patch("filesearch.ui.main_window.get_user_folder") as mock_main_folder,
-        ):
+        with patch(
+            "filesearch.ui.sidebar_widget.get_user_folder"
+        ) as mock_sidebar_folder:
 
             def resolve_folder(name):
                 mapping = {
@@ -547,8 +540,6 @@ class TestMainWindowDirectorySelection:
                 return mapping[name]
 
             mock_sidebar_folder.side_effect = resolve_folder
-            mock_main_folder.side_effect = resolve_folder
-
             window = MainWindow(config_manager=config_manager)
             window.show()
             qtbot.addWidget(window)
@@ -579,12 +570,9 @@ class TestMainWindowDirectorySelection:
             "search_preferences.default_search_directory", str(redirected_downloads)
         )
 
-        with (
-            patch(
-                "filesearch.ui.sidebar_widget.get_user_folder"
-            ) as mock_sidebar_folder,
-            patch("filesearch.ui.main_window.get_user_folder") as mock_main_folder,
-        ):
+        with patch(
+            "filesearch.ui.sidebar_widget.get_user_folder"
+        ) as mock_sidebar_folder:
 
             def resolve_folder(name):
                 mapping = {
@@ -598,8 +586,6 @@ class TestMainWindowDirectorySelection:
                 return mapping[name]
 
             mock_sidebar_folder.side_effect = resolve_folder
-            mock_main_folder.side_effect = resolve_folder
-
             window = MainWindow(config_manager=config_manager)
 
         try:
@@ -620,15 +606,11 @@ class TestMainWindowDirectorySelection:
         window.show()
         qtbot.addWidget(window)
 
-        with patch(
-            "filesearch.ui.main_window.QFileDialog.getExistingDirectory"
-        ) as mock_dialog:
-            qtbot.mouseClick(
-                window.sidebar._custom_location_button, Qt.MouseButton.LeftButton
-            )
+        qtbot.mouseClick(
+            window.sidebar._custom_location_button, Qt.MouseButton.LeftButton
+        )
 
         try:
-            mock_dialog.assert_not_called()
             assert window.current_directory == selected_dir
             assert window.sidebar.get_custom_location() == selected_dir
             assert window.sidebar._custom_location_button.property("active") == "true"
@@ -745,65 +727,53 @@ class TestMainWindowResultHandling:
 class TestMainWindowFileOperations:
     """Test cases for MainWindow file operations."""
 
-    def test_open_selected_file_success(self, main_window):
+    def test_open_selected_file_success(self, main_window, desktop_effects):
         """Test successfully opening a selected file."""
         test_path = Path("/test/document.pdf")
 
-        with patch("filesearch.ui.main_window.safe_open") as mock_safe_open:
-            mock_safe_open.return_value = True
+        main_window.open_selected_file(test_path)
 
-            main_window.open_selected_file(test_path)
+        assert desktop_effects.opened_files == [test_path]
+        status_message = main_window.statusBar().currentMessage()
+        assert "Opened: document.pdf" in status_message
 
-            mock_safe_open.assert_called_once_with(test_path)
-
-            status_message = main_window.statusBar().currentMessage()
-            assert "Opened: document.pdf" in status_message
-
-    def test_open_selected_file_error(self, main_window):
+    def test_open_selected_file_error(self, main_window, desktop_effects):
         """Test error when opening a selected file."""
         from filesearch.core.exceptions import FileSearchError
 
         test_path = Path("/test/document.pdf")
 
-        with patch("filesearch.ui.main_window.safe_open") as mock_safe_open:
-            mock_safe_open.side_effect = FileSearchError("Cannot open file")
+        desktop_effects.open_file = Mock(
+            side_effect=FileSearchError("Cannot open file")
+        )
+        main_window.open_selected_file(test_path)
 
-            main_window.open_selected_file(test_path)
+        status_message = main_window.statusBar().currentMessage()
+        assert "Error opening file" in status_message
 
-            status_message = main_window.statusBar().currentMessage()
-            assert "Error opening file" in status_message
-
-    def test_open_selected_folder_success(self, main_window):
+    def test_open_selected_folder_success(self, main_window, desktop_effects):
         """Test successfully opening containing folder for a file."""
         test_path = Path("/test/documents/report.pdf")
 
-        with patch(
-            "filesearch.ui.main_window.open_containing_folder"
-        ) as mock_open_folder:
-            mock_open_folder.return_value = True
-            with patch.object(Path, "is_dir", return_value=False):
-                main_window.open_selected_folder(test_path)
+        with patch.object(Path, "is_dir", return_value=False):
+            main_window.open_selected_folder(test_path)
 
-            mock_open_folder.assert_called_once_with(test_path)
+        assert desktop_effects.revealed_files == [test_path]
+        status_message = main_window.statusBar().currentMessage()
+        assert f"Opened folder: {test_path.parent}" in status_message
 
-            status_message = main_window.statusBar().currentMessage()
-            assert f"Opened folder: {test_path.parent}" in status_message
-
-    def test_open_selected_folder_for_directory_result(self, main_window, tmp_path):
+    def test_open_selected_folder_for_directory_result(
+        self, main_window, tmp_path, desktop_effects
+    ):
         """Opening a folder result should open that folder itself."""
         folder = tmp_path / "blender"
         folder.mkdir()
 
-        with patch(
-            "filesearch.ui.main_window.open_containing_folder"
-        ) as mock_open_folder:
-            mock_open_folder.return_value = True
+        main_window.open_selected_folder(folder)
 
-            main_window.open_selected_folder(folder)
-
-            mock_open_folder.assert_called_once_with(folder)
-            status_message = main_window.statusBar().currentMessage()
-            assert f"Opened folder: {folder}" in status_message
+        assert desktop_effects.revealed_files == [folder]
+        status_message = main_window.statusBar().currentMessage()
+        assert f"Opened folder: {folder}" in status_message
 
     def test_open_requested_directory_navigates_into_folder(
         self, main_window, tmp_path
@@ -819,33 +789,26 @@ class TestMainWindowFileOperations:
         )
 
         with patch.object(main_window, "open_selected_folder") as mock_open_folder:
-            with patch(
-                "filesearch.ui.main_window.safe_open"
-            ) as mock_safe_open:
-                main_window._on_file_open_requested(result)
+            main_window._on_file_open_requested(result)
 
-                mock_open_folder.assert_not_called()
-                mock_safe_open.assert_not_called()
-                assert main_window.current_directory == folder
-                assert "inside.txt" in _result_names(main_window)
+            mock_open_folder.assert_not_called()
+            assert main_window.current_directory == folder
+            assert "inside.txt" in _result_names(main_window)
 
-    def test_open_selected_folder_error(self, main_window):
+    def test_open_selected_folder_error(self, main_window, desktop_effects):
         """Test error when opening a selected folder."""
         from filesearch.core.exceptions import FileSearchError
 
         test_path = Path("/test/document.pdf")
 
-        with patch(
-            "filesearch.ui.main_window.open_containing_folder"
-        ) as mock_open_folder:
-            mock_open_folder.side_effect = FileSearchError("Cannot open folder")
-            # Modal dialogs block the test runner if not mocked
-            with patch("filesearch.ui.main_window.QMessageBox.critical") as mock_dialog:
-                main_window.open_selected_folder(test_path)
+        desktop_effects.reveal_file = Mock(
+            side_effect=FileSearchError("Cannot open folder")
+        )
+        main_window.open_selected_folder(test_path)
 
-                mock_dialog.assert_called_once()
-                status_message = main_window.statusBar().currentMessage()
-                assert "Error opening folder" in status_message
+        assert desktop_effects.errors
+        status_message = main_window.statusBar().currentMessage()
+        assert "Error opening folder" in status_message
 
 
 class TestMainWindowCloseEvent:
@@ -883,15 +846,14 @@ class TestMainWindowCloseEvent:
 class TestCreateMainWindowFunction:
     """Test cases for create_main_window function."""
 
-    def test_create_main_window(self, qapp, tmp_path):
+    def test_create_main_window(self, qapp, application_runtime):
         """Test create_main_window function."""
-        with patch("platformdirs.user_config_dir", return_value=str(tmp_path)):
-            window = create_main_window()
+        window = create_main_window(runtime=application_runtime)
 
-            assert isinstance(window, MainWindow)
-            assert isinstance(window.config_manager, ConfigManager)
+        assert isinstance(window, MainWindow)
+        assert isinstance(window.config_manager, ConfigManager)
 
-            window.close()
+        window.close()
 
     def test_create_main_window_with_config(self, qapp, config_manager):
         """Test create_main_window with custom config manager."""
@@ -928,9 +890,7 @@ class TestIdleFolderListing:
         root.mkdir()
         (root / "readme.md").write_text("hi")
         (root / "docs").mkdir()
-        config_manager.set(
-            "search_preferences.default_search_directory", str(root)
-        )
+        config_manager.set("search_preferences.default_search_directory", str(root))
 
         window = MainWindow(config_manager=config_manager)
         try:
@@ -957,9 +917,7 @@ class TestIdleFolderListing:
         (first / "only-first.txt").write_text("1")
         (second / "only-second.txt").write_text("2")
         (second / "nested").mkdir()
-        config_manager.set(
-            "search_preferences.default_search_directory", str(first)
-        )
+        config_manager.set("search_preferences.default_search_directory", str(first))
 
         window = MainWindow(config_manager=config_manager)
         try:
@@ -982,9 +940,7 @@ class TestIdleFolderListing:
         root.mkdir()
         (root / "keep-me.txt").write_text("keep")
         (root / "other.log").write_text("other")
-        config_manager.set(
-            "search_preferences.default_search_directory", str(root)
-        )
+        config_manager.set("search_preferences.default_search_directory", str(root))
 
         window = MainWindow(config_manager=config_manager)
         window.query_input.auto_search_enabled = False
@@ -1038,9 +994,7 @@ class TestIdleFolderListing:
         root.mkdir()
         target = root / "open-me.txt"
         target.write_text("content")
-        config_manager.set(
-            "search_preferences.default_search_directory", str(root)
-        )
+        config_manager.set("search_preferences.default_search_directory", str(root))
 
         window = MainWindow(config_manager=config_manager)
         try:
@@ -1080,9 +1034,7 @@ class TestIdleFolderListing:
         (child / "shot.jpg").write_text("img")
         (child / "album").mkdir()
         (root / "readme.txt").write_text("hi")
-        config_manager.set(
-            "search_preferences.default_search_directory", str(root)
-        )
+        config_manager.set("search_preferences.default_search_directory", str(root))
 
         window = MainWindow(config_manager=config_manager)
         window.query_input.auto_search_enabled = False
@@ -1118,9 +1070,7 @@ class TestIdleFolderListing:
         root.mkdir()
         child.mkdir()
         (child / "note.txt").write_text("n")
-        config_manager.set(
-            "search_preferences.default_search_directory", str(root)
-        )
+        config_manager.set("search_preferences.default_search_directory", str(root))
 
         window = MainWindow(config_manager=config_manager)
         try:
@@ -1148,9 +1098,7 @@ class TestIdleFolderListing:
         child.mkdir()
         (root / "root-only.txt").write_text("r")
         (child / "child-only.txt").write_text("c")
-        config_manager.set(
-            "search_preferences.default_search_directory", str(root)
-        )
+        config_manager.set("search_preferences.default_search_directory", str(root))
 
         window = MainWindow(config_manager=config_manager)
         try:
@@ -1177,9 +1125,7 @@ class TestIdleFolderListing:
         root.mkdir()
         child.mkdir()
         (root / "parent-file.txt").write_text("p")
-        config_manager.set(
-            "search_preferences.default_search_directory", str(child)
-        )
+        config_manager.set("search_preferences.default_search_directory", str(child))
 
         window = MainWindow(config_manager=config_manager)
         try:

@@ -39,9 +39,14 @@ class TestSearchInputWidget:
         yield app
 
     @pytest.fixture
-    def config_manager(self, tmp_path):
+    def config_manager(self, application_runtime):
         """Create a temporary config manager for testing."""
-        config = ConfigManager(app_name="test_filesearch", app_author="test")
+        config = ConfigManager(
+            app_name="test_filesearch",
+            app_author="test",
+            runtime=application_runtime,
+            watch_config=False,
+        )
         return config
 
     @pytest.fixture
@@ -54,11 +59,9 @@ class TestSearchInputWidget:
     def test_widget_initialization(self, widget):
         """Test widget initializes correctly."""
         assert widget.windowTitle() == ""
-        assert widget.minimumWidth() == 400
+        assert widget.minimumSizeHint().width() == 400
         assert widget.search_input.maxLength() == 255
-        assert (
-            widget.search_input.placeholderText() == "Enter filename or partial name..."
-        )
+        assert widget.search_input.placeholderText() == "Search files and folders..."
         assert widget.label.text() == "Search files and folders"
         assert not widget.is_loading
         assert not widget.has_error
@@ -69,9 +72,7 @@ class TestSearchInputWidget:
         assert widget.label.text() == "Search files and folders"
 
         # Test placeholder text
-        assert (
-            widget.search_input.placeholderText() == "Enter filename or partial name..."
-        )
+        assert widget.search_input.placeholderText() == "Search files and folders..."
 
         # Test accessibility
         assert widget.search_input.accessibleName() == "Search input"
@@ -343,15 +344,22 @@ class TestDirectorySelectorWidget:
     """Test cases for DirectorySelectorWidget class."""
 
     @pytest.fixture
-    def config_manager(self):
+    def config_manager(self, application_runtime):
         """Create a temporary config manager for testing."""
-        config = ConfigManager(app_name="test_filesearch", app_author="test")
+        config = ConfigManager(
+            app_name="test_filesearch",
+            app_author="test",
+            runtime=application_runtime,
+            watch_config=False,
+        )
         return config
 
     @pytest.fixture
-    def widget(self, qtbot, config_manager):
+    def widget(self, qtbot, config_manager, desktop_effects):
         """Create DirectorySelectorWidget instance for testing."""
-        widget = DirectorySelectorWidget(config_manager=config_manager)
+        widget = DirectorySelectorWidget(
+            config_manager=config_manager, desktop_effects=desktop_effects
+        )
         widget.show()
         qtbot.addWidget(widget)
         return widget
@@ -363,10 +371,12 @@ class TestDirectorySelectorWidget:
         mock_validate = MagicMock(return_value=None)
 
         monkeypatch.setattr(
-            "filesearch.ui.search_controls.normalize_path", mock_normalize
+            "filesearch.ui.search_controls.directory_selector.normalize_path",
+            mock_normalize,
         )
         monkeypatch.setattr(
-            "filesearch.ui.search_controls.validate_directory", mock_validate
+            "filesearch.ui.search_controls.directory_selector.validate_directory",
+            mock_validate,
         )
 
         return mock_normalize, mock_validate
@@ -407,30 +417,17 @@ class TestDirectorySelectorWidget:
         with qtbot.waitSignal(widget.directory_changed, timeout=1000) as blocker:
             widget.directory_input.setText(str(new_path))
 
-        assert blocker.args[0] == new_path
+        assert blocker.args[0] == new_path.resolve()
 
-    @patch(
-        "PyQt6.QtWidgets.QFileDialog.getExistingDirectory",
-        return_value="/tmp/selected_dir",
-    )
-    def test_browse_button_opens_dialog_and_updates_path(
-        self, mock_dialog, widget, qtbot
-    ):
+    def test_browse_button_opens_dialog_and_updates_path(self, widget, qtbot):
         """Test browse button opens dialog and updates input (AC #3)."""
-        # Click browse button
+        widget.desktop_effects.directory_choice = Path("/tmp/selected_dir")
         qtbot.mouseClick(widget.browse_button, Qt.MouseButton.LeftButton)
-
-        # Check QFileDialog was called with correct title and current path
-        mock_dialog.assert_called_once()
-        args, kwargs = mock_dialog.call_args
-        assert args[1] == "Select Search Directory"
-        assert args[2] == str(Path.home().resolve())
 
         # Check input was updated
         assert widget.get_directory() == Path("/tmp/selected_dir")
 
-    @patch("PyQt6.QtWidgets.QFileDialog.getExistingDirectory", return_value="")
-    def test_browse_button_dialog_cancelled(self, mock_dialog, widget, qtbot):
+    def test_browse_button_dialog_cancelled(self, widget, qtbot):
         """Test browse dialog cancellation does not change path."""
         initial_path = widget.get_directory()
 
@@ -476,8 +473,12 @@ class TestDirectorySelectorWidget:
         """Test recent directories menu is created and displayed (AC #4)."""
         widget.recent_directories = ["/tmp/dir1", "/tmp/dir2"]
 
-        # Click the recent button
-        qtbot.mouseClick(widget.recent_button, Qt.MouseButton.LeftButton)
+        # Exercise menu creation without entering a nested modal event loop.
+        with patch(
+            "filesearch.ui.search_controls.directory_selector.QMenu.exec"
+        ) as menu_exec:
+            qtbot.mouseClick(widget.recent_button, Qt.MouseButton.LeftButton)
+        menu_exec.assert_called_once()
 
         # Note: Cannot directly test QMenu visibility, but can test the method execution
         # We rely on the implementation of _show_recent_menu to be correct.
@@ -827,9 +828,9 @@ class TestStatusWidget:
         yield app
 
     @pytest.fixture
-    def widget(self, app):
+    def widget(self, app, desktop_effects):
         """Create StatusWidget instance for testing."""
-        widget = StatusWidget()
+        widget = StatusWidget(desktop_effects=desktop_effects)
         widget.show()
         return widget
 

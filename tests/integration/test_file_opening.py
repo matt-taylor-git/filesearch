@@ -5,14 +5,12 @@ including security warnings and error handling.
 """
 
 import platform
-import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
-from PyQt6.QtCore import QModelIndex, Qt
+from PyQt6.QtCore import Qt
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtWidgets import QApplication
 
 import filesearch.core.security_manager
 from filesearch.core.config_manager import ConfigManager
@@ -43,7 +41,7 @@ class TestFileOpeningIntegration:
             app = QApplication([])
         yield app
 
-    def test_double_click_triggers_file_open(self, tmp_path):
+    def test_double_click_triggers_file_open(self, tmp_path, desktop_effects):
         """Test that double-clicking a result triggers file opening."""
         # Create test file
         test_file = tmp_path / "test.txt"
@@ -57,7 +55,7 @@ class TestFileOpeningIntegration:
         )
 
         # Create UI components
-        results_view = ResultsView()
+        results_view = ResultsView(desktop_effects=desktop_effects)
         results_view.set_results([result])
 
         # Track file open requests
@@ -77,7 +75,7 @@ class TestFileOpeningIntegration:
         # Verify file was opened
         assert file_opened
 
-    def test_enter_key_triggers_file_open(self, tmp_path):
+    def test_enter_key_triggers_file_open(self, tmp_path, desktop_effects):
         """Test that Enter key triggers file opening."""
         # Create test file
         test_file = tmp_path / "test.txt"
@@ -91,7 +89,7 @@ class TestFileOpeningIntegration:
         )
 
         # Create UI components
-        results_view = ResultsView()
+        results_view = ResultsView(desktop_effects=desktop_effects)
         results_view.set_results([result])
 
         # Track file open requests
@@ -114,7 +112,7 @@ class TestFileOpeningIntegration:
         # Verify file was opened
         assert file_opened
 
-    def test_double_click_disabled_during_search(self, tmp_path):
+    def test_double_click_disabled_during_search(self, tmp_path, desktop_effects):
         """Test that double-click is disabled during search."""
         # Create test file
         test_file = tmp_path / "test.txt"
@@ -128,7 +126,7 @@ class TestFileOpeningIntegration:
         )
 
         # Create UI components
-        results_view = ResultsView()
+        results_view = ResultsView(desktop_effects=desktop_effects)
         results_view.set_results([result])
 
         # Set searching state
@@ -150,7 +148,9 @@ class TestFileOpeningIntegration:
         # Verify file was NOT opened
         assert not file_opened
 
-    def test_executable_warning_shows_dialog(self, tmp_path):
+    def test_executable_warning_uses_runtime_boundary(
+        self, tmp_path, application_runtime, desktop_effects, qtbot
+    ):
         """Test that executable files show security warning."""
         # Create test executable file
         test_file = tmp_path / f"test{self.EXECUTABLE_EXT}"
@@ -163,24 +163,19 @@ class TestFileOpeningIntegration:
             modified=test_file.stat().st_mtime,
         )
 
-        # Create main window with config
-        with patch("platformdirs.user_config_dir", return_value=str(tmp_path)):
-            config_manager = ConfigManager()
-        main_window = MainWindow(config_manager)
+        config_manager = ConfigManager(runtime=application_runtime, watch_config=False)
+        main_window = MainWindow(config_manager, runtime=application_runtime)
+        qtbot.addWidget(main_window)
+        desktop_effects.executable_response = (True, False)
 
-        # Mock the warning dialog to capture user choice
-        with patch("PyQt6.QtWidgets.QMessageBox.exec") as mock_exec:
-            with patch("PyQt6.QtWidgets.QCheckBox.isChecked") as mock_checked:
-                mock_checked.return_value = True
-                mock_exec.return_value = QMessageBox.StandardButton.Open
+        main_window._on_file_open_requested(result)
 
-                # Trigger file open request
-                main_window._on_file_open_requested(result)
+        assert len(desktop_effects.executable_prompts) == 1
+        assert desktop_effects.opened_files == [test_file]
 
-                # Verify dialog was shown
-                mock_exec.assert_called_once()
-
-    def test_always_allow_preference_saved(self, tmp_path):
+    def test_always_allow_preference_saved(
+        self, tmp_path, application_runtime, desktop_effects, qtbot
+    ):
         """Test that 'always allow' preferences are saved."""
         # Create test executable file
         test_file = tmp_path / f"test{self.EXECUTABLE_EXT}"
@@ -193,25 +188,17 @@ class TestFileOpeningIntegration:
             modified=test_file.stat().st_mtime,
         )
 
-        # Create main window with config
-        with patch("platformdirs.user_config_dir", return_value=str(tmp_path)):
-            config_manager = ConfigManager()
-        main_window = MainWindow(config_manager)
+        config_manager = ConfigManager(runtime=application_runtime, watch_config=False)
+        main_window = MainWindow(config_manager, runtime=application_runtime)
+        qtbot.addWidget(main_window)
+        desktop_effects.executable_response = (True, True)
 
-        # Mock warning dialog with 'always allow' checked
-        with patch("PyQt6.QtWidgets.QMessageBox.exec") as mock_exec:
-            with patch("PyQt6.QtWidgets.QCheckBox.isChecked") as mock_checked:
-                mock_checked.return_value = True
-                mock_exec.return_value = QMessageBox.StandardButton.Open
+        main_window._on_file_open_requested(result)
 
-                # Trigger file open request
-                main_window._on_file_open_requested(result)
-
-                # Verify preference was saved
-                allowed_extensions = config_manager.get(
-                    "security.allowed_executable_extensions", []
-                )
-                assert self.EXECUTABLE_EXT in allowed_extensions
+        allowed_extensions = config_manager.get(
+            "security.allowed_executable_extensions", []
+        )
+        assert self.EXECUTABLE_EXT in allowed_extensions
 
 
 class TestFileOpeningWithRealFiles:
@@ -219,18 +206,17 @@ class TestFileOpeningWithRealFiles:
 
     EXECUTABLE_EXT = ".exe" if platform.system() == "Windows" else ".sh"
 
-    def test_safe_open_text_file(self, tmp_path):
-        """Test opening a text file with safe_open."""
+    def test_runtime_opens_text_file_without_desktop_effect(
+        self, tmp_path, desktop_effects
+    ):
+        """Test opening a text file through a recording desktop adapter."""
         # Create test file
         test_file = tmp_path / "test.txt"
         test_file.write_text("Hello, World!")
 
-        # Test opening (should not raise exception)
-        try:
-            result = safe_open(test_file)
-            assert result is True
-        except Exception as e:
-            pytest.fail(f"safe_open raised unexpected exception: {e}")
+        desktop_effects.open_file(test_file)
+
+        assert desktop_effects.opened_files == [test_file]
 
     def test_safe_open_nonexistent_file(self, tmp_path):
         """Test safe_open with non-existent file."""

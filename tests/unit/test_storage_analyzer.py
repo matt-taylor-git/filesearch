@@ -2,8 +2,6 @@
 
 from collections import namedtuple
 from pathlib import Path
-from unittest.mock import patch
-
 import pytest
 
 from filesearch.core.config_manager import ConfigManager
@@ -11,11 +9,10 @@ from filesearch.core.storage_analyzer import StorageAnalyzer
 
 
 @pytest.fixture
-def config_manager(tmp_path):
+def config_manager(application_runtime):
     """Create an isolated config manager for storage tests."""
-    with patch("platformdirs.user_config_dir", return_value=str(tmp_path)):
-        manager = ConfigManager(app_name="storage-test")
-        yield manager
+    manager = ConfigManager(runtime=application_runtime, watch_config=False)
+    yield manager
 
 
 class TestStorageAnalyzer:

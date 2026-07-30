@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from filesearch.core.config_manager import ConfigManager
 from filesearch.plugins.builtin.example_plugin import ExamplePlugin
 from filesearch.plugins.plugin_manager import PluginManager
 
@@ -12,9 +13,16 @@ from filesearch.plugins.plugin_manager import PluginManager
 class TestPluginSystemIntegration:
     """Integration tests for the complete plugin system."""
 
-    def test_plugin_manager_load_builtin_plugins(self):
+    @pytest.fixture
+    def config_manager(self, application_runtime):
+        return ConfigManager(runtime=application_runtime, watch_config=False)
+
+    @pytest.fixture
+    def manager(self, config_manager):
+        return PluginManager(config_manager)
+
+    def test_plugin_manager_load_builtin_plugins(self, manager):
         """Test loading plugins from builtin directory."""
-        manager = PluginManager()
 
         # The builtin directory should exist and contain example_plugin.py
         builtin_dir = (
@@ -33,9 +41,8 @@ class TestPluginSystemIntegration:
         plugin_names = [cls.__name__ for cls, meta in plugins]
         assert "ExamplePlugin" in plugin_names
 
-    def test_plugin_manager_load_plugins_integration(self):
+    def test_plugin_manager_load_plugins_integration(self, manager):
         """Test the complete plugin loading process."""
-        manager = PluginManager()
 
         loaded_plugins = manager.load_plugins()
 
@@ -47,9 +54,8 @@ class TestPluginSystemIntegration:
             assert plugin.enabled is True  # Default enabled
             assert plugin.get_name() is not None
 
-    def test_plugin_lifecycle_integration(self):
+    def test_plugin_lifecycle_integration(self, manager):
         """Test complete plugin lifecycle."""
-        manager = PluginManager()
 
         # Load plugins
         loaded_plugins = manager.load_plugins()
@@ -75,9 +81,8 @@ class TestPluginSystemIntegration:
         assert manager.unload_plugin(plugin_class_name) is True
         assert manager.get_plugin(plugin_class_name) is None
 
-    def test_plugin_search_integration(self):
+    def test_plugin_search_integration(self, manager):
         """Test plugin search functionality."""
-        manager = PluginManager()
         loaded_plugins = manager.load_plugins()
 
         # Find ExamplePlugin by class name
@@ -100,14 +105,13 @@ class TestPluginSystemIntegration:
         assert len(results) > 0
         assert results[0]["name"] == filename
 
-    def test_plugin_config_integration(self):
+    def test_plugin_config_integration(self, config_manager):
         """Test plugin configuration management."""
-        mock_config_manager = Mock()
-        mock_config_manager.get.return_value = {"max_recent_files": 50}
-        mock_config_manager.set.return_value = None
-        mock_config_manager.save.return_value = None
+        config_manager.get = Mock(return_value={"max_recent_files": 50})
+        config_manager.set = Mock(return_value=None)
+        config_manager.save = Mock(return_value=None)
 
-        manager = PluginManager(mock_config_manager)
+        manager = PluginManager(config_manager)
 
         # Load plugins
         loaded_plugins = manager.load_plugins()
@@ -117,12 +121,11 @@ class TestPluginSystemIntegration:
         new_config = {"test_key": "test_value"}
 
         assert manager.set_plugin_config(plugin_name, new_config) is True
-        mock_config_manager.set.assert_called_with(f"plugins.{plugin_name}", new_config)
-        mock_config_manager.save.assert_called()
+        config_manager.set.assert_called_with(f"plugins.{plugin_name}", new_config)
+        config_manager.save.assert_called()
 
-    def test_plugin_error_isolation(self):
+    def test_plugin_error_isolation(self, manager):
         """Test that plugin errors don't crash the system."""
-        manager = PluginManager()
 
         # Mock _load_plugin to fail for one plugin
         original_load = manager._load_plugin
@@ -144,9 +147,8 @@ class TestPluginSystemIntegration:
         # ExamplePlugin should not be loaded
         assert manager.get_plugin("ExamplePlugin") is None
 
-    def test_plugin_status_reporting(self):
+    def test_plugin_status_reporting(self, manager):
         """Test plugin status reporting."""
-        manager = PluginManager()
         loaded_plugins = manager.load_plugins()
 
         status = manager.get_plugin_status()

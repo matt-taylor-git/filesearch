@@ -105,17 +105,14 @@ class TestContextMenuActionRouting:
 class TestContextMenuActionHandlers:
     """Test individual context menu action handlers."""
 
-    @patch("filesearch.ui.context_menu_handler.open_containing_folder")
     def test_handle_context_open_containing_folder(
-        self, mock_open_folder, search_results
+        self, search_results, desktop_effects
     ):
         """Test opening containing folder."""
 
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
-
-        # Mock successful folder opening
-        mock_open_folder.return_value = True
+        window.desktop_effects = desktop_effects
 
         window._handle_context_open_containing_folder = (
             MainWindow._handle_context_open_containing_folder.__get__(
@@ -125,19 +122,16 @@ class TestContextMenuActionHandlers:
 
         window._handle_context_open_containing_folder([search_results[0]])
 
-        mock_open_folder.assert_called_once_with(search_results[0].path)
+        assert desktop_effects.revealed_files == [search_results[0].path]
         window.safe_status_message.assert_called_with("Opened containing folder")
 
-    @patch("PyQt6.QtGui.QGuiApplication.clipboard")
     def test_handle_context_copy_path_single_file(
-        self, mock_clipboard_getter, search_results
+        self, search_results, desktop_effects
     ):
         """Test copying path to clipboard for single file."""
-        mock_clipboard = Mock()
-        mock_clipboard_getter.return_value = mock_clipboard
-
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
+        window.desktop_effects = desktop_effects
 
         window._handle_context_copy_path = MainWindow._handle_context_copy_path.__get__(
             window, MainWindow
@@ -145,19 +139,16 @@ class TestContextMenuActionHandlers:
 
         window._handle_context_copy_path([search_results[0]])
 
-        mock_clipboard.setText.assert_called_once_with(str(search_results[0].path))
+        assert desktop_effects.copied_text == [str(search_results[0].path)]
         window.safe_status_message.assert_called_with("Path copied to clipboard")
 
-    @patch("PyQt6.QtGui.QGuiApplication.clipboard")
     def test_handle_context_copy_path_multiple_files(
-        self, mock_clipboard_getter, search_results
+        self, search_results, desktop_effects
     ):
         """Test copying paths to clipboard for multiple files."""
-        mock_clipboard = Mock()
-        mock_clipboard_getter.return_value = mock_clipboard
-
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
+        window.desktop_effects = desktop_effects
 
         expected_text = f"{search_results[0].path}\n{search_results[1].path}"
 
@@ -167,21 +158,16 @@ class TestContextMenuActionHandlers:
 
         window._handle_context_copy_path(search_results)
 
-        mock_clipboard.setText.assert_called_once_with(expected_text)
+        assert desktop_effects.copied_text == [expected_text]
         window.safe_status_message.assert_called_with("Path copied to clipboard")
 
-    @patch("PyQt6.QtGui.QGuiApplication.clipboard")
     def test_handle_context_copy_file_to_clipboard(
-        self, mock_clipboard_getter, search_results
+        self, search_results, desktop_effects
     ):
         """Test copying file to clipboard using MIME data."""
-        from PyQt6.QtCore import QMimeData
-
-        mock_clipboard = Mock()
-        mock_clipboard_getter.return_value = mock_clipboard
-
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
+        window.desktop_effects = desktop_effects
 
         window._handle_context_copy_file = MainWindow._handle_context_copy_file.__get__(
             window, MainWindow
@@ -191,25 +177,17 @@ class TestContextMenuActionHandlers:
         with patch("pathlib.Path.exists", return_value=True):
             window._handle_context_copy_file([search_results[0]])
 
-        # Verify MIME data was set
-        call_args = mock_clipboard.setMimeData.call_args[0][0]
-        assert isinstance(call_args, QMimeData)
-        urls = call_args.urls()
-        assert len(urls) == 1
-        assert urls[0].toLocalFile() == str(search_results[0].path)
+        assert desktop_effects.copied_files == [[search_results[0].path]]
 
         window.safe_status_message.assert_called_with("File copied to clipboard")
 
-    @patch("PyQt6.QtGui.QGuiApplication.clipboard")
     def test_handle_context_copy_file_multiple_files_fallback(
-        self, mock_clipboard_getter, search_results
+        self, search_results, desktop_effects
     ):
         """Test copying multiple files falls back to path copying."""
-        mock_clipboard = Mock()
-        mock_clipboard_getter.return_value = mock_clipboard
-
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
+        window.desktop_effects = desktop_effects
 
         expected_text = f"{search_results[0].path}\n{search_results[1].path}"
 
@@ -232,12 +210,12 @@ class TestContextMenuActionHandlers:
             # So the test expectation is outdated unless we force exception.
 
             # Let's force exception to test fallback code path
-            mock_clipboard.setMimeData.side_effect = Exception("Clipboard error")
+            desktop_effects.copy_files = Mock(side_effect=Exception("Clipboard error"))
 
             window._handle_context_copy_file(search_results)
 
         # Should fall back to path copying for multiple files
-        mock_clipboard.setText.assert_called_once_with(expected_text)
+        assert desktop_effects.copied_text == [expected_text]
         # window.safe_status_message.assert_called_with("Path copied to clipboard")
 
     def test_handle_context_rename_placeholder(self, search_results):
@@ -308,17 +286,13 @@ class TestContextMenuActionHandlers:
 
         # Delete should work with multiple files, so no error expected
 
-    @patch("filesearch.ui.dialogs.properties_dialog.PropertiesDialog")
     def test_handle_context_properties_dialog_creation(
-        self, mock_properties_dialog, search_results
+        self, search_results, desktop_effects
     ):
         """Test properties dialog creation and execution."""
-        mock_dialog = Mock()
-        mock_properties_dialog.return_value = mock_dialog
-        mock_dialog.exec.return_value = True
-
         window = Mock(spec=MainWindow)
         window.safe_status_message = Mock()
+        window.desktop_effects = desktop_effects
 
         window._handle_context_properties = (
             MainWindow._handle_context_properties.__get__(window, MainWindow)
@@ -326,8 +300,7 @@ class TestContextMenuActionHandlers:
 
         window._handle_context_properties([search_results[0]])
 
-        mock_properties_dialog.assert_called_once()
-        mock_dialog.exec.assert_called_once()
+        assert desktop_effects.properties == [search_results[0].path]
 
 
 class TestContextMenuDeleteOperations:

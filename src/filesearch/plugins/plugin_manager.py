@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 from loguru import logger
 
+from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import PluginError
 from filesearch.plugins.plugin_base import PluginDiscovery, SearchPlugin
 
@@ -25,7 +26,7 @@ class PluginManager:
     error isolation to prevent one plugin failure from affecting others.
     """
 
-    def __init__(self, config_manager=None):
+    def __init__(self, config_manager: ConfigManager):
         """Initialize the plugin manager.
 
         Args:
@@ -36,7 +37,7 @@ class PluginManager:
 
         # Plugin directories
         self._builtin_dir = Path(__file__).parent / "builtin"
-        self._user_dir = Path.home() / ".filesearch" / "plugins"
+        self._user_dir = config_manager.home_dir / ".filesearch" / "plugins"
 
         logger.debug("PluginManager initialized")
 

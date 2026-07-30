@@ -1,7 +1,5 @@
 """UI tests for the storage visualization tab."""
 
-from unittest.mock import patch
-
 import pytest
 from PyQt6.QtWidgets import QApplication, QPushButton, QScrollArea
 
@@ -19,11 +17,13 @@ def qapp():
 
 
 @pytest.fixture
-def config_manager(tmp_path):
+def config_manager(application_runtime):
     """Create an isolated config manager for UI tests."""
-    with patch("platformdirs.user_config_dir", return_value=str(tmp_path)):
-        manager = ConfigManager(app_name="storage-ui-test")
-        yield manager
+    return ConfigManager(
+        app_name="storage-ui-test",
+        runtime=application_runtime,
+        watch_config=False,
+    )
 
 
 @pytest.fixture

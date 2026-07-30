@@ -1,33 +1,25 @@
 """Integration tests for Open Containing Folder functionality."""
 
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QKeyEvent
 
 from filesearch.core.exceptions import FileSearchError
 from filesearch.models.search_result import SearchResult
 from filesearch.ui.main_window import MainWindow
-from filesearch.ui.results_view import ResultsView
 
 
 class TestOpenContainingFolderIntegration:
     """Integration tests for open containing folder functionality."""
 
     @pytest.fixture
-    def main_window(self, qtbot):
-        """Create main window with mocked dependencies."""
-        with (
-            patch("filesearch.ui.main_window.ConfigManager"),
-            patch("filesearch.ui.main_window.PluginManager"),
-            patch("filesearch.ui.main_window.FileSearchEngine"),
-        ):
-            window = MainWindow()
-            qtbot.addWidget(window)
-            return window
+    def main_window(self, qtbot, application_runtime):
+        """Create a main window through the hermetic runtime boundary."""
+        window = MainWindow(runtime=application_runtime)
+        qtbot.addWidget(window)
+        return window
 
     @pytest.fixture
     def sample_result(self):
@@ -40,14 +32,9 @@ class TestOpenContainingFolderIntegration:
         )
 
     def test_context_menu_action_triggers_core_function(
-        self, main_window, sample_result, mocker
+        self, main_window, sample_result, desktop_effects
     ):
         """Test that context menu action triggers the core utility function."""
-        # Mock the core utility function
-        mock_open = mocker.patch(
-            "filesearch.ui.context_menu_handler.open_containing_folder"
-        )
-
         # Simulate selection
         main_window.results_view.add_result(sample_result)
         index = main_window.results_view.model().index(0, 0)
@@ -59,20 +46,17 @@ class TestOpenContainingFolderIntegration:
         main_window._handle_context_open_containing_folder(selected_results)
 
         # Verify core function called with correct path
-        mock_open.assert_called_once_with(sample_result.path)
+        assert desktop_effects.revealed_files == [sample_result.path]
 
         # Verify success message
         assert main_window.statusBar().currentMessage() == "Opened containing folder"
 
     def test_context_menu_action_handles_error(
-        self, main_window, sample_result, mocker
+        self, main_window, sample_result, desktop_effects
     ):
         """Test error handling when opening folder fails."""
         # Mock core function to raise exception
-        mocker.patch(
-            "filesearch.ui.context_menu_handler.open_containing_folder",
-            side_effect=FileSearchError("Test error"),
-        )
+        desktop_effects.reveal_file = Mock(side_effect=FileSearchError("Test error"))
 
         # Trigger action
         main_window._handle_context_open_containing_folder([sample_result])
@@ -109,14 +93,9 @@ class TestOpenContainingFolderIntegration:
         mock_handler.assert_called_once_with(sample_result)
 
     def test_keyboard_shortcut_integration(
-        self, main_window, sample_result, qtbot, mocker
+        self, main_window, sample_result, qtbot, desktop_effects
     ):
         """Test full integration of keyboard shortcut to core function."""
-        # Mock core function
-        mock_open = mocker.patch(
-            "filesearch.ui.context_menu_handler.open_containing_folder"
-        )
-
         # Add result
         main_window.results_view.add_result(sample_result)
         index = main_window.results_view.model().index(0, 0)
@@ -134,4 +113,4 @@ class TestOpenContainingFolderIntegration:
         )
 
         # Verify core function called
-        mock_open.assert_called_once_with(sample_result.path)
+        assert desktop_effects.revealed_files == [sample_result.path]

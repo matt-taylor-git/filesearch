@@ -20,9 +20,9 @@ def app():
 
 
 @pytest.fixture
-def results_view(app):
+def results_view(app, desktop_effects):
     """Create ResultsView instance for tests."""
-    view = ResultsView()
+    view = ResultsView(desktop_effects=desktop_effects)
     view.show()  # Need to show for visual rects to work properly
     yield view
     view.deleteLater()

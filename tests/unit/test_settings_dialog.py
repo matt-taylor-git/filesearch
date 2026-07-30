@@ -1,13 +1,11 @@
 """Unit tests for the settings dialog module."""
 
 import json  # noqa: F401
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch  # noqa: F401
 
 import pytest
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtWidgets import QApplication
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import ConfigError  # noqa: F401
@@ -27,22 +25,24 @@ class TestSettingsDialog:
     """Test cases for SettingsDialog class."""
 
     @pytest.fixture
-    def temp_config_dir(self):
+    def temp_config_dir(self, application_runtime):
         """Create a temporary config directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
+        return application_runtime.config_dir
 
     @pytest.fixture
-    def config_manager(self, temp_config_dir):
+    def config_manager(self, application_runtime):
         """Create a ConfigManager instance with temporary directory."""
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            manager = ConfigManager(app_name="testapp", app_author="testauthor")
-            yield manager
+        return ConfigManager(
+            app_name="testapp",
+            app_author="testauthor",
+            runtime=application_runtime,
+            watch_config=False,
+        )
 
     @pytest.fixture
-    def settings_dialog(self, config_manager, qapp):
+    def settings_dialog(self, config_manager, qapp, desktop_effects):
         """Create a SettingsDialog instance."""
-        dialog = SettingsDialog(config_manager)
+        dialog = SettingsDialog(config_manager, desktop_effects=desktop_effects)
         yield dialog
         dialog.close()
 
@@ -66,6 +66,19 @@ class TestSettingsDialog:
         assert settings_dialog.new_ext_input is not None
         assert settings_dialog.add_ext_button is not None
         assert settings_dialog.remove_ext_button is not None
+
+    def test_empty_default_directory_browse_uses_runtime_home(
+        self, settings_dialog, config_manager
+    ):
+        """The folder picker starts from the composed home directory."""
+        settings_dialog.default_dir_input.clear()
+
+        settings_dialog.browse_default_directory()
+
+        assert settings_dialog.desktop_effects.directory_requests[-1] == (
+            config_manager.home_dir,
+            "Select Default Search Directory",
+        )
 
     def test_ui_tab_ui(self, settings_dialog):
         """Test UI tab UI components."""
@@ -239,10 +252,9 @@ class TestSettingsDialog:
         settings_dialog.add_extension()
 
         # Try to add duplicate
-        with patch("PyQt6.QtWidgets.QMessageBox.warning") as mock_warning:
-            settings_dialog.new_ext_input.setText(".tmp")
-            settings_dialog.add_extension()
-            mock_warning.assert_called_once()
+        settings_dialog.new_ext_input.setText(".tmp")
+        settings_dialog.add_extension()
+        assert settings_dialog.desktop_effects.warnings[-1][0] == "Duplicate Extension"
 
     def test_remove_extension(self, settings_dialog):
         """Test removing extension from exclude list."""
@@ -287,12 +299,8 @@ class TestSettingsDialog:
         config_manager.set("search_preferences.max_search_results", 9999)
         config_manager.set("ui_preferences.result_font_size", 24)
 
-        # Mock confirmation dialog
-        with patch(
-            "PyQt6.QtWidgets.QMessageBox.question",
-            return_value=QMessageBox.StandardButton.Yes,
-        ):
-            settings_dialog.reset_to_defaults()
+        settings_dialog.desktop_effects.confirmed = True
+        settings_dialog.reset_to_defaults()
 
         # Verify values were reset
         assert config_manager.get("search_preferences.max_search_results") == 1000
@@ -303,12 +311,8 @@ class TestSettingsDialog:
         # Set some custom values
         config_manager.set("search_preferences.max_search_results", 9999)
 
-        # Mock cancellation
-        with patch(
-            "PyQt6.QtWidgets.QMessageBox.question",
-            return_value=QMessageBox.StandardButton.No,
-        ):
-            settings_dialog.reset_to_defaults()
+        settings_dialog.desktop_effects.confirmed = False
+        settings_dialog.reset_to_defaults()
 
         # Verify values were NOT reset
         assert config_manager.get("search_preferences.max_search_results") == 9999
@@ -343,10 +347,8 @@ class TestSettingsDialog:
         with patch.object(
             settings_dialog.config_manager, "get", side_effect=Exception("Load error")
         ):
-            with patch("PyQt6.QtWidgets.QMessageBox.warning") as mock_warning:
-                settings_dialog.load_settings()
-                # Should not crash, error is logged and warning shown
-                mock_warning.assert_called_once()
+            settings_dialog.load_settings()
+            assert settings_dialog.desktop_effects.warnings[-1][0] == "Load Error"
 
     def test_save_settings_error_handling(self, settings_dialog):
         """Test error handling during settings save."""
@@ -354,31 +356,39 @@ class TestSettingsDialog:
         with patch.object(
             settings_dialog.config_manager, "save", side_effect=Exception("Save error")
         ):
-            with patch("PyQt6.QtWidgets.QMessageBox.critical") as mock_critical:
-                try:
-                    settings_dialog.save_settings()
-                except Exception:
-                    pass  # Expected to raise
-                mock_critical.assert_called_once()
+            try:
+                settings_dialog.save_settings()
+            except Exception:
+                pass  # Expected to raise
+            assert settings_dialog.desktop_effects.errors[-1][0] == "Save Error"
 
 
 class TestSettingsDialogIntegration:
     """Integration tests for SettingsDialog with ConfigManager."""
 
     @pytest.fixture
-    def temp_config_dir(self):
+    def temp_config_dir(self, application_runtime):
         """Create a temporary config directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
+        return application_runtime.config_dir
 
     @pytest.fixture
-    def config_manager(self, temp_config_dir):
+    def config_manager(self, application_runtime):
         """Create a ConfigManager instance with temporary directory."""
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            manager = ConfigManager(app_name="testapp", app_author="testauthor")
-            yield manager
+        return ConfigManager(
+            app_name="testapp",
+            app_author="testauthor",
+            runtime=application_runtime,
+            watch_config=False,
+        )
 
-    def test_full_settings_workflow(self, config_manager, temp_config_dir, qapp):
+    def test_full_settings_workflow(
+        self,
+        config_manager,
+        temp_config_dir,
+        qapp,
+        desktop_effects,
+        application_runtime,
+    ):
         """Test complete settings workflow: load, modify, save, reload."""
         # Initial values
         config_manager.set("search_preferences.max_search_results", 1000)
@@ -386,37 +396,50 @@ class TestSettingsDialogIntegration:
         config_manager.save()
 
         # Create dialog and modify settings
-        dialog = SettingsDialog(config_manager)
+        dialog = SettingsDialog(config_manager, desktop_effects=desktop_effects)
         dialog.max_results_spin.setValue(2500)
         dialog.result_font_size_spin.setValue(18)
         dialog.accept()  # This should save
 
         # Create new config manager (simulating app restart)
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            new_manager = ConfigManager(app_name="testapp", app_author="testauthor")
+        new_manager = ConfigManager(
+            app_name="testapp",
+            app_author="testauthor",
+            runtime=application_runtime,
+            watch_config=False,
+        )
 
-            # Verify settings persisted
-            assert new_manager.get("search_preferences.max_search_results") == 2500
-            assert new_manager.get("ui_preferences.result_font_size") == 18
+        assert new_manager.get("search_preferences.max_search_results") == 2500
+        assert new_manager.get("ui_preferences.result_font_size") == 18
 
         dialog.close()
 
-    def test_cancel_does_not_save(self, config_manager, temp_config_dir, qapp):
+    def test_cancel_does_not_save(
+        self,
+        config_manager,
+        temp_config_dir,
+        qapp,
+        desktop_effects,
+        application_runtime,
+    ):
         """Test that cancel does not save changes."""
         # Initial values
         config_manager.set("search_preferences.max_search_results", 1000)
         config_manager.save()
 
         # Create dialog and modify settings
-        dialog = SettingsDialog(config_manager)
+        dialog = SettingsDialog(config_manager, desktop_effects=desktop_effects)
         dialog.max_results_spin.setValue(3000)
         dialog.reject()  # This should NOT save
 
         # Create new config manager (simulating app restart)
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            new_manager = ConfigManager(app_name="testapp", app_author="testauthor")
+        new_manager = ConfigManager(
+            app_name="testapp",
+            app_author="testauthor",
+            runtime=application_runtime,
+            watch_config=False,
+        )
 
-            # Verify settings were NOT changed
-            assert new_manager.get("search_preferences.max_search_results") == 1000
+        assert new_manager.get("search_preferences.max_search_results") == 1000
 
         dialog.close()

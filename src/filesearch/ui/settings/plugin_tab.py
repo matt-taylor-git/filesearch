@@ -8,21 +8,28 @@ from PyQt6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
 from filesearch.plugins.plugin_manager import PluginManager
+from filesearch.core.application_runtime import DesktopEffects
 
 
 class PluginSettingsTab(QWidget):
     """Plugin management tab widget."""
 
-    def __init__(self, plugin_manager: PluginManager, parent=None):
+    def __init__(
+        self,
+        plugin_manager: PluginManager,
+        parent=None,
+        *,
+        desktop_effects: DesktopEffects,
+    ):
         super().__init__(parent)
         self.plugin_manager = plugin_manager
+        self.desktop_effects = desktop_effects
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -108,7 +115,7 @@ class PluginSettingsTab(QWidget):
                 self.load_settings()
                 logger.info(f"Enabled plugin: {plugin_name}")
             else:
-                QMessageBox.warning(
+                self.desktop_effects.show_warning(
                     self, "Enable Failed", f"Failed to enable plugin: {plugin_name}"
                 )
 
@@ -121,7 +128,7 @@ class PluginSettingsTab(QWidget):
                 self.load_settings()
                 logger.info(f"Disabled plugin: {plugin_name}")
             else:
-                QMessageBox.warning(
+                self.desktop_effects.show_warning(
                     self, "Disable Failed", f"Failed to disable plugin: {plugin_name}"
                 )
 
@@ -134,12 +141,12 @@ class PluginSettingsTab(QWidget):
             if plugin:
                 config = plugin.config
                 config_str = "\n".join(f"{k}: {v}" for k, v in config.items())
-                QMessageBox.information(
+                self.desktop_effects.show_info(
                     self,
                     f"Plugin Config: {plugin_name}",
                     config_str or "No configuration",
                 )
             else:
-                QMessageBox.warning(
+                self.desktop_effects.show_warning(
                     self, "Plugin Not Loaded", f"Plugin {plugin_name} is not loaded"
                 )

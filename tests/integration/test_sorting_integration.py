@@ -261,9 +261,9 @@ class TestSortingIntegration:
 class TestResultsViewIntegration:
     """Test ResultsView integration with sorting"""
 
-    def test_results_view_applies_sorting(self, tmp_path, qtbot):
+    def test_results_view_applies_sorting(self, tmp_path, qtbot, desktop_effects):
         """Test that ResultsView can apply sorting"""
-        view = ResultsView()
+        view = ResultsView(desktop_effects=desktop_effects)
         qtbot.addWidget(view)
 
         now = datetime.now().timestamp()
@@ -289,9 +289,9 @@ class TestResultsViewIntegration:
         model = view.model()
         assert model.rowCount() >= 1
 
-    def test_keyboard_shortcuts_trigger_sorting(self, tmp_path, qtbot):
+    def test_keyboard_shortcuts_trigger_sorting(self, tmp_path, qtbot, desktop_effects):
         """Test keyboard shortcuts for sorting"""
-        view = ResultsView()
+        view = ResultsView(desktop_effects=desktop_effects)
         qtbot.addWidget(view)
 
         now = datetime.now().timestamp()

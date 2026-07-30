@@ -1,7 +1,7 @@
 """Unit tests for the configuration manager module."""
 
 import json
-import tempfile
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import Mock, mock_open, patch  # noqa: F401
 
@@ -15,55 +15,59 @@ class TestConfigManager:
     """Test cases for ConfigManager class."""
 
     @pytest.fixture
-    def temp_config_dir(self):
+    def temp_config_dir(self, application_runtime):
         """Create a temporary config directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
+        return application_runtime.config_dir
 
     @pytest.fixture
-    def config_manager(self, temp_config_dir):
+    def config_manager(self, application_runtime):
         """Create a ConfigManager instance with temporary directory."""
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            manager = ConfigManager(app_name="testapp", app_author="testauthor")
-            yield manager
+        return ConfigManager(
+            app_name="testapp",
+            app_author="testauthor",
+            runtime=application_runtime,
+            watch_config=False,
+        )
 
-    def test_init_default_values(self, temp_config_dir):
+    def test_init_default_values(self, temp_config_dir, application_runtime):
         """Test initialization with default values."""
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            manager = ConfigManager()
+        manager = ConfigManager(runtime=application_runtime, watch_config=False)
 
-            assert manager.app_name == "filesearch"
-            assert manager.app_author == "filesearch"
-            assert manager.config_dir == temp_config_dir
-            assert manager.config_file == temp_config_dir / "config.json"
-            assert manager._config != {}
+        assert manager.app_name == "filesearch"
+        assert manager.app_author == "filesearch"
+        assert manager.config_dir == temp_config_dir
+        assert manager.config_file == temp_config_dir / "config.json"
+        assert manager._config != {}
 
-    def test_init_custom_values(self, temp_config_dir):
+    def test_init_custom_values(self, application_runtime):
         """Test initialization with custom values."""
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            manager = ConfigManager(app_name="customapp", app_author="customauthor")
+        manager = ConfigManager(
+            app_name="customapp",
+            app_author="customauthor",
+            runtime=application_runtime,
+            watch_config=False,
+        )
 
-            assert manager.app_name == "customapp"
-            assert manager.app_author == "customauthor"
+        assert manager.app_name == "customapp"
+        assert manager.app_author == "customauthor"
 
-    def test_create_default_config(self, temp_config_dir):
+    def test_create_default_config(self, application_runtime):
         """Test creating default configuration."""
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            manager = ConfigManager()
+        manager = ConfigManager(runtime=application_runtime, watch_config=False)
 
-            assert manager.config_file.exists()
-            assert manager.config_file.is_file()
+        assert manager.config_file.exists()
+        assert manager.config_file.is_file()
 
-            # Verify default config content
-            with open(manager.config_file, "r") as f:
-                config_data = json.load(f)
+        # Verify default config content
+        with open(manager.config_file, "r") as f:
+            config_data = json.load(f)
 
-            assert "search_preferences" in config_data
-            assert "ui_preferences" in config_data
-            assert "performance_settings" in config_data
-            assert "plugins" in config_data
-            assert "recent" in config_data
-            assert "config_version" in config_data
+        assert "search_preferences" in config_data
+        assert "ui_preferences" in config_data
+        assert "performance_settings" in config_data
+        assert "plugins" in config_data
+        assert "recent" in config_data
+        assert "config_version" in config_data
 
     def test_get_simple_key(self, config_manager):
         """Test getting a simple configuration key."""
@@ -116,13 +120,10 @@ class TestConfigManager:
         config_manager.save()
 
         # Create new manager instance (should load saved config)
-        with patch(
-            "platformdirs.user_config_dir", return_value=str(config_manager.config_dir)
-        ):
-            new_manager = ConfigManager()
-            assert new_manager.get("test.save_load") == "test_value"
+        new_manager = ConfigManager(runtime=config_manager.runtime, watch_config=False)
+        assert new_manager.get("test.save_load") == "test_value"
 
-    def test_load_merges_with_defaults(self, temp_config_dir):
+    def test_load_merges_with_defaults(self, temp_config_dir, application_runtime):
         """Test that load merges user config with defaults."""
         # Create a partial config file
         config_file = temp_config_dir / "config.json"
@@ -133,21 +134,15 @@ class TestConfigManager:
         with open(config_file, "w") as f:
             json.dump(partial_config, f)
 
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            manager = ConfigManager()
+        manager = ConfigManager(runtime=application_runtime, watch_config=False)
 
-            # Should have user value
-            assert manager.get("search_preferences.max_search_results") == 500
+        assert manager.get("search_preferences.max_search_results") == 500
 
-            # Should have default values for missing keys
-            assert (
-                manager.get("performance_settings.search_thread_count") is not None
-            )  # Should get default value
-            assert (
-                manager.get("ui_preferences.show_file_icons") is True
-            )  # Default value
+        # Should have default values for missing keys
+        assert manager.get("performance_settings.search_thread_count") is not None
+        assert manager.get("ui_preferences.show_file_icons") is True
 
-    def test_load_invalid_json(self, temp_config_dir):
+    def test_load_invalid_json(self, temp_config_dir, application_runtime):
         """Test loading invalid JSON configuration."""
         config_file = temp_config_dir / "config.json"
         temp_config_dir.mkdir(parents=True, exist_ok=True)
@@ -156,13 +151,9 @@ class TestConfigManager:
         with open(config_file, "w") as f:
             f.write("{invalid json}")
 
-        with patch("platformdirs.user_config_dir", return_value=str(temp_config_dir)):
-            # Should create default config when JSON is invalid
-            manager = ConfigManager()
-            assert manager.config_file.exists()
-            assert (
-                manager.get("search_preferences.max_search_results") == 1000
-            )  # Default value
+        manager = ConfigManager(runtime=application_runtime, watch_config=False)
+        assert manager.config_file.exists()
+        assert manager.get("search_preferences.max_search_results") == 1000
 
     def test_validate_config_valid(self, config_manager):
         """Test configuration validation with valid config."""
@@ -225,36 +216,39 @@ class TestConfigManager:
         assert path == config_manager.config_dir
         assert isinstance(path, Path)
 
-    def test_save_creates_directory(self, temp_config_dir):
+    def test_save_creates_directory(self, temp_config_dir, application_runtime):
         """Test that save creates config directory if it doesn't exist."""
         # Use a non-existent directory
         new_dir = temp_config_dir / "new_config_dir"
 
-        with patch("platformdirs.user_config_dir", return_value=str(new_dir)):
-            manager = ConfigManager()
-            manager.set("test.key", "value")
-            manager.save()
+        runtime = replace(application_runtime, config_dir=new_dir)
+        manager = ConfigManager(runtime=runtime, watch_config=False)
+        manager.set("test.key", "value")
+        manager.save()
 
-            assert new_dir.exists()
-            assert manager.config_file.exists()
+        assert new_dir.exists()
+        assert manager.config_file.exists()
 
 
 class TestGetConfigFunction:
     """Test cases for get_config convenience function."""
 
-    def test_get_config_function(self):
+    def test_get_config_function(self, application_runtime):
         """Test get_config convenience function."""
-        with patch("platformdirs.user_config_dir"):
-            config = get_config()
+        config = get_config(runtime=application_runtime, watch_config=False)
 
-            assert isinstance(config, ConfigManager)
-            assert config.app_name == "filesearch"
+        assert isinstance(config, ConfigManager)
+        assert config.app_name == "filesearch"
 
-    def test_get_config_with_custom_params(self):
+    def test_get_config_with_custom_params(self, application_runtime):
         """Test get_config with custom parameters."""
-        with patch("platformdirs.user_config_dir"):
-            config = get_config(app_name="custom", app_author="custom")
+        config = get_config(
+            app_name="custom",
+            app_author="custom",
+            runtime=application_runtime,
+            watch_config=False,
+        )
 
-            assert isinstance(config, ConfigManager)
-            assert config.app_name == "custom"
-            assert config.app_author == "custom"
+        assert isinstance(config, ConfigManager)
+        assert config.app_name == "custom"
+        assert config.app_author == "custom"

@@ -22,9 +22,9 @@ def create_test_files(tmp_path_factory):
 
 
 @pytest.fixture
-def main_window(qtbot):
+def main_window(qtbot, application_runtime):
     """Fixture to create and show MainWindow."""
-    window = MainWindow()
+    window = MainWindow(runtime=application_runtime)
     window.show()
     qtbot.addWidget(window)
     return window

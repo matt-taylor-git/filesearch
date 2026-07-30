@@ -26,11 +26,9 @@ from PyQt6.QtGui import (  # noqa: F401
 )
 from PyQt6.QtWidgets import (  # noqa: F401
     QApplication,
-    QFileDialog,
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QMessageBox,
     QPushButton,
     QSizePolicy,
     QSplitter,
@@ -41,13 +39,11 @@ from PyQt6.QtWidgets import (  # noqa: F401
 
 from filesearch import APP_DISPLAY_NAME
 from filesearch.core.config_manager import ConfigManager
+from filesearch.core.application_runtime import ApplicationRuntime
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
-    get_user_folder,
     list_directory_entries,
     normalize_path,
-    open_containing_folder,
-    safe_open,
     validate_directory,
 )
 from filesearch.core.runtime_paths import get_app_icon_path
@@ -97,6 +93,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self,
         config_manager: Optional[ConfigManager] = None,
         plugin_manager: Optional[PluginManager] = None,
+        runtime: Optional[ApplicationRuntime] = None,
     ):
         """Initialize the main window.
 
@@ -106,13 +103,25 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         """
         super().__init__()
 
+        if runtime is None and config_manager is not None:
+            runtime = config_manager.runtime
+        if runtime is None:
+            from filesearch.application import create_system_runtime
+
+            runtime = create_system_runtime()
+        self.runtime = runtime
+        self.desktop_effects = runtime.desktop_effects
+        if config_manager is not None and config_manager.runtime not in (None, runtime):
+            raise ValueError("config_manager and MainWindow must share one runtime")
+
         # Ensure menu and status bars are created early to prevent
         # None returns during initialization
         self.menuBar()
         self.statusBar()
 
         # Initialize components
-        self.config_manager = config_manager or ConfigManager()
+        self._owns_config_manager = config_manager is None
+        self.config_manager = config_manager or ConfigManager(runtime=runtime)
         self.plugin_manager = plugin_manager or PluginManager(self.config_manager)
         self.search_engine = FileSearchEngine(config_manager=self.config_manager)
         self.search_worker: Optional[SearchWorker] = None
@@ -169,7 +178,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.main_splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # --- 1. Sidebar ---
-        self.sidebar = SidebarWidget()
+        self.sidebar = SidebarWidget(home_dir=self.runtime.home_dir)
         self.main_splitter.addWidget(self.sidebar)
 
         # --- 2. Center panel ---
@@ -186,7 +195,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         # Directory selector (hidden — sidebar provides this)
         from filesearch.ui.search_controls import DirectorySelectorWidget
 
-        self.directory_selector = DirectorySelectorWidget(self.config_manager)
+        self.directory_selector = DirectorySelectorWidget(
+            self.config_manager, desktop_effects=self.desktop_effects
+        )
         self.directory_selector.set_directory(self.current_directory)
         self.directory_selector.setVisible(False)
         center_layout.addWidget(self.directory_selector)
@@ -201,7 +212,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         center_layout.addWidget(self.progress_widget)
 
         # Status widget
-        self.status_widget = StatusWidget()
+        self.status_widget = StatusWidget(
+            config_manager=self.config_manager, desktop_effects=self.desktop_effects
+        )
         center_layout.addWidget(self.status_widget)
 
         # Results header: browse nav + label + sort
@@ -244,7 +257,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self._update_browse_nav_buttons()
 
         # Results view
-        self.results_view = ResultsView()
+        self.results_view = ResultsView(desktop_effects=self.desktop_effects)
         center_layout.addWidget(self.results_view, 1)
 
         self.center_tabs = QTabWidget()
@@ -478,7 +491,12 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
     def show_settings_dialog(self) -> None:
         """Show the settings dialog."""
-        dialog = SettingsDialog(self.config_manager, self.plugin_manager, self)
+        dialog = SettingsDialog(
+            self.config_manager,
+            self.plugin_manager,
+            self,
+            desktop_effects=self.desktop_effects,
+        )
         if dialog.exec():
             # Settings were saved, reload any affected components
             self._load_highlight_settings()
@@ -592,7 +610,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         """Resolve the initial search directory from config, falling back to home."""
         configured_directory = self.config_manager.get(
             "search_preferences.default_search_directory",
-            str(Path.home()),
+            str(self.runtime.home_dir),
         )
 
         try:
@@ -604,7 +622,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
                 f"Invalid configured default search directory '{configured_directory}': {e}"
             )
 
-        return Path.home()
+        return self.runtime.home_dir
 
     def _paths_equal(self, left: Path, right: Path) -> bool:
         """Compare paths in a case-aware, resolved way when possible."""
@@ -736,12 +754,12 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
     def _refresh_custom_sidebar_location(self) -> None:
         """Show the most recent custom folder in the sidebar, when available."""
         preset_paths = {
-            get_user_folder("home"),
-            get_user_folder("documents"),
-            get_user_folder("desktop"),
-            get_user_folder("downloads"),
-            get_user_folder("pictures"),
-            get_user_folder("videos"),
+            self.sidebar.location_path("Home"),
+            self.sidebar.location_path("Documents"),
+            self.sidebar.location_path("Desktop"),
+            self.sidebar.location_path("Downloads"),
+            self.sidebar.location_path("Pictures"),
+            self.sidebar.location_path("Videos"),
         }
         recent_directories = self.config_manager.get("recent.directories", [])
 
@@ -769,18 +787,12 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         if validate_directory(initial_dir):
             initial_dir = self._get_startup_directory()
 
-        selected_dir = QFileDialog.getExistingDirectory(
-            self,
-            "Select Search Directory",
-            str(initial_dir),
-            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks,
-        )
+        selected_path = self.desktop_effects.choose_directory(self, initial_dir)
 
-        if not selected_dir:
+        if selected_path is None:
             logger.debug("Sidebar browse cancelled")
             return
 
-        selected_path = Path(selected_dir)
         self._set_search_directory(selected_path, persist=True, update_recent=True)
         self.safe_status_message(f"Search folder selected: {selected_path}")
         logger.info(f"Search directory selected from sidebar: {selected_path}")
@@ -1115,7 +1127,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             file_path: Path to the file to open
         """
         try:
-            safe_open(file_path)
+            self.desktop_effects.open_file(file_path)
             self.safe_status_message(f"Opened: {file_path.name}")
             logger.info(f"Opened file: {file_path}")
         except FileSearchError as e:
@@ -1134,7 +1146,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         # Show wait cursor
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            open_containing_folder(file_path)
+            self.desktop_effects.reveal_file(file_path)
             opened = file_path if file_path.is_dir() else file_path.parent
             self.safe_status_message(f"Opened folder: {opened}")
             logger.info(f"Opened folder: {opened}")
@@ -1142,7 +1154,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             self.safe_status_message(f"Error opening folder: {e}")
             logger.error(f"Error opening folder for {file_path}: {e}")
             # Show error dialog
-            QMessageBox.critical(
+            self.desktop_effects.show_error(
                 self, "Error", f"Failed to open containing folder: \n{e}"
             )
         finally:
@@ -1211,30 +1223,13 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             )
 
             if should_warn:
-                # Show warning dialog
-                from PyQt6.QtCore import Qt
-                from PyQt6.QtWidgets import QCheckBox, QMessageBox
-
-                msg_box = QMessageBox()
-                msg_box.setIcon(QMessageBox.Icon.Warning)
-                msg_box.setWindowTitle("Security Warning")
-                msg_box.setText(warning_message)
-
-                # Add checkbox for "Always allow" option
-                checkbox = QCheckBox("Always open files of this type")
-                checkbox.setChecked(False)
-                msg_box.setCheckBox(checkbox)
-
-                msg_box.setStandardButtons(
-                    QMessageBox.StandardButton.Open | QMessageBox.StandardButton.Cancel
+                approved, remember = self.desktop_effects.confirm_executable(
+                    self, warning_message
                 )
-                msg_box.setDefaultButton(QMessageBox.StandardButton.Cancel)
 
-                result = msg_box.exec()
-
-                if result == QMessageBox.StandardButton.Open:
+                if approved:
                     # User chose to open
-                    if checkbox.isChecked():
+                    if remember:
                         # Remember user preference
                         security_manager.allow_extension(search_result.path.suffix)
 
@@ -1263,10 +1258,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             # Show opening status
             self.safe_status_message(f"Opening: {file_path.name}...")
 
-            # Import safe_open here to avoid circular imports
-            from filesearch.core.file_utils import safe_open
-
-            safe_open(file_path)
+            self.desktop_effects.open_file(file_path)
 
             # Show success status
             self.safe_status_message(f"Opened: {file_path.name}")
@@ -1296,18 +1288,15 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             logger.error(f"Error opening file {file_path}: {e}")
 
             # Offer to open containing folder as fallback
-            from PyQt6.QtWidgets import QMessageBox
-
-            reply = QMessageBox.question(
+            confirmed = self.desktop_effects.confirm(
                 self,
                 "Open Containing Folder",
                 f"Could not open {file_path.name}. Would you like to open its "
                 f"containing folder instead?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.Yes,
+                default_yes=True,
             )
 
-            if reply == QMessageBox.StandardButton.Yes:
+            if confirmed:
                 self.open_selected_folder(file_path)
 
     def closeEvent(self, event) -> None:
@@ -1317,10 +1306,15 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             self.search_worker.stop()
             self.search_worker.wait()
         self.storage_tab.cleanup()
+        if self._owns_config_manager:
+            self.config_manager.close()
         super().closeEvent(event)
 
 
-def create_main_window(config_manager: Optional[ConfigManager] = None) -> MainWindow:
+def create_main_window(
+    config_manager: Optional[ConfigManager] = None,
+    runtime: Optional[ApplicationRuntime] = None,
+) -> MainWindow:
     """Create and return the main application window.
 
     Args:
@@ -1336,4 +1330,4 @@ def create_main_window(config_manager: Optional[ConfigManager] = None) -> MainWi
         >>> window.show()
         >>> app.exec()
     """
-    return MainWindow(config_manager)
+    return MainWindow(config_manager, runtime=runtime)
