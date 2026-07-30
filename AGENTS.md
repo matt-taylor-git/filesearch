@@ -78,3 +78,17 @@ tests/ui/                              UI tests with pytest-qt
 - `docs/user_guide.md` for end-user workflows
 - `docs/configuration.md` for config behavior
 - `docs/plugin-development.md` for plugin changes
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in this repository's GitHub Issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage uses the five default canonical labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Domain documentation uses the single-context layout. See `docs/agents/domain.md`.
