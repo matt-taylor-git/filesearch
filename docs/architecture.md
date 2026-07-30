@@ -736,7 +736,7 @@ uv run python scripts/build_release.py
 **PyInstaller (Recommended for MVP):**
 - Single executable for each platform
 - Bundles Python interpreter and all dependencies
-- Command: `pyinstaller --onefile --windowed --name FileSearch src/filesearch/main.py`
+- Build entry point: `scripts/build_release.py`
 - Output: FileSearch.exe (Windows), FileSearch.app (macOS), FileSearch (Linux)
 - Size: ~50-100MB per platform
 
@@ -754,11 +754,11 @@ uv run python scripts/build_release.py
 ### Build Process
 
 ```bash
-# Install PyInstaller
-pip install pyinstaller
+# Synchronize the locked release dependencies
+uv sync --locked --extra release
 
 # Build for current platform
-pyinstaller scripts/filesearch.spec
+uv run python scripts/build_release.py
 
 # Output in dist/ directory
 # - Windows: dist/FileSearch.exe
