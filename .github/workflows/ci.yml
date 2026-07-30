@@ -73,9 +73,6 @@ jobs:
     name: Tests and coverage (Python 3.14)
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    permissions:
-      contents: read
-      id-token: write
     env:
       QT_QPA_PLATFORM: offscreen
 
@@ -95,14 +92,13 @@ jobs:
         run: uv sync --locked --python 3.14
       - name: Run required tests with coverage
         run: uv run python -m pytest
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
         with:
-          files: ./coverage.xml
-          flags: required-tests
-          name: python-3.14-linux
-          fail_ci_if_error: true
-          use_oidc: true
+          name: coverage-reports
+          path: |
+            coverage.xml
+            coverage.json
 
   integration-ui:
     name: Integration and UI (${{ matrix.os }})
