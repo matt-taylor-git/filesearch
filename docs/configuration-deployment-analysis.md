@@ -121,12 +121,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
 ```
 
 ### 2. Multi-Platform Testing
 - **Operating Systems**: Ubuntu, Windows, macOS
-- **Python Versions**: 3.9, 3.10, 3.11, 3.12
+- **Python Versions**: 3.11, 3.12, 3.13, 3.14
 - **Test Types**: Unit, integration, UI tests
 - **Coverage**: Code coverage reporting with Codecov
 
@@ -144,16 +144,9 @@ build:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
+    - uses: astral-sh/setup-uv@v7
     - name: Build package
-      run: python -m build
+      run: uv build
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -184,24 +177,10 @@ build:
 ## Deployment Configuration
 
 ### 1. Packaging Configuration
-```toml
-# pyproject.toml
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
 
-[project]
-name = "filesearch"
-version = "0.1.0"
-description = "A cross-platform file search application"
-requires-python = ">=3.9"
-dependencies = [
-    "PyQt6>=6.6.0",
-    "loguru>=0.7.2",
-    "platformdirs>=4.0.0",
-    "natsort"
-]
-```
+`pyproject.toml` is the canonical source for build metadata plus runtime and
+development dependencies. `uv.lock` records the complete resolution for Python
+3.11 through 3.14; dependency versions are not duplicated in this document.
 
 ### 2. Distribution Strategy
 - **PyPI Package**: Standard Python package distribution
@@ -215,20 +194,20 @@ dependencies = [
 pip install filesearch
 
 # From Source
-git clone https://github.com/filesearch/filesearch.git
+git clone https://github.com/matt-taylor-git/filesearch.git
 cd filesearch
-pip install -e .
+uv sync --locked --no-dev
 
 # Development Installation
-pip install -r requirements-dev.txt
-pre-commit install
+uv sync --locked
+uv run pre-commit install
 ```
 
 ## Environment Configuration
 
 ### 1. Development Environment
-- **Virtual Environment**: Isolated Python environment
-- **Dependencies**: Separate dev and runtime dependencies
+- **Virtual Environment**: Isolated environment managed by uv
+- **Dependencies**: Canonically declared in `pyproject.toml` and locked in `uv.lock`
 - **Testing**: pytest with coverage and UI testing
 - **Code Quality**: Automated formatting and linting
 

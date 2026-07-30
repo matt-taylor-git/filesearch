@@ -129,7 +129,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run tests with coverage
         run: |
-          pytest --cov=filesearch --cov-report=xml --cov-fail-under=80
+          uv run pytest --cov=filesearch --cov-report=xml --cov-fail-under=80
       - name: Upload coverage
         uses: codecov/codecov-action@v3
 
@@ -156,14 +156,14 @@ jobs:
 ## Test Environment Requirements
 
 ### Local Development
-- Python 3.9+ virtual environment
+- Locked uv environment supporting Python 3.11 through 3.14
 - PyQt6 development packages
 - pytest-qt for UI testing
 - Temporary test directories (isolated filesystem)
 
 ### CI/CD Pipeline
 - Matrix testing: Windows, macOS, Linux
-- Multiple Python versions: 3.9, 3.10, 3.11, 3.12
+- Multiple Python versions: 3.11, 3.12, 3.13, 3.14
 - Browser-based file manager testing (platform-specific)
 - Performance benchmarking environment
 

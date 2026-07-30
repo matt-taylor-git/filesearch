@@ -19,10 +19,10 @@ Welcome to the File Search application! This guide will help you get the most ou
 
 ```bash
 # From source
-python -m filesearch
+uv run python -m filesearch
 
-# Or if installed via pip
-filesearch
+# Or use the installed entry point
+uv run filesearch
 ```
 
 ### Main Interface

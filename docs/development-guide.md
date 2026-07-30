@@ -293,14 +293,14 @@ export FILESEARCH_PLUGIN_DIR=/path/to/plugins
 ### Debug Mode
 ```bash
 # Enable debug logging
-python -m filesearch --debug
+uv run python -m filesearch --debug
 
 # Check log files
 tail -f logs/filesearch.log
 ```
 
 ### Common Issues
-- **Import Errors**: Ensure virtual environment is activated
+- **Import Errors**: Run `uv sync --locked` to restore the project environment
 - **PyQt6 Issues**: Install platform-specific Qt packages
 - **Permission Errors**: Check file and directory permissions
 - **Plugin Loading**: Verify plugin metadata and dependencies
@@ -308,10 +308,10 @@ tail -f logs/filesearch.log
 ### Performance Profiling
 ```bash
 # Profile search performance
-python -m cProfile -o profile.stats -m filesearch
+uv run python -m cProfile -o profile.stats -m filesearch
 
 # Analyze profile
-python -c "
+uv run python -c "
 import pstats
 p = pstats.Stats('profile.stats')
 p.sort_stats('cumulative')
