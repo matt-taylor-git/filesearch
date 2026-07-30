@@ -1,5 +1,6 @@
 """Background search worker thread."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 from loguru import logger
@@ -36,8 +37,8 @@ class SearchWorker(QThread):
         search_engine: FileSearchEngine,
         directory: Path,
         query: str,
-        progress_callback=None,
-    ):
+        progress_callback: Callable[[int, str], None] | None = None,
+    ) -> None:
         """Initialize the search worker.
 
         Args:

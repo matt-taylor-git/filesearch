@@ -8,7 +8,7 @@ generator-based result streaming.
 import fnmatch
 import os
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -18,6 +18,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import SearchError
+from filesearch.plugins.plugin_manager import PluginManager
 
 
 class FileSearchEngine(QObject):
@@ -43,9 +44,9 @@ class FileSearchEngine(QObject):
         max_workers: int = 4,
         max_results: int = 1000,
         config_manager: ConfigManager | None = None,
-        plugin_manager=None,
-        progress_callback=None,
-    ):
+        plugin_manager: PluginManager | None = None,
+        progress_callback: Callable[[int, str], None] | None = None,
+    ) -> None:
         """Initialize search engine.
 
         Args:
@@ -98,7 +99,9 @@ class FileSearchEngine(QObject):
             f"max_results={self.max_results}, case_sensitive={self.case_sensitive}"
         )
 
-    def set_progress_callback(self, callback) -> None:
+    def set_progress_callback(
+        self, callback: Callable[[int, str], None] | None
+    ) -> None:
         """Set the progress callback function.
 
         Args:

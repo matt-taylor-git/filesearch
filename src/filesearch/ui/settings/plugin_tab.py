@@ -23,10 +23,10 @@ class PluginSettingsTab(QWidget):
     def __init__(
         self,
         plugin_manager: PluginManager,
-        parent=None,
+        parent: QWidget | None = None,
         *,
         desktop_effects: DesktopEffects,
-    ):
+    ) -> None:
         super().__init__(parent)
         self.plugin_manager = plugin_manager
         self.desktop_effects = desktop_effects

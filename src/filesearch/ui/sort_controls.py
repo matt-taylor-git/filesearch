@@ -12,12 +12,12 @@ class SortControls(QWidget):
     # Signal emitted when sort criteria changes
     sortChanged = pyqtSignal(SortCriteria)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
         self._connect_signals()
 
-    def _setup_ui(self):
+    def _setup_ui(self) -> None:
         """Setup the UI components"""
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -51,18 +51,18 @@ class SortControls(QWidget):
 
         layout.addStretch()
 
-    def _connect_signals(self):
+    def _connect_signals(self) -> None:
         """Connect signals to slots"""
         self.sort_combo.currentIndexChanged.connect(self._on_sort_changed)
         self.reverse_button.clicked.connect(self._on_reverse_clicked)
 
-    def _on_sort_changed(self, index):
+    def _on_sort_changed(self, index: int) -> None:
         """Handle sort criteria change"""
         criteria = self.sort_combo.currentData()
         self.sortChanged.emit(criteria)
         self._update_visual_indicator()
 
-    def _on_reverse_clicked(self):
+    def _on_reverse_clicked(self) -> None:
         """Handle reverse button click"""
         current_criteria = self.sort_combo.currentData()
 
@@ -85,7 +85,7 @@ class SortControls(QWidget):
 
         self._update_visual_indicator()
 
-    def _update_visual_indicator(self):
+    def _update_visual_indicator(self) -> None:
         """Update visual indicator showing current sort direction"""
         criteria = self.sort_combo.currentData()
         if criteria:
@@ -128,7 +128,7 @@ class SortControls(QWidget):
             self.reverse_button.setToolTip(tooltip)
             self.reverse_button.setAccessibleDescription(tooltip)
 
-    def set_criteria(self, criteria: SortCriteria):
+    def set_criteria(self, criteria: SortCriteria) -> None:
         """Set the current sort criteria programmatically"""
         index = self.sort_combo.findData(criteria)
         if index >= 0:

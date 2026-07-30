@@ -2,6 +2,7 @@
 
 from loguru import logger
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
@@ -174,7 +175,7 @@ class SearchControlWidget(QWidget):
         """
         return self._state
 
-    def keyPressEvent(self, event) -> None:
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete key event.
         """Handle key press events for shortcuts."""
         # Ctrl+Enter: Start search
         if (

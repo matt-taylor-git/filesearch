@@ -20,7 +20,9 @@ from filesearch.core.config_manager import ConfigManager
 class HighlightSettingsTab(QWidget):
     """Highlighting preferences tab widget."""
 
-    def __init__(self, parent=None, *, desktop_effects: DesktopEffects):
+    def __init__(
+        self, parent: QWidget | None = None, *, desktop_effects: DesktopEffects
+    ) -> None:
         super().__init__(parent)
         self.desktop_effects = desktop_effects
         self._setup_ui()

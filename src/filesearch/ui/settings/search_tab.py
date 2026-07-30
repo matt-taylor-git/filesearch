@@ -23,7 +23,13 @@ from filesearch.core.config_manager import ConfigManager
 class SearchSettingsTab(QWidget):
     """Search preferences tab widget."""
 
-    def __init__(self, parent=None, *, desktop_effects: DesktopEffects, home_dir: Path):
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        desktop_effects: DesktopEffects,
+        home_dir: Path,
+    ) -> None:
         super().__init__(parent)
         self.desktop_effects = desktop_effects
         self.home_dir = home_dir

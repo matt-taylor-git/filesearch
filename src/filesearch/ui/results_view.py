@@ -1,8 +1,14 @@
 """Results view component for displaying search results."""
 
 from PyQt6.QtCore import QModelIndex, QPoint, Qt, pyqtSignal
-from PyQt6.QtGui import QCursor, QStandardItem, QStandardItemModel
-from PyQt6.QtWidgets import QAbstractItemView, QListView
+from PyQt6.QtGui import (
+    QCursor,
+    QKeyEvent,
+    QMouseEvent,
+    QStandardItem,
+    QStandardItemModel,
+)
+from PyQt6.QtWidgets import QAbstractItemView, QListView, QWidget
 
 from filesearch.core.application_runtime import DesktopEffects
 from filesearch.core.sort_engine import SortCriteria
@@ -21,7 +27,9 @@ class ResultsView(QListView):
     # Custom signal for context menu requests
     context_menu_requested = pyqtSignal(QPoint)  # Global position of the right-click
 
-    def __init__(self, parent=None, *, desktop_effects: DesktopEffects):
+    def __init__(
+        self, parent: QWidget | None = None, *, desktop_effects: DesktopEffects
+    ) -> None:
         super().__init__(parent)
         self.desktop_effects = desktop_effects
 
@@ -84,39 +92,39 @@ class ResultsView(QListView):
         global_pos = self.mapToGlobal(pos)
         self.context_menu_requested.emit(global_pos)
 
-    def set_query(self, query: str):
+    def set_query(self, query: str) -> None:
         """Set the current search query for highlighting"""
         if self._delegate:
             self._delegate.set_query(query)
         # Trigger repaint to apply highlighting
         self._update_viewport()
 
-    def set_highlight_enabled(self, enabled: bool):
+    def set_highlight_enabled(self, enabled: bool) -> None:
         """Enable or disable highlighting"""
         if self._delegate:
             self._delegate.set_highlight_enabled(enabled)
         self._update_viewport()
 
-    def set_highlight_color(self, color: str):
+    def set_highlight_color(self, color: str) -> None:
         """Set the highlight color (HTML hex code like #FFFF99)"""
         if self._delegate:
             self._delegate.set_highlight_color(color)
         self._update_viewport()
 
-    def set_highlight_style(self, style: str):
+    def set_highlight_style(self, style: str) -> None:
         """Set the highlight style ('background', 'outline', or 'underline')"""
         if self._delegate:
             self._delegate.set_highlight_style(style)
         self._update_viewport()
 
-    def _show_empty_state(self, message: str):
+    def _show_empty_state(self, message: str) -> None:
         """Show empty state message"""
         self._empty_model.clear()
         item = QStandardItem(message)
         item.setData(None, Qt.ItemDataRole.UserRole)  # No SearchResult
         self._empty_model.appendRow(item)
 
-    def set_results(self, results: list[SearchResult]):
+    def set_results(self, results: list[SearchResult]) -> None:
         """Set search results to display"""
         if results:
             if not self._results_model:
@@ -135,11 +143,11 @@ class ResultsView(QListView):
             # Search is complete, enable double-click
             self.set_search_active(False)
 
-    def _on_model_error(self, message: str):
+    def _on_model_error(self, message: str) -> None:
         """Handle errors from the model"""
         self.desktop_effects.show_error(self, "Error", message)
 
-    def clear_results(self):
+    def clear_results(self) -> None:
         """Clear all results"""
         self.setModel(self._empty_model)
         self._empty_model.clear()
@@ -149,7 +157,7 @@ class ResultsView(QListView):
         # Reset search state
         self.set_search_active(False)
 
-    def set_searching_state(self):
+    def set_searching_state(self) -> None:
         """Set searching state with spinner message"""
         if self._results_model:
             self._results_model.clear()
@@ -160,7 +168,7 @@ class ResultsView(QListView):
         self._is_searching = True
         self.setCursor(QCursor(Qt.CursorShape.BusyCursor))
 
-    def add_result(self, result: SearchResult):
+    def add_result(self, result: SearchResult) -> None:
         """Add a single result to the view"""
         if not self._results_model or self.model() == self._empty_model:
             if not self._results_model:
@@ -185,7 +193,7 @@ class ResultsView(QListView):
             return indexes[0].data(Qt.ItemDataRole.UserRole)
         return None
 
-    def apply_sorting(self, criteria: SortCriteria):
+    def apply_sorting(self, criteria: SortCriteria) -> None:
         """Apply sorting to current results
 
         AC6: Sort results using specified criteria
@@ -208,7 +216,7 @@ class ResultsView(QListView):
             return self._results_model.get_current_sort_criteria()
         return None
 
-    def keyPressEvent(self, e) -> None:  # noqa: C901 - maps supported key commands.
+    def keyPressEvent(self, e: QKeyEvent | None) -> None:  # noqa: C901 - maps supported key commands.
         """Handle keyboard navigation for results list"""
         if e is None:
             super().keyPressEvent(e)
@@ -318,7 +326,7 @@ class ResultsView(QListView):
             super().keyPressEvent(e)
             return
 
-    def mouseDoubleClickEvent(self, e) -> None:
+    def mouseDoubleClickEvent(self, e: QMouseEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete mouse event.
         """Handle mouse double click events.
 
         For directory rows, any double-click opens/navigates into the folder
@@ -393,7 +401,7 @@ class ResultsView(QListView):
 
         QTimer.singleShot(150, lambda: self._restore_selection(original_selection))
 
-    def _restore_selection(self, original_selection) -> None:
+    def _restore_selection(self, original_selection: list[QModelIndex]) -> None:
         """Restore the original selection after highlight flash.
 
         Args:
@@ -408,7 +416,7 @@ class ResultsView(QListView):
             # View might be deleted
             pass
 
-    def mouseMoveEvent(self, e) -> None:
+    def mouseMoveEvent(self, e: QMouseEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete mouse event.
         """Handle mouse move events for cursor changes.
 
         Args:

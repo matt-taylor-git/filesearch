@@ -2,6 +2,7 @@
 
 from loguru import logger
 from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QFocusEvent, QKeyEvent
 from PyQt6.QtWidgets import (
     QCompleter,
     QHBoxLayout,
@@ -369,7 +370,7 @@ class SearchInputWidget(QWidget):
             self.search_initiated.emit(query)
             logger.debug(f"Auto-search initiated for: '{query}'")
 
-    def keyPressEvent(self, a0) -> None:
+    def keyPressEvent(self, a0: QKeyEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete key event.
         """Handle key press events.
 
         Args:
@@ -414,7 +415,7 @@ class SearchInputWidget(QWidget):
         # Let parent handle other keys
         super().keyPressEvent(a0)
 
-    def focusInEvent(self, a0) -> None:
+    def focusInEvent(self, a0: QFocusEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete focus event.
         """Handle focus in event.
 
         Args:
@@ -424,7 +425,7 @@ class SearchInputWidget(QWidget):
         self.focus_gained.emit()
         logger.debug("Search input gained focus")
 
-    def focusOutEvent(self, a0) -> None:
+    def focusOutEvent(self, a0: QFocusEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete focus event.
         """Handle focus out event.
 
         Args:

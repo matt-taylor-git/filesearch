@@ -10,6 +10,8 @@ from typing import ClassVar
 
 from loguru import logger
 
+from filesearch.core.config_manager import ConfigManager
+
 
 class SecurityManager:
     """Manages security checks for file operations.
@@ -60,7 +62,7 @@ class SecurityManager:
         ".mpkg",
     }
 
-    def __init__(self, config_manager=None):
+    def __init__(self, config_manager: ConfigManager | None = None) -> None:
         """Initialize the security manager.
 
         Args:
@@ -294,7 +296,9 @@ class SecurityManager:
 _security_manager: SecurityManager | None = None
 
 
-def get_security_manager(config_manager=None) -> SecurityManager:
+def get_security_manager(
+    config_manager: ConfigManager | None = None,
+) -> SecurityManager:
     """Get the global security manager instance.
 
     Args:

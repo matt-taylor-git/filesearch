@@ -1,17 +1,18 @@
 """Custom delegate for rendering search result items with highlighting."""
 
 from datetime import datetime
+from pathlib import Path
 
 import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
-from PyQt6.QtCore import QModelIndex, QRect, QSize, Qt
-from PyQt6.QtGui import QColor, QFont, QPixmap
-from PyQt6.QtWidgets import QStyle, QStyledItemDelegate
+from PyQt6.QtCore import QModelIndex, QObject, QRect, QSize, Qt
+from PyQt6.QtGui import QColor, QFont, QPainter, QPixmap
+from PyQt6.QtWidgets import QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from filesearch.models.search_result import SearchResult
 from filesearch.utils.highlight_engine import HighlightEngine
 
 
-def _get_file_icon_info(path) -> tuple:
+def _get_file_icon_info(path: Path) -> tuple[str, str]:
     """Return (qta icon name, color hex) for a file path."""
     from filesearch.ui.theme import Colors as C
 
@@ -79,7 +80,7 @@ def _get_file_icon_info(path) -> tuple:
 _icon_pixmap_cache: dict[str, QPixmap] = {}
 
 
-def _get_file_icon_pixmap(path, size: int = 20) -> QPixmap:
+def _get_file_icon_pixmap(path: Path, size: int = 20) -> QPixmap:
     """Return a cached QPixmap for the file type."""
     icon_name, color = _get_file_icon_info(path)
     key = f"{icon_name}:{color}:{size}"
@@ -91,7 +92,7 @@ def _get_file_icon_pixmap(path, size: int = 20) -> QPixmap:
 class ResultsItemDelegate(QStyledItemDelegate):
     """Custom delegate for rendering search result items with highlighting support"""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         from filesearch.ui.theme import Colors, Fonts, Spacing
 
@@ -103,9 +104,9 @@ class ResultsItemDelegate(QStyledItemDelegate):
         self.size_font.setWeight(QFont.Weight.Medium)
         self.date_font = QFont("Segoe UI", Fonts.SIZE_XS)
 
-        self.icon_cache = {}
+        self.icon_cache: dict[str, str] = {}
         self.highlight_engine = HighlightEngine()
-        self.current_query = None
+        self.current_query: str | None = None
         self.highlight_color = Colors.HIGHLIGHT_BG
         self.highlight_text_color = Colors.HIGHLIGHT_TEXT
         self.highlight_enabled = True
@@ -115,7 +116,7 @@ class ResultsItemDelegate(QStyledItemDelegate):
         self._colors = Colors
         self._spacing = Spacing
 
-    def get_file_type_icon(self, path):
+    def get_file_type_icon(self, path: Path) -> str:
         """Get file type icon based on extension with caching (legacy fallback)"""
         if path.is_dir():
             return self.icon_cache.setdefault("dir", "\U0001f4c1")
@@ -143,7 +144,12 @@ class ResultsItemDelegate(QStyledItemDelegate):
         }
         return self.icon_cache.setdefault(ext, icon_map.get(ext, "\U0001f4c4"))
 
-    def paint(self, painter, option, index):
+    def paint(
+        self,
+        painter: QPainter | None,
+        option: QStyleOptionViewItem,
+        index: QModelIndex,
+    ) -> None:
         """Custom paint method for result items with polished theme styling"""
         if painter is None:
             return
@@ -273,28 +279,30 @@ class ResultsItemDelegate(QStyledItemDelegate):
 
         painter.restore()
 
-    def sizeHint(self, option, index: QModelIndex) -> QSize:
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
         """Return the size hint for items"""
         return QSize(400, 64)  # Spacious items with room for pill and separator
 
-    def set_query(self, query: str):
+    def set_query(self, query: str) -> None:
         """Set the current search query for highlighting"""
         self.current_query = query
         self.highlight_engine.clear_cache()
 
-    def set_highlight_enabled(self, enabled: bool):
+    def set_highlight_enabled(self, enabled: bool) -> None:
         """Enable or disable highlighting"""
         self.highlight_enabled = enabled
 
-    def set_highlight_color(self, color: str):
+    def set_highlight_color(self, color: str) -> None:
         """Set the highlight color (HTML color code)"""
         self.highlight_color = color
 
-    def set_highlight_style(self, style: str):
+    def set_highlight_style(self, style: str) -> None:
         """Set the highlight style ('background', 'outline', or 'underline')"""
         self.highlight_style = style
 
-    def _draw_highlighted_text(self, painter, rect, text: str, query: str):
+    def _draw_highlighted_text(
+        self, painter: QPainter, rect: QRect, text: str, query: str
+    ) -> None:
         """Draw text with highlighted matching portions using theme colors"""
         if not text or not query or not self.highlight_enabled:
             painter.drawText(

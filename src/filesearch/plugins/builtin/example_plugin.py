@@ -20,7 +20,7 @@ class ExamplePlugin(SearchPlugin):
     and serves as a template for custom plugins.
     """
 
-    def __init__(self, metadata=None):
+    def __init__(self, metadata: dict[str, Any] | None = None) -> None:
         """Initialize the example plugin."""
         super().__init__(metadata)
         self._recent_files: list[dict[str, Any]] = []

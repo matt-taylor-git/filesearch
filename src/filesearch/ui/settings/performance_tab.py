@@ -17,7 +17,7 @@ from filesearch.core.config_manager import ConfigManager
 class PerformanceSettingsTab(QWidget):
     """Performance settings tab widget."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._setup_ui()
 

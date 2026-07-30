@@ -4,8 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFontMetrics, QPainter, QPainterPath, QPen
+from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtGui import (
+    QColor,
+    QFontMetrics,
+    QMouseEvent,
+    QPainter,
+    QPainterPath,
+    QPaintEvent,
+    QPen,
+    QResizeEvent,
+)
 from PyQt6.QtWidgets import QWidget
 
 from filesearch.core.treemap_layout import layout_treemap
@@ -63,12 +72,12 @@ class StorageTreemapWidget(QWidget):
         self.node_hovered.emit(None)
         self.update()
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete resize event.
         """Recompute layout on resize."""
         self._rebuild_layout()
         super().resizeEvent(event)
 
-    def leaveEvent(self, event) -> None:
+    def leaveEvent(self, event: QEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete leave event.
         """Reset hover state when the cursor leaves the widget."""
         self._hovered_node = None
         self.node_hovered.emit(None)
@@ -76,7 +85,7 @@ class StorageTreemapWidget(QWidget):
         self.update()
         super().leaveEvent(event)
 
-    def mouseMoveEvent(self, event) -> None:
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete mouse event.
         """Track hovered tiles."""
         node = self._node_at(event.position())
         if node is self._hovered_node:
@@ -95,7 +104,7 @@ class StorageTreemapWidget(QWidget):
         self.update()
         super().mouseMoveEvent(event)
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete mouse event.
         """Emit activation when a directory tile is clicked."""
         if event.button() == Qt.MouseButton.LeftButton:
             node = self._node_at(event.position())
@@ -105,7 +114,7 @@ class StorageTreemapWidget(QWidget):
                 return
         super().mousePressEvent(event)
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, event: QPaintEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete paint event.
         """Render the treemap tiles."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)

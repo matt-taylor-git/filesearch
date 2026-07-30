@@ -12,6 +12,7 @@ from typing import Any
 from loguru import logger
 from PyQt6.QtCore import (  # noqa: F401
     QKeyCombination,
+    QModelIndex,
     QPoint,
     Qt,
     QThread,
@@ -20,6 +21,7 @@ from PyQt6.QtCore import (  # noqa: F401
 )
 from PyQt6.QtGui import (  # noqa: F401
     QAction,
+    QCloseEvent,
     QIcon,
     QKeySequence,
     QShortcut,
@@ -48,6 +50,7 @@ from filesearch.core.file_utils import (
 )
 from filesearch.core.runtime_paths import get_app_icon_path
 from filesearch.core.search_engine import FileSearchEngine
+from filesearch.core.sort_engine import SortCriteria
 from filesearch.models.search_result import SearchResult
 from filesearch.plugins.plugin_manager import PluginManager
 from filesearch.ui.context_menu_handler import ContextMenuHandlerMixin
@@ -444,7 +447,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
     # --- Sidebar / details panel handlers ---
 
-    def _on_file_type_filter_changed(self, extensions: list) -> None:
+    def _on_file_type_filter_changed(self, extensions: list[str]) -> None:
         """Handle sidebar file-type filter toggle — filter results client-side."""
         model = self.results_view._results_model
         if model and hasattr(model, "set_extension_filter"):
@@ -457,7 +460,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.start_search()
         logger.debug(f"Tag clicked: {text}")
 
-    def _on_result_selection_changed(self, index) -> None:
+    def _on_result_selection_changed(self, index: QModelIndex) -> None:
         """Handle result list selection — show details panel."""
         if self.center_tabs.currentWidget() is self.storage_tab:
             return
@@ -546,7 +549,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         except Exception as e:
             logger.error(f"Error loading sort settings: {e}")
 
-    def _on_sort_criteria_changed(self, criteria) -> None:
+    def _on_sort_criteria_changed(self, criteria: SortCriteria) -> None:
         """Handle sort criteria change - save to config"""
         try:
             self.config_manager.set("sorting.criteria", criteria.value)
@@ -868,7 +871,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
         return SearchRequest(directory, query)
 
-    def start_search(self, *_args) -> None:
+    def start_search(self, *_args: object) -> None:
         """Start the file search operation."""
         search_request = self._get_current_search_request()
         if search_request is None:
@@ -1298,7 +1301,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             if confirmed:
                 self.open_selected_folder(file_path)
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event: QCloseEvent | None) -> None:
         """Handle window close event."""
         self.save_window_settings()
         if self.search_worker:

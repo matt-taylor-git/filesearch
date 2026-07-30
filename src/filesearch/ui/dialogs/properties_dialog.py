@@ -72,7 +72,7 @@ class PropertiesDialog(QDialog):
     permissions, and checksums. Checksums are calculated on-demand.
     """
 
-    def __init__(self, file_path: str | Path, parent=None):
+    def __init__(self, file_path: str | Path, parent: QWidget | None = None) -> None:
         """Initialize the properties dialog.
 
         Args:
@@ -157,10 +157,11 @@ class PropertiesDialog(QDialog):
             self._add_info_row("Modified:", modified_time.strftime("%Y-%m-%d %H:%M:%S"))
 
             created_time = None
-            if hasattr(stat, "st_birthtime") and stat.st_birthtime:
-                # macOS/Linux
-                created_time = datetime.fromtimestamp(stat.st_birthtime)
-            elif hasattr(stat, "st_ctime") and stat.st_ctime:
+            birth_time = getattr(stat, "st_birthtime", None)
+            if birth_time:
+                # Available on macOS and other platforms that expose creation time.
+                created_time = datetime.fromtimestamp(birth_time)
+            elif stat.st_ctime:
                 # Windows (creation time) or fallback
                 # Note: ctime on Windows is creation time, on Unix it's change time
                 created_time = datetime.fromtimestamp(stat.st_ctime)

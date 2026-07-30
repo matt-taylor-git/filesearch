@@ -130,5 +130,7 @@ qt_api = "pyqt6"
 python_version = "3.11"
 files = ["src/filesearch"]
 check_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
 warn_unused_ignores = true
 show_error_codes = true

@@ -1,7 +1,7 @@
 """Results data model for the search results list view."""
 
 from loguru import logger
-from PyQt6.QtCore import QAbstractListModel, QModelIndex, Qt, pyqtSignal
+from PyQt6.QtCore import QAbstractListModel, QModelIndex, QObject, Qt, pyqtSignal
 
 from filesearch.core.file_utils import rename_file
 from filesearch.core.sort_engine import SortCriteria, SortEngine
@@ -13,23 +13,27 @@ class ResultsModel(QAbstractListModel):
 
     error_occurred = pyqtSignal(str)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._all_results: list[SearchResult] = []  # Unfiltered master list
         self._results: list[SearchResult] = []  # Filtered view
         self._displayed_count = 0
         self._batch_size = 100  # Load 100 items at a time for smooth scrolling
-        self._current_sort_criteria = None
+        self._current_sort_criteria: SortCriteria | None = None
         self._current_query = ""
         self._extension_filter: list[str] = []  # Empty = show all
 
     def rowCount(
         self,
-        parent=QModelIndex(),  # noqa: B008 - required Qt override signature.
-    ):
+        parent: QModelIndex = QModelIndex(),  # noqa: B008 - Qt override signature.
+    ) -> int:
         return self._displayed_count
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+    def data(
+        self,
+        index: QModelIndex,
+        role: int = Qt.ItemDataRole.DisplayRole,
+    ) -> object | None:
         if not index.isValid() or index.row() >= self._displayed_count:
             return None
 
@@ -49,13 +53,18 @@ class ResultsModel(QAbstractListModel):
 
         return None
 
-    def flags(self, index):
+    def flags(self, index: QModelIndex) -> Qt.ItemFlag:
         """Return item flags"""
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
         return super().flags(index) | Qt.ItemFlag.ItemIsEditable
 
-    def setData(self, index, value, role=Qt.ItemDataRole.EditRole):
+    def setData(
+        self,
+        index: QModelIndex,
+        value: object,
+        role: int = Qt.ItemDataRole.EditRole,
+    ) -> bool:
         """Handle data updates (renaming)"""
         if not index.isValid() or role != Qt.ItemDataRole.EditRole:
             return False
@@ -92,8 +101,8 @@ class ResultsModel(QAbstractListModel):
 
     def canFetchMore(
         self,
-        parent=QModelIndex(),  # noqa: B008 - required Qt override signature.
-    ):
+        parent: QModelIndex = QModelIndex(),  # noqa: B008 - Qt override signature.
+    ) -> bool:
         """Check if more results can be fetched for virtual scrolling"""
         if parent.isValid():
             return False
@@ -101,8 +110,8 @@ class ResultsModel(QAbstractListModel):
 
     def fetchMore(
         self,
-        parent=QModelIndex(),  # noqa: B008 - required Qt override signature.
-    ):
+        parent: QModelIndex = QModelIndex(),  # noqa: B008 - Qt override signature.
+    ) -> None:
         """Fetch more results for virtual scrolling"""
         if parent.isValid():
             return
@@ -121,7 +130,7 @@ class ResultsModel(QAbstractListModel):
         self._displayed_count += items_to_fetch
         self.endInsertRows()
 
-    def add_result(self, result):
+    def add_result(self, result: SearchResult) -> None:
         """Add a single result to the model"""
         self._all_results.append(result)
 
@@ -144,7 +153,7 @@ class ResultsModel(QAbstractListModel):
 
         self.endInsertRows()
 
-    def remove_result(self, result):
+    def remove_result(self, result: SearchResult) -> bool:
         """Remove a single result from the model"""
         try:
             idx = self._results.index(result)
@@ -157,7 +166,7 @@ class ResultsModel(QAbstractListModel):
         except ValueError:
             return False
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all results from the model"""
         self.beginResetModel()
         self._all_results.clear()
@@ -165,7 +174,7 @@ class ResultsModel(QAbstractListModel):
         self._displayed_count = 0
         self.endResetModel()
 
-    def set_results(self, results):
+    def set_results(self, results: list[SearchResult]) -> None:
         """Set all results at once (used for initial load or refresh)"""
         self.beginResetModel()
         self._all_results = list(results)
@@ -180,7 +189,7 @@ class ResultsModel(QAbstractListModel):
         self._displayed_count = min(self._batch_size, len(self._results))
         self.endResetModel()
 
-    def get_all_results(self):
+    def get_all_results(self) -> list[SearchResult]:
         """Get all results (including those not yet displayed)"""
         return self._results
 
@@ -203,7 +212,7 @@ class ResultsModel(QAbstractListModel):
         self._displayed_count = min(self._batch_size, len(self._results))
         self.endResetModel()
 
-    def sort_results(self, criteria: SortCriteria, query: str = ""):
+    def sort_results(self, criteria: SortCriteria, query: str = "") -> None:
         """Sort results using the specified criteria.
 
         AC3: Selection and scroll position should be preserved.

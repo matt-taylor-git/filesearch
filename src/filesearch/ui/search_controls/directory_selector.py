@@ -1,10 +1,11 @@
 """Directory selector widget for choosing search directories."""
 
 from pathlib import Path
+from typing import cast
 
 from loguru import logger
-from PyQt6.QtCore import QEvent, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QDragEnterEvent, QKeySequence, QShortcut
+from PyQt6.QtCore import QEvent, QObject, QPoint, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QDragEnterEvent, QKeyEvent, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QCompleter,
     QHBoxLayout,
@@ -148,7 +149,7 @@ class DirectorySelectorWidget(QWidget):
             self.recent_button.mapToGlobal(self.recent_button.rect().bottomLeft())
         )
 
-    def _show_context_menu(self, pos):
+    def _show_context_menu(self, pos: QPoint) -> None:
         """Show context menu for recent directories on right-click."""
         menu = QMenu(self)
         if self.recent_directories:
@@ -357,12 +358,12 @@ class DirectorySelectorWidget(QWidget):
             if path.is_dir():
                 event.acceptProposedAction()
 
-    def eventFilter(self, obj, event):
+    def eventFilter(self, obj: QObject | None, event: QEvent) -> bool:  # type: ignore[override]  # Qt supplies a concrete event.
         """Event filter to detect Enter key in directory input."""
         if (
             obj == self.directory_input
             and event.type() == QEvent.Type.KeyPress
-            and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+            and cast(QKeyEvent, event).key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
         ):
             self.enter_pressed.emit()
             return True  # Consume the event

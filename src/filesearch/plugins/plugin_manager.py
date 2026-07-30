@@ -273,7 +273,7 @@ class PluginManager:
         visited = set()
         temp_visited = set()
 
-        def visit(name):
+        def visit(name: str) -> None:
             if name in temp_visited:
                 logger.warning(f"Circular dependency detected involving {name}")
                 return

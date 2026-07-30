@@ -4,6 +4,8 @@ This module provides utility functions for file information retrieval,
 cross-platform file opening, and directory navigation.
 """
 
+from __future__ import annotations
+
 import ctypes
 import os
 import platform
@@ -14,6 +16,7 @@ from collections.abc import Iterable
 from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from loguru import logger
 from PyQt6.QtCore import QUrl
@@ -21,6 +24,9 @@ from PyQt6.QtGui import QDesktopServices
 
 from filesearch.core.exceptions import FileSearchError
 from filesearch.models.search_result import SearchResult
+
+if TYPE_CHECKING:
+    from filesearch.core.security_manager import SecurityManager
 
 _USER_FOLDERS: dict[str, tuple[str | None, str | None]] = {
     "home": (None, None),
@@ -424,7 +430,9 @@ def get_file_info(path: str | Path) -> dict[str, str | int | float | bool]:
 
 
 def safe_open(  # noqa: C901 - platform fallbacks are intentionally colocated.
-    path: str | Path, security_manager=None, force_open: bool = False
+    path: str | Path,
+    security_manager: SecurityManager | None = None,
+    force_open: bool = False,
 ) -> bool:
     """Open a file with the system default application.
 

@@ -169,7 +169,7 @@ class HighlightEngine:
             return parts[0], f".{parts[1]}"
         return filename, ""
 
-    def clear_cache(self):
+    def clear_cache(self) -> None:
         """Clear the highlight and pattern caches"""
         self._highlight_cache.clear()
         self._pattern_cache.clear()
@@ -182,7 +182,7 @@ class HighlightEngine:
         """
         return len(self._highlight_cache)
 
-    def _prune_cache(self):
+    def _prune_cache(self) -> None:
         """Prune the cache to reduce memory usage when it exceeds max size
 
         Removes the oldest 20% of entries to make room for new ones

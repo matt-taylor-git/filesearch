@@ -2,6 +2,7 @@
 
 from loguru import logger
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QContextMenuEvent
 from PyQt6.QtWidgets import QLabel, QMenu, QVBoxLayout, QWidget
 
 from filesearch.core.application_runtime import DesktopEffects
@@ -205,7 +206,7 @@ class StatusWidget(QWidget):
         )
         self.desktop_effects.copy_text(status_text)
 
-    def contextMenuEvent(self, event) -> None:
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:  # type: ignore[override]  # Qt supplies a concrete context-menu event.
         """Show context menu on right-click."""
         menu = QMenu(self)
         copy_action = menu.addAction("Copy Status")

@@ -262,7 +262,7 @@ class PluginDiscovery:
     """
 
     @staticmethod
-    def discover_from_directory(plugin_dir: Path) -> list[type]:
+    def discover_from_directory(plugin_dir: Path) -> list[type[SearchPlugin]]:
         """Discover plugins from a directory.
 
         Args:
@@ -293,7 +293,7 @@ class PluginDiscovery:
         return plugins
 
     @staticmethod
-    def is_valid_plugin(cls) -> bool:
+    def is_valid_plugin(cls: type[object]) -> bool:
         """Check if a class is a valid plugin.
 
         Args:
@@ -339,7 +339,7 @@ class PluginDiscovery:
 
     @staticmethod
     def load_plugin(
-        plugin_class: type, config: dict[str, Any] | None = None
+        plugin_class: type[SearchPlugin], config: dict[str, Any] | None = None
     ) -> SearchPlugin | None:
         """Load and initialize a plugin.
 
@@ -378,7 +378,7 @@ class ExamplePlugin(SearchPlugin):
     based on file size criteria.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the example plugin."""
         super().__init__()
         self._name = "Example Size Filter"

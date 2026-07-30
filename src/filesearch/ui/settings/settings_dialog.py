@@ -39,7 +39,7 @@ class SettingsDialog(QDialog):
         parent: QWidget | None = None,
         *,
         desktop_effects: DesktopEffects,
-    ):
+    ) -> None:
         """Initialize the settings dialog.
 
         Args:
@@ -62,7 +62,7 @@ class SettingsDialog(QDialog):
 
         logger.debug("SettingsDialog initialized")
 
-    def __getattr__(self, name: str):
+    def __getattr__(self, name: str) -> object:
         """Delegate attribute lookups to tab widgets for backward compatibility.
 
         This allows code like ``dialog.default_dir_input`` to resolve to
