@@ -303,8 +303,8 @@ Access settings to customize:
 ### Additional Resources
 
 - **📖 Documentation**: Check the `docs/` folder for technical documentation
-- **🐛 Issue Tracker**: Report bugs at [GitHub Issues](https://github.com/filesearch/filesearch/issues)
-- **💬 Discussions**: Ask questions at [GitHub Discussions](https://github.com/filesearch/filesearch/discussions)
+- **🐛 Issue Tracker**: Report bugs at [GitHub Issues](https://github.com/matt-taylor-git/filesearch/issues)
+- **💬 Discussions**: Ask questions at [GitHub Discussions](https://github.com/matt-taylor-git/filesearch/discussions)
 
 ### Keyboard Navigation Tips
 

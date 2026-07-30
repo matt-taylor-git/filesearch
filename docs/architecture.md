@@ -8,30 +8,16 @@ The application follows a modular architecture with clear separation between UI 
 
 ## Project Initialization
 
-First implementation story should execute:
+The canonical contributor setup is:
 
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# or venv\Scripts\activate  # Windows
-
-# Install dependencies
-pip install PyQt6 loguru pytest pytest-qt
-
-# Create project structure
-mkdir -p src/filesearch/{core,ui,plugins/{builtin},models,utils}
-mkdir -p tests/{unit,integration,ui}
-mkdir -p docs
-mkdir -p scripts
-
-# Create initial files
-touch src/filesearch/__init__.py src/filesearch/main.py
+uv sync --locked
+uv run pytest --collect-only
 ```
 
 This establishes the base architecture with these decisions provided by the starter:
 - **GUI Framework**: PyQt6 for cross-platform native UI
-- **Language**: Python 3.9+ with type hints
+- **Language**: Python 3.11–3.14 with type hints
 - **Logging**: loguru for modern structured logging
 - **Testing**: pytest with pytest-qt for Qt testing
 - **Project Structure**: src/ layout with clear module separation
@@ -41,25 +27,24 @@ This establishes the base architecture with these decisions provided by the star
 | Category | Decision | Version | Affects Epics | Rationale |
 | -------- | -------- | ------- | ------------- | --------- |
 | GUI Framework | PyQt6 | 6.6.0 | All | Native cross-platform UI, excellent threading support, professional appearance |
-| Search Implementation | Multi-threaded with concurrent.futures | Python 3.9+ | Epic 2, 3 | Meets <2s requirement, scales to 100K files, keeps UI responsive |
+| Search Implementation | Multi-threaded with concurrent.futures | Python 3.11+ | Epic 2, 3 | Meets <2s requirement, scales to 100K files, keeps UI responsive |
 | Threading Model | PyQt Signals/Slots | PyQt6 | Epic 2, 3 | Thread-safe by design, native Qt approach, clean separation |
 | Plugin Architecture | Hybrid (Entry Points + Directory) | Custom | Epic 1, 3 | Maximum flexibility for distributed and user-developed plugins |
 | Configuration Storage | QSettings | PyQt6 | Epic 1, 2 | Cross-platform automatic storage, type-safe, no file format decisions |
 | Error Handling | Custom Exception Hierarchy | Custom | All | Clean API, user-friendly messages, easy to add error codes for i18n |
 | Logging | loguru | 0.7.2 | All | Modern API, automatic rotation/retention, structured logging, thread-safe |
 | Testing | pytest with pytest-qt | pytest 7.4+, pytest-qt 4.2+ | All | Industry standard, pytest-qt handles Qt event loop automatically |
-| File System | pathlib.Path | Python 3.9+ | All | Modern, object-oriented, cross-platform, type-safe |
+| File System | pathlib.Path | Python 3.11+ | All | Modern, object-oriented, cross-platform, type-safe |
 | Error Recovery | Continue with logging | Custom | Epic 2, 3 | Users want results even with permission errors, loguru captures for debugging |
 | Date/Time Format | Store timestamp, display local | Custom | Epic 3 | Efficient storage, user-friendly display, respects OS locale |
-| API Response Format | Dataclass | Python 3.9+ | All | Type-safe, can add methods, easy serialization, self-documenting |
+| API Response Format | Dataclass | Python 3.11+ | All | Type-safe, can add methods, easy serialization, self-documenting |
 
 ## Project Structure
 
 ```
 filesearch/
 ├── pyproject.toml                 # Modern Python packaging
-├── requirements.txt               # Runtime dependencies (PyQt6, loguru)
-├── requirements-dev.txt           # Dev dependencies (pytest, pytest-qt, black, flake8)
+├── uv.lock                        # Cross-platform locked dependency resolution
 ├── README.md                      # Project overview
 ├── LICENSE                        # MIT or GPL (depending on PyQt6 licensing choice)
 │
@@ -162,21 +147,21 @@ filesearch/
 - Cross-platform GUI framework with native look and feel
 - Provides: QMainWindow, QListView, QThread, QSettings, QFileDialog, QProgressBar, QMenu
 - License: GPL or Commercial (choose based on distribution model)
-- Installation: `pip install PyQt6`
+- Dependency declaration: `pyproject.toml`
 
 **loguru (0.7.2)**
 - Modern structured logging with automatic rotation and retention
 - Features: Colored console output, file rotation (5MB), retention (10 days), compression
 - Thread-safe by design, excellent performance
-- Installation: `pip install loguru`
+- Dependency declaration: `pyproject.toml`
 
 **pytest (7.4+)**
 - Testing framework with fixtures, parametrization, and plugins
 - **pytest-qt (4.2+)**: Qt-specific testing utilities, event loop management, widget cleanup
-- Installation: `pip install pytest pytest-qt`
+- Development dependency declaration: `pyproject.toml`
 
 **Python Standard Library**
-- `pathlib.Path`: Object-oriented file system paths (Python 3.9+)
+- `pathlib.Path`: Object-oriented file system paths (Python 3.11+)
 - `concurrent.futures`: Thread pool management for multi-threaded search
 - `os`, `sys`: System integration and file operations
 - `datetime`: Date/time handling for file timestamps
@@ -716,10 +701,9 @@ class SearchEngine(QObject):
 ### Development Environment
 
 **Prerequisites:**
-- Python 3.9 or higher
-- pip (Python package manager)
+- Python 3.11 through 3.14
+- uv (environment and package manager)
 - Git (for version control)
-- Virtual environment support (venv)
 
 **Platform-Specific Requirements:**
 - **Windows**: Windows 10+, Visual C++ Redistributable (usually pre-installed)
@@ -733,27 +717,18 @@ class SearchEngine(QObject):
 git clone <repository-url>
 cd filesearch
 
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Linux/Mac:
-source venv/bin/activate
-# Windows:
-venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+# Synchronize the locked development environment
+uv sync --locked
 
 # Run tests
-pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run application
-python -m src.filesearch.main
+uv run python -m filesearch
 
 # Build executable (optional)
-python scripts/build_executable.py
+uv sync --locked --extra release
+uv run python scripts/build_release.py
 ```
 
 ### Distribution Options
@@ -915,7 +890,7 @@ pyinstaller scripts/filesearch.spec
 **Decision:** Use pathlib.Path throughout codebase
 
 **Rationale:**
-- Modern Python standard (since 3.4, using 3.9+)
+- Modern Python standard (since 3.4, using Python 3.11+)
 - Object-oriented and readable: `path / "subdir" / "file.txt"`
 - Cross-platform path separators handled automatically
 - Type-safe with excellent type hint support

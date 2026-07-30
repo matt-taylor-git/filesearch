@@ -407,33 +407,29 @@ class MyPlugin(SearchPlugin):
 
 #### PyQt6 Installation Issues
 ```bash
-# Ubuntu/Debian
-sudo apt-get install python3-pyqt6
+# Re-synchronize the exact package versions in uv.lock
+uv sync --locked --refresh
 
-# macOS
-brew install pyqt6
-
-# Windows
-pip install PyQt6
+# Confirm Qt imports in the synchronized environment
+uv run python -c "import PyQt6"
 ```
 
 #### Virtual Environment Issues
 ```bash
-# Check if virtual environment is active
-echo $VIRTUAL_ENV
+# Confirm the interpreter selected by uv
+uv run python --version
 
-# Deactivate and reactivate
-deactivate
-source venv/bin/activate
+# Restore the environment to the lockfile
+uv sync --locked
 ```
 
 #### Test Issues
 ```bash
 # Run specific test with output
-pytest tests/unit/test_search_engine.py -v -s
+uv run pytest tests/unit/test_search_engine.py -v -s
 
 # Run with debugging
-pytest --pdb tests/unit/test_search_engine.py
+uv run pytest --pdb tests/unit/test_search_engine.py
 ```
 
 ### Getting Help

@@ -9,7 +9,7 @@
 ## Quick Reference
 
 ### Tech Stack
-- **Language**: Python 3.9+
+- **Language**: Python 3.11–3.14
 - **GUI Framework**: PyQt6 >=6.6.0
 - **Logging**: loguru >=0.7.2
 - **File Paths**: platformdirs >=4.0.0

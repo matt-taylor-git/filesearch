@@ -15,7 +15,7 @@ File Search is a high-performance, cross-platform desktop application built with
 
 ### Type: Desktop Application (Monolith)
 - **Architecture Pattern**: Event-driven GUI with plugin extensibility
-- **Primary Language**: Python 3.9+
+- **Primary Language**: Python 3.11–3.14
 - **GUI Framework**: PyQt6 for native cross-platform performance
 - **Repository Structure**: Single cohesive codebase with clear module separation
 
@@ -29,7 +29,7 @@ File Search is a high-performance, cross-platform desktop application built with
 
 | Category | Technology | Version | Purpose |
 |-----------|------------|---------|---------|
-| **Language** | Python | 3.9+ | Core application logic with modern features |
+| **Language** | Python | 3.11–3.14 | Core application logic with modern features |
 | **GUI Framework** | PyQt6 | >=6.6.0 | Cross-platform native performance |
 | **Logging** | loguru | >=0.7.2 | Structured logging with rotation |
 | **File Paths** | platformdirs | >=4.0.0 | Cross-platform directory detection |
@@ -125,7 +125,7 @@ src/filesearch/
 
 ### Quality Assurance
 - **Pre-commit Hooks**: Automated formatting (Black), linting (flake8), import sorting (isort)
-- **CI/CD Pipeline**: Multi-platform testing (Ubuntu, Windows, macOS) with Python 3.9-3.12
+- **CI/CD Pipeline**: Multi-platform testing (Ubuntu, Windows, macOS) with Python 3.11–3.14
 - **Test Coverage**: >80% target with unit, integration, and UI tests
 - **Code Review**: Pull request process with automated quality gates
 

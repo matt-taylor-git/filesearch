@@ -119,16 +119,15 @@ filesearch/
 │       └── test_sort_engine.py
 │
 ├── scripts/                           # Utility and setup scripts
-│   ├── setup_venv_unix.sh         # Unix virtual environment setup
-│   └── setup_venv_windows.bat     # Windows virtual environment setup
+│   ├── setup_venv_unix.sh         # Unix uv setup compatibility wrapper
+│   └── setup_venv_windows.bat     # Windows uv setup compatibility wrapper
 │
 ├── .gitignore                        # Git ignore patterns
 ├── .pre-commit-config.yaml            # Pre-commit hooks configuration
 ├── CLAUDE.md                         # AI assistant development guide
 ├── coverage.json                      # Test coverage report
 ├── pyproject.toml                     # 📦 Project configuration and dependencies
-├── requirements.txt                    # Runtime dependencies
-├── requirements-dev.txt              # Development dependencies
+├── uv.lock                           # Reproducible dependency lockfile
 └── README.md                          # Project overview and setup guide
 ```
 

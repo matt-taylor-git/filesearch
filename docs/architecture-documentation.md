@@ -23,7 +23,7 @@ File Search is a cross-platform desktop application built with Python and PyQt6 
 
 | Category | Technology | Version | Purpose |
 |-----------|------------|---------|---------|
-| **Language** | Python | 3.9+ | Core application logic and cross-platform compatibility |
+| **Language** | Python | 3.11–3.14 | Core application logic and cross-platform compatibility |
 | **GUI Framework** | PyQt6 | >=6.6.0 | Cross-platform desktop interface with native performance |
 | **Logging** | loguru | >=0.7.2 | Structured logging with rotation and compression |
 | **File Paths** | platformdirs | >=4.0.0 | Cross-platform configuration and data directories |
@@ -311,28 +311,22 @@ class SearchState(Enum):
 pip install filesearch
 
 # From Source
-git clone https://github.com/filesearch/filesearch.git
+git clone https://github.com/matt-taylor-git/filesearch.git
 cd filesearch
-pip install -e .
+uv sync --locked --no-dev
 ```
 
 #### Development Installation
 ```bash
 # Clone repository
-git clone https://github.com/filesearch/filesearch.git
+git clone https://github.com/matt-taylor-git/filesearch.git
 cd filesearch
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # Unix
-venv\Scripts\activate     # Windows
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+# Synchronize the locked environment
+uv sync --locked
 
 # Install pre-commit hooks
-pre-commit install
+uv run pre-commit install
 ```
 
 ## Quality Assurance

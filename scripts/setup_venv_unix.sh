@@ -1,63 +1,23 @@
-#!/bin/bash
-# Virtual environment setup script for Linux/macOS
+#!/usr/bin/env bash
+# Compatibility wrapper for the canonical uv development setup.
 
-set -e
+set -euo pipefail
 
-echo "Setting up File Search development environment..."
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 
-# Check if Python 3.9+ is available
-python_version=$(python3 --version 2>&1 | awk '{print $2}')
-required_version="3.9"
-
-if ! python3 -c "import sys; exit(0 if sys.version_info >= (3, 9) else 1)"; then
-    echo "Error: Python 3.9 or higher is required. Found: $python_version"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Error: uv is required. See https://docs.astral.sh/uv/getting-started/installation/"
     exit 1
 fi
 
-echo "✓ Python $python_version detected"
+echo "Synchronizing the locked File Search development environment..."
+uv sync --locked
+uv run pre-commit install
 
-# Create virtual environment
-echo "Creating virtual environment..."
-python3 -m venv venv
-
-# Activate virtual environment
-echo "Activating virtual environment..."
-source venv/bin/activate
-
-# Upgrade pip
-echo "Upgrading pip..."
-pip install --upgrade pip
-
-# Install runtime dependencies
-echo "Installing runtime dependencies..."
-pip install -r requirements.txt
-
-# Install development dependencies
-echo "Installing development dependencies..."
-pip install -r requirements-dev.txt
-
-# Install the local package so `python -m filesearch` and `filesearch` work
-echo "Installing File Search package..."
-pip install -e .
-
-# Install pre-commit hooks
-echo "Installing pre-commit hooks..."
-pre-commit install
-
-echo ""
-echo "✓ Development environment setup complete!"
-echo ""
-echo "To activate the virtual environment in future sessions:"
-echo "  source venv/bin/activate"
-echo ""
-echo "To run the application:"
-echo "  python -m filesearch"
-echo ""
-echo "To run tests:"
-echo "  pytest"
-echo ""
-echo "To format code:"
-echo "  black src/ tests/"
-echo ""
-echo "To lint code:"
-echo "  flake8 src/ tests/"
+echo
+echo "Development environment ready."
+echo "Run the app:   uv run python -m filesearch"
+echo "Run tests:     uv run pytest"
+echo "Format code:   uv run black src/ tests/"
+echo "Lint code:     uv run flake8 src/ tests/"

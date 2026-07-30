@@ -1,21 +1,21 @@
 # CLAUDE.md
 
-Cross-platform desktop file search app built with Python 3.9+ and PyQt6. Multi-threaded search engine with plugin architecture. Uses QtAwesome (`mdi6.*`) for vector icons.
+Cross-platform desktop file search app built with Python 3.11–3.14 and PyQt6. Multi-threaded search engine with plugin architecture. Uses QtAwesome (`mdi6.*`) for vector icons.
 
 ## Commands
 
 ```bash
-python -m filesearch              # Run app
-python -m filesearch --debug      # Run with debug logging
-pytest                            # Run all tests
-pytest -m unit                    # Unit tests only
-pytest -m integration             # Integration tests
-pytest -m ui                      # UI tests (pytest-qt)
-pytest --cov=filesearch           # With coverage
-black src/ tests/                 # Format
-flake8 src/ tests/                # Lint
-isort --profile=black src/ tests/ # Sort imports
-pre-commit run --all-files        # All checks
+uv run python -m filesearch              # Run app
+uv run python -m filesearch --debug      # Run with debug logging
+uv run pytest                            # Run all tests
+uv run pytest -m unit                    # Unit tests only
+uv run pytest -m integration             # Integration tests
+uv run pytest -m ui                      # UI tests (pytest-qt)
+uv run pytest --cov=filesearch           # With coverage
+uv run black src/ tests/                 # Format
+uv run flake8 src/ tests/                # Lint
+uv run isort --profile=black src/ tests/ # Sort imports
+uv run pre-commit run --all-files        # All checks
 ```
 
 ## Project Structure
