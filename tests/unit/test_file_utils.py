@@ -545,7 +545,7 @@ class TestPathNormalizationAndValidation:
 
     @pytest.mark.skipif(
         platform.system() == "Windows",
-        reason="Permission tests are unreliable on Windows",
+        reason="Windows chmod does not expose POSIX owner read-permission semantics",
     )
     def test_validate_directory_permission_denied(self):
         """Test validation for a directory with no read permission."""

@@ -93,7 +93,9 @@ class TestStorageAnalyzer:
         try:
             loop.symlink_to(tmp_path, target_is_directory=True)
         except (OSError, NotImplementedError):
-            pytest.skip("Symlinks are not available in this environment")
+            pytest.skip(
+                "Symlink creation is unsupported or forbidden by the test environment"
+            )
 
         analyzer = StorageAnalyzer(config_manager)
         result = analyzer.analyze(tmp_path)

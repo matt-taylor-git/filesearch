@@ -8,9 +8,9 @@ Cross-platform desktop file search app built with Python 3.11–3.14 and PyQt6. 
 uv run python -m filesearch              # Run app
 uv run python -m filesearch --debug      # Run with debug logging
 uv run pytest                            # Run all tests
-uv run pytest -m unit                    # Unit tests only
-uv run pytest -m integration             # Integration tests
-uv run pytest -m ui                      # UI tests (pytest-qt)
+uv run pytest -m "unit and not performance and not system"  # Unit tests
+uv run pytest -m "integration and not performance and not system"  # Integration
+uv run pytest -m "ui and not performance and not system"  # UI tests
 uv run pytest --cov=filesearch           # With coverage
 uv run ruff format .                     # Format and sort imports
 uv run ruff check .                      # Lint

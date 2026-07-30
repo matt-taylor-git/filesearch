@@ -6,6 +6,8 @@ Tests end-to-end sorting flow from UI to results display.
 import time
 from datetime import datetime
 
+import pytest
+
 from filesearch.core.sort_engine import SortCriteria
 from filesearch.models.search_result import SearchResult
 from filesearch.ui.results_view import ResultsModel, ResultsView
@@ -226,6 +228,9 @@ class TestSortingIntegration:
         all_results = model.get_all_results()
         assert len(all_results) == 50
 
+    @pytest.mark.performance
+    @pytest.mark.slow
+    @pytest.mark.timeout(120)
     def test_performance_large_dataset_sorting(self, tmp_path):
         """Test sorting performance with large dataset"""
         model = ResultsModel()

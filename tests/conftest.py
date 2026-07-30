@@ -16,10 +16,24 @@ from filesearch.core.application_runtime import ApplicationRuntime
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Classify tests by their top-level suite directory."""
+    suite_markers = {"unit", "integration", "ui"}
+    for item in items:
+        relative_path = Path(str(item.path)).relative_to(Path(__file__).parent)
+        if relative_path.parts and relative_path.parts[0] in suite_markers:
+            item.add_marker(getattr(pytest.mark, relative_path.parts[0]))
+
+
 class RecordingDesktopEffects:
     """Desktop adapter that records effects instead of contacting the desktop."""
 
     def __init__(self) -> None:
+        self.open_file_failure: Exception | None = None
+        self.reveal_file_failure: Exception | None = None
+        self.copy_text_failure: Exception | None = None
+        self.copy_files_failure: Exception | None = None
+        self.show_properties_failure: Exception | None = None
         self.opened_files: list[Path] = []
         self.revealed_files: list[Path] = []
         self.opened_with: list[tuple[Path, dict[str, Any]]] = []
@@ -38,10 +52,16 @@ class RecordingDesktopEffects:
         self.color_choice: str | None = None
         self.beep_count = 0
 
+    def _raise_failure(self, failure: Exception | None) -> None:
+        if failure is not None:
+            raise failure
+
     def open_file(self, path: Path) -> None:
+        self._raise_failure(self.open_file_failure)
         self.opened_files.append(path)
 
     def reveal_file(self, path: Path) -> None:
+        self._raise_failure(self.reveal_file_failure)
         self.revealed_files.append(path)
 
     def open_with(self, path: Path, application: dict[str, Any]) -> None:
@@ -57,9 +77,11 @@ class RecordingDesktopEffects:
         return self.application_choice
 
     def copy_text(self, text: str) -> None:
+        self._raise_failure(self.copy_text_failure)
         self.copied_text.append(text)
 
     def copy_files(self, paths: Sequence[Path]) -> None:
+        self._raise_failure(self.copy_files_failure)
         self.copied_files.append(list(paths))
 
     def confirm(
@@ -83,6 +105,7 @@ class RecordingDesktopEffects:
         self.beep_count += 1
 
     def show_properties(self, parent: Any, path: Path) -> None:
+        self._raise_failure(self.show_properties_failure)
         self.properties.append(path)
 
     def confirm_executable(self, parent: Any, message: str) -> tuple[bool, bool]:

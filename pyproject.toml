@@ -51,6 +51,7 @@ dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
     "pytest-qt>=4.2.0",
+    "pytest-timeout>=2.4.0",
     "ruff>=0.16.0",
     "types-Send2Trash>=1.8.0",
 ]
@@ -87,7 +88,14 @@ max-complexity = 10
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers"
+addopts = [
+    "-ra",
+    "-q",
+    "--strict-config",
+    "--strict-markers",
+    "--timeout=30",
+    "-m=not system and not performance",
+]
 testpaths = [
     "tests",
 ]
@@ -105,7 +113,12 @@ markers = [
     "unit: Unit tests",
     "integration: Integration tests",
     "ui: UI tests",
-    "slow: Slow running tests",
+    "slow: Tests that take materially longer than the normal suite",
+    "performance: Timing-sensitive performance tests excluded from required runs",
+    "system: Tests that contact real operating-system desktop integrations",
+]
+filterwarnings = [
+    "error",
 ]
 qt_api = "pyqt6"
 

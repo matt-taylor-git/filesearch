@@ -5,11 +5,12 @@ including security warnings and error handling.
 """
 
 import platform
+from pathlib import Path
+from typing import Any
 
 import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
 
 import filesearch.core.security_manager
 from filesearch.core.config_manager import ConfigManager
@@ -33,15 +34,9 @@ class TestFileOpeningIntegration:
         yield
         filesearch.core.security_manager._security_manager = None
 
-    @pytest.fixture(autouse=True)
-    def setup_app(self):
-        """Ensure QApplication exists for all tests."""
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication([])
-        yield app
-
-    def test_double_click_triggers_file_open(self, tmp_path, desktop_effects):
+    def test_double_click_triggers_file_open(
+        self, tmp_path: Path, desktop_effects: Any, qtbot: Any
+    ) -> None:
         """Test that double-clicking a result triggers file opening."""
         # Create test file
         test_file = tmp_path / "test.txt"
@@ -56,6 +51,7 @@ class TestFileOpeningIntegration:
 
         # Create UI components
         results_view = ResultsView(desktop_effects=desktop_effects)
+        qtbot.addWidget(results_view)
         results_view.set_results([result])
 
         # Track file open requests
@@ -75,7 +71,9 @@ class TestFileOpeningIntegration:
         # Verify file was opened
         assert file_opened
 
-    def test_enter_key_triggers_file_open(self, tmp_path, desktop_effects):
+    def test_enter_key_triggers_file_open(
+        self, tmp_path: Path, desktop_effects: Any, qtbot: Any
+    ) -> None:
         """Test that Enter key triggers file opening."""
         # Create test file
         test_file = tmp_path / "test.txt"
@@ -90,6 +88,7 @@ class TestFileOpeningIntegration:
 
         # Create UI components
         results_view = ResultsView(desktop_effects=desktop_effects)
+        qtbot.addWidget(results_view)
         results_view.set_results([result])
 
         # Track file open requests
@@ -112,7 +111,9 @@ class TestFileOpeningIntegration:
         # Verify file was opened
         assert file_opened
 
-    def test_double_click_disabled_during_search(self, tmp_path, desktop_effects):
+    def test_double_click_disabled_during_search(
+        self, tmp_path: Path, desktop_effects: Any, qtbot: Any
+    ) -> None:
         """Test that double-click is disabled during search."""
         # Create test file
         test_file = tmp_path / "test.txt"
@@ -127,6 +128,7 @@ class TestFileOpeningIntegration:
 
         # Create UI components
         results_view = ResultsView(desktop_effects=desktop_effects)
+        qtbot.addWidget(results_view)
         results_view.set_results([result])
 
         # Set searching state
@@ -205,18 +207,6 @@ class TestFileOpeningWithRealFiles:
     """Tests with actual file operations where possible."""
 
     EXECUTABLE_EXT = ".exe" if platform.system() == "Windows" else ".sh"
-
-    def test_runtime_opens_text_file_without_desktop_effect(
-        self, tmp_path, desktop_effects
-    ):
-        """Test opening a text file through a recording desktop adapter."""
-        # Create test file
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("Hello, World!")
-
-        desktop_effects.open_file(test_file)
-
-        assert desktop_effects.opened_files == [test_file]
 
     def test_safe_open_nonexistent_file(self, tmp_path):
         """Test safe_open with non-existent file."""

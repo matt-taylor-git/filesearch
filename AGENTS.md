@@ -15,9 +15,9 @@ uv run python -m filesearch --debug
 
 # Tests
 uv run python -m pytest
-uv run python -m pytest -m unit
-uv run python -m pytest -m integration
-uv run python -m pytest -m ui
+uv run python -m pytest -m "unit and not performance and not system"
+uv run python -m pytest -m "integration and not performance and not system"
+uv run python -m pytest -m "ui and not performance and not system"
 
 # Formatting / linting
 uv run ruff format .

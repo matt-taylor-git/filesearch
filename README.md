@@ -91,15 +91,25 @@ The main config file is created automatically in the user's platform-specific co
 
 ```bash
 uv run python -m pytest
-uv run python -m pytest -m unit
-uv run python -m pytest -m integration
-uv run python -m pytest -m ui
+uv run python -m pytest -m "unit and not performance and not system"
+uv run python -m pytest -m "integration and not performance and not system"
+uv run python -m pytest -m "ui and not performance and not system"
+
+# Opt-in suites
+uv run python -m pytest -m performance
+uv run python -m pytest -m system
 
 uv run python -m mypy
 uv run ruff format .
 uv run ruff check .
 uv run pre-commit run --all-files
 ```
+
+The default run is hermetic: it uses temporary user/configuration state,
+contains desktop effects at the application runtime boundary, and excludes
+timing-sensitive performance and real-desktop system tests. Unexpected warnings
+fail the run, and required tests have a 30-second timeout. Performance tests
+declare an explicit 120-second timeout and remain opt-in.
 
 For PyQt tests in headless or automation contexts, run with Qt's offscreen platform:
 

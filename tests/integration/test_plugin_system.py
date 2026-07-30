@@ -1,7 +1,7 @@
 """Integration tests for the plugin system."""
 
 from pathlib import Path
-from unittest.mock import Mock
+from typing import Any
 
 import pytest
 
@@ -80,7 +80,9 @@ class TestPluginSystemIntegration:
         assert manager.unload_plugin(plugin_class_name) is True
         assert manager.get_plugin(plugin_class_name) is None
 
-    def test_plugin_search_integration(self, manager):
+    def test_plugin_search_integration(
+        self, manager: PluginManager, tmp_path: Path
+    ) -> None:
         """Test plugin search functionality."""
         loaded_plugins = manager.load_plugins()
 
@@ -94,22 +96,19 @@ class TestPluginSystemIntegration:
         assert example_plugin is not None
 
         # Add a recent file
-        test_file = __file__
-        example_plugin.add_recent_file(test_file)
+        test_file = tmp_path / "recent-notes.txt"
+        test_file.write_text("notes", encoding="utf-8")
+        example_plugin.add_recent_file(str(test_file))
 
         # Search for it
-        filename = Path(test_file).name
+        filename = test_file.name
         results = example_plugin.search(filename, {})
 
         assert len(results) > 0
         assert results[0]["name"] == filename
 
-    def test_plugin_config_integration(self, config_manager):
+    def test_plugin_config_integration(self, config_manager: ConfigManager) -> None:
         """Test plugin configuration management."""
-        config_manager.get = Mock(return_value={"max_recent_files": 50})
-        config_manager.set = Mock(return_value=None)
-        config_manager.save = Mock(return_value=None)
-
         manager = PluginManager(config_manager)
 
         # Load plugins
@@ -120,31 +119,43 @@ class TestPluginSystemIntegration:
         new_config = {"test_key": "test_value"}
 
         assert manager.set_plugin_config(plugin_name, new_config) is True
-        config_manager.set.assert_called_with(f"plugins.{plugin_name}", new_config)
-        config_manager.save.assert_called()
+        assert manager.get_plugin_config(plugin_name) == new_config
 
-    def test_plugin_error_isolation(self, manager):
-        """Test that plugin errors don't crash the system."""
+        reloaded_config = ConfigManager(
+            runtime=config_manager.runtime, watch_config=False
+        )
+        assert (
+            PluginManager(reloaded_config).get_plugin_config(plugin_name) == new_config
+        )
 
-        # Mock _load_plugin to fail for one plugin
-        original_load = manager._load_plugin
+    def test_plugin_error_isolation(
+        self, manager: PluginManager, application_runtime: Any
+    ) -> None:
+        """A failing user plugin does not prevent a healthy plugin from loading."""
+        plugin_dir = application_runtime.home_dir / ".filesearch" / "plugins"
+        plugin_dir.mkdir(parents=True)
+        (plugin_dir / "broken_plugin.py").write_text(
+            """from typing import Any
 
-        def failing_load(plugin_class, config):
-            if plugin_class.__name__ == "ExamplePlugin":
-                # Make ExamplePlugin fail
-                raise Exception("Simulated plugin load failure")
-            return original_load(plugin_class, config)
+from filesearch.plugins.plugin_base import SearchPlugin
 
-        manager._load_plugin = failing_load
+class BrokenPlugin(SearchPlugin):
+    def initialize(self, config: dict[str, Any]) -> bool:
+        raise RuntimeError("simulated initialization failure")
 
-        # Load plugins - should not crash despite failing plugin
+    def search(self, query: str, context: dict[str, Any]) -> list[dict[str, Any]]:
+        return []
+
+    def get_name(self) -> str:
+        return "Broken"
+""",
+            encoding="utf-8",
+        )
+
         loaded_plugins = manager.load_plugins()
 
-        # Should load 0 plugins since ExamplePlugin fails
-        assert len(loaded_plugins) == 0
-
-        # ExamplePlugin should not be loaded
-        assert manager.get_plugin("ExamplePlugin") is None
+        assert manager.get_plugin("BrokenPlugin") is None
+        assert manager.get_plugin("ExamplePlugin") in loaded_plugins
 
     def test_plugin_status_reporting(self, manager):
         """Test plugin status reporting."""

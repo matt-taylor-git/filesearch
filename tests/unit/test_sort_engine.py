@@ -107,6 +107,9 @@ class TestSortByName:
         assert filenames[2] == "apple.txt"
         assert filenames[3] == "zebra.txt"
 
+    @pytest.mark.performance
+    @pytest.mark.slow
+    @pytest.mark.timeout(120)
     def test_performance_large_dataset(self):
         """Test performance: sort 1,000 items in <100ms (AC1 test)."""
         now = datetime.now().timestamp()
@@ -184,6 +187,9 @@ class TestSortBySize:
         assert sorted_results[1].filename == "small.txt"  # Smallest second
         assert sorted_results[2].is_directory  # Folder last
 
+    @pytest.mark.performance
+    @pytest.mark.slow
+    @pytest.mark.timeout(120)
     def test_performance_large_dataset(self):
         """Test performance: sort 10,000 items in <200ms (AC2 test)."""
         now = datetime.now().timestamp()

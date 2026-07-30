@@ -351,7 +351,10 @@ class TestGlobalFunctions:
 class TestPlatformSpecificBehavior:
     """Test platform-specific behavior."""
 
-    @pytest.mark.skipif(platform.system() == "Windows", reason="Unix-specific test")
+    @pytest.mark.skipif(
+        platform.system() == "Windows",
+        reason="Executable detection requires POSIX execute-permission bits",
+    )
     def test_unix_executable_detection_with_permissions(self):
         """Test executable detection on Unix systems with execute permissions."""
         # Create a temporary script file

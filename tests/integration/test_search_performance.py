@@ -9,6 +9,12 @@ import pytest
 
 from filesearch.core.search_engine import FileSearchEngine
 
+pytestmark = [
+    pytest.mark.performance,
+    pytest.mark.slow,
+    pytest.mark.timeout(120),
+]
+
 
 class TestSearchPerformance:
     """Performance test cases for FileSearchEngine class."""

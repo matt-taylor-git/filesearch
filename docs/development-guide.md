@@ -115,17 +115,31 @@ uv run pytest tests/unit/test_search_engine.py::TestFileSearchEngine::test_initi
 #### Test Categories
 ```bash
 # Unit tests only
-uv run pytest -m unit
+uv run pytest -m "unit and not performance and not system"
 
 # Integration tests only
-uv run pytest -m integration
+uv run pytest -m "integration and not performance and not system"
 
 # UI tests only
-uv run pytest -m ui
+uv run pytest -m "ui and not performance and not system"
 
-# Slow tests (exclude for quick testing)
-uv run pytest -m "not slow"
+# Timing-sensitive performance tests (opt-in, 120-second per-test timeout)
+uv run pytest -m performance
+
+# Tests that contact real desktop integrations (opt-in)
+uv run pytest -m system
 ```
+
+The default test command runs the required hermetic unit, integration, and UI
+suites. Test composition redirects home, configuration, data, cache, and log
+state to temporary directories and supplies controlled desktop effects for file
+launching, folder reveal, dialogs, and clipboard operations. Timing-sensitive
+performance tests and real-desktop system tests are excluded unless explicitly
+selected.
+
+Unexpected warnings are errors. Required tests time out after 30 seconds, while
+the marked performance suite declares a 120-second limit. Pytest reports all
+retained skips with `-ra`; missing required behavior must fail rather than skip.
 
 #### Coverage Reporting
 ```bash

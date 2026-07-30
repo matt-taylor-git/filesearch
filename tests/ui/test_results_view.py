@@ -130,6 +130,9 @@ def test_get_selected_result_with_selection(results_view, sample_results, qtbot)
     assert selected == sample_results[0]
 
 
+@pytest.mark.performance
+@pytest.mark.slow
+@pytest.mark.timeout(120)
 def test_performance_large_result_set(results_view):
     """Test performance with large result set."""
     # Create 1000 results
