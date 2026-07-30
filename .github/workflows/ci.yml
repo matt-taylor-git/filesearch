@@ -73,6 +73,9 @@ jobs:
     name: Tests and coverage (Python 3.14)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
     env:
       QT_QPA_PLATFORM: offscreen
 
@@ -99,6 +102,7 @@ jobs:
           flags: required-tests
           name: python-3.14-linux
           fail_ci_if_error: true
+          use_oidc: true
 
   integration-ui:
     name: Integration and UI (${{ matrix.os }})
