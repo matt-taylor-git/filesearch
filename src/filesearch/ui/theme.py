@@ -635,7 +635,7 @@ QToolTip {{
     color: {Colors.TEXT_PRIMARY};
     border: 1px solid {Colors.BORDER_STRONG};
     border-radius: {Spacing.RADIUS_SM}px;
-    padding: 6px 10px;
+    padding: 3px 6px;
     font-size: {Fonts.SIZE_SM}pt;
 }}
 
