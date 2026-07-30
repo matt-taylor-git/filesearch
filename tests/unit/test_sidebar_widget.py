@@ -62,6 +62,14 @@ class TestSidebarWidgetLocations:
         assert widget._custom_location_button.property("active") == "false"
         assert widget._location_buttons[0].property("active") == "true"
 
+    def test_recent_search_tag_reveals_its_full_query(self, widget):
+        """A width-limited recent-search tag exposes the complete query."""
+        query = "quarterly financial report with a long filename"
+
+        widget.set_tags([query])
+
+        assert widget._tag_buttons[0].toolTip() == query
+
 
 class TestSidebarWidgetStorage:
     """Tests for multi-drive storage indicators in the sidebar."""

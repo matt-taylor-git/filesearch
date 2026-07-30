@@ -200,7 +200,8 @@ class PropertiesDialog(QDialog):
             The value label widget (for later updating if needed)
         """
         label = QLabel(f"<b>{label_text}</b>")
-        value_label = QLabel(value_text)
+        value_label = QLabel()
+        self._set_value_text(value_label, value_text)
         value_label.setWordWrap(True)
         value_label.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
@@ -259,8 +260,8 @@ class PropertiesDialog(QDialog):
         self.checksum_button.setText("Calculating...")
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indeterminate progress
-        self.md5_label.setText("Calculating...")
-        self.sha256_label.setText("Calculating...")
+        self._set_value_text(self.md5_label, "Calculating...")
+        self._set_value_text(self.sha256_label, "Calculating...")
 
         # Start background calculation
         self.checksum_worker = ChecksumWorker(self.file_path)
@@ -272,19 +273,26 @@ class PropertiesDialog(QDialog):
     def on_checksum_calculated(self, hash_type: str, hash_value: str) -> None:
         """Handle checksum calculation completion."""
         if hash_type == "MD5":
-            self.md5_label.setText(hash_value.upper())
+            self._set_value_text(self.md5_label, hash_value.upper())
         elif hash_type == "SHA256":
-            self.sha256_label.setText(hash_value.upper())
+            self._set_value_text(self.sha256_label, hash_value.upper())
 
         logger.debug(f"Calculated {hash_type} checksum for {self.file_path}")
 
     def on_checksum_error(self, error_message: str) -> None:
         """Handle checksum calculation error."""
-        self.md5_label.setText(f"Error: {error_message}")
-        self.sha256_label.setText(f"Error: {error_message}")
+        text = f"Error: {error_message}"
+        self._set_value_text(self.md5_label, text)
+        self._set_value_text(self.sha256_label, text)
         logger.error(
             f"Checksum calculation error for {self.file_path}: {error_message}"
         )
+
+    @staticmethod
+    def _set_value_text(label: QLabel, text: str) -> None:
+        """Keep a property label's visible and hover text synchronized."""
+        label.setText(text)
+        label.setToolTip(text)
 
     def on_checksum_finished(self) -> None:
         """Handle checksum calculation thread completion."""

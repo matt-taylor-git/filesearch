@@ -43,7 +43,7 @@ class SortControls(QWidget):
         # Reverse sort button
         self.reverse_button = QToolButton()
         self.reverse_button.setText("⇅")
-        self.reverse_button.setToolTip("Reverse sort order")
+        self.reverse_button.setAccessibleName("Change sort direction")
         layout.addWidget(self.reverse_button)
 
         # Visual indicator of current sort
@@ -89,15 +89,44 @@ class SortControls(QWidget):
         """Update visual indicator showing current sort direction"""
         criteria = self.sort_combo.currentData()
         if criteria:
-            # Update button icon/text based on direction
-            if criteria in [
+            descending_criteria = {
+                SortCriteria.NAME_DESC,
+                SortCriteria.SIZE_DESC,
+                SortCriteria.DATE_DESC,
+            }
+            ascending_criteria = {
+                SortCriteria.NAME_ASC,
+                SortCriteria.SIZE_ASC,
+                SortCriteria.DATE_ASC,
+            }
+            down_arrow_criteria = {
                 SortCriteria.NAME_DESC,
                 SortCriteria.SIZE_DESC,
                 SortCriteria.DATE_ASC,
-            ]:
+            }
+
+            # Update button icon/text based on direction
+            if criteria in descending_criteria:
+                tooltip = "Sort ascending"
+                enabled = True
+            elif criteria in ascending_criteria:
+                tooltip = "Sort descending"
+                enabled = True
+            else:
+                label = self.sort_combo.currentText().lower()
+                tooltip = f"Reverse sort is unavailable for {label}"
+                enabled = False
+
+            if not enabled:
+                self.reverse_button.setText("⇅")
+            elif criteria in down_arrow_criteria:
                 self.reverse_button.setText("⬇")
             else:
                 self.reverse_button.setText("⬆")
+
+            self.reverse_button.setEnabled(enabled)
+            self.reverse_button.setToolTip(tooltip)
+            self.reverse_button.setAccessibleDescription(tooltip)
 
     def set_criteria(self, criteria: SortCriteria):
         """Set the current sort criteria programmatically"""

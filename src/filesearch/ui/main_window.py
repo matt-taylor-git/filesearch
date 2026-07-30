@@ -216,7 +216,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             qta.icon("mdi6.arrow-left", color=Colors.TEXT_SECONDARY), " Back"
         )
         self.back_button.setProperty("class", "browse-nav")
-        self.back_button.setToolTip("Go back to previous folder (Alt+Left)")
+        self.back_button.setAccessibleName("Go back")
         self.back_button.setEnabled(False)
         self.back_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.back_button.setSizePolicy(
@@ -228,7 +228,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             qta.icon("mdi6.arrow-up", color=Colors.TEXT_SECONDARY), " Up"
         )
         self.up_button.setProperty("class", "browse-nav")
-        self.up_button.setToolTip("Go to parent folder (Alt+Up)")
+        self.up_button.setAccessibleName("Go to parent folder")
         self.up_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.up_button.setSizePolicy(
             QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
@@ -630,14 +630,29 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
     def _update_browse_nav_buttons(self) -> None:
         """Enable/disable Back and Up based on history and parent path."""
         if hasattr(self, "back_button"):
-            self.back_button.setEnabled(bool(self._directory_history))
+            can_go_back = bool(self._directory_history)
+            back_tooltip = (
+                "Go back to previous folder (Alt+Left)"
+                if can_go_back
+                else "No previous folder"
+            )
+            self.back_button.setEnabled(can_go_back)
+            self.back_button.setToolTip(back_tooltip)
+            self.back_button.setAccessibleDescription(back_tooltip)
         if hasattr(self, "up_button"):
             parent = self.current_directory.parent
             can_go_up = (
                 parent != self.current_directory
                 and validate_directory(parent) is None
             )
+            up_tooltip = (
+                "Go to parent folder (Alt+Up)"
+                if can_go_up
+                else "No parent folder"
+            )
             self.up_button.setEnabled(can_go_up)
+            self.up_button.setToolTip(up_tooltip)
+            self.up_button.setAccessibleDescription(up_tooltip)
 
     def _navigate_back(self) -> None:
         """Return to the previous folder in browse history."""

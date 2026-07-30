@@ -67,6 +67,9 @@ class UISettingsTab(QWidget):
 
         self.show_file_icons_check = QCheckBox("Show file icons")
         self.auto_expand_results_check = QCheckBox("Auto-expand results")
+        self.auto_expand_results_check.setToolTip(
+            "Automatically expand the results view"
+        )
 
         display_layout.addWidget(self.show_file_icons_check)
         display_layout.addWidget(self.auto_expand_results_check)

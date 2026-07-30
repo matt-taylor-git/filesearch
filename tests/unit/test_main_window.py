@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 from PyQt6.QtCore import Qt, QThread
 from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QLabel, QToolButton
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.core.search_engine import FileSearchEngine
@@ -158,6 +158,82 @@ class TestMainWindowUIState:
         ]
 
         assert tab_labels == ["Search", "Storage"]
+
+    def test_browse_navigation_tooltips_follow_available_actions(
+        self, main_window, tmp_path
+    ):
+        """Browse controls explain both their action and unavailable state."""
+        main_window.current_directory = tmp_path
+        main_window._directory_history = []
+        main_window._update_browse_nav_buttons()
+
+        assert main_window.back_button.toolTip() == "No previous folder"
+        assert main_window.back_button.accessibleName() == "Go back"
+        assert main_window.back_button.accessibleDescription() == "No previous folder"
+        assert main_window.up_button.toolTip() == "Go to parent folder (Alt+Up)"
+
+        main_window._directory_history.append(Path.home())
+        main_window._update_browse_nav_buttons()
+
+        assert main_window.back_button.toolTip() == (
+            "Go back to previous folder (Alt+Left)"
+        )
+
+    def test_sort_tooltip_describes_next_direction(self, qapp, qtbot):
+        """The sort action names the direction that clicking will apply."""
+        from filesearch.core.sort_engine import SortCriteria
+        from filesearch.ui.sort_controls import SortControls
+
+        controls = SortControls()
+        qtbot.addWidget(controls)
+        assert controls.reverse_button.toolTip() == "Sort descending"
+        assert controls.reverse_button.accessibleName() == "Change sort direction"
+        assert controls.reverse_button.accessibleDescription() == "Sort descending"
+
+        controls.set_criteria(SortCriteria.NAME_DESC)
+
+        assert controls.reverse_button.toolTip() == "Sort ascending"
+        assert controls.reverse_button.accessibleDescription() == "Sort ascending"
+
+        controls.set_criteria(SortCriteria.RELEVANCE_DESC)
+
+        assert not controls.reverse_button.isEnabled()
+        assert controls.reverse_button.toolTip() == (
+            "Reverse sort is unavailable for relevance"
+        )
+
+    def test_details_close_action_is_explained_accessibly(self, main_window):
+        """The icon-only details close action has hover and accessible text."""
+        close_button = main_window.details_panel.findChild(
+            QToolButton, "detailsCloseButton"
+        )
+
+        assert close_button is not None
+        assert close_button.toolTip()
+        assert close_button.accessibleName() == close_button.toolTip()
+        assert close_button.accessibleDescription() == close_button.toolTip()
+
+    def test_details_values_reveal_their_full_text(self, main_window, tmp_path):
+        """Dynamic details values expose exact text even when the panel clips it."""
+        file_path = tmp_path / "a-file-name-that-may-wrap-in-the-panel.txt"
+        file_path.write_text("tooltip test", encoding="utf-8")
+        result = SearchResult(
+            path=file_path,
+            size=file_path.stat().st_size,
+            modified=file_path.stat().st_mtime,
+        )
+
+        main_window.details_panel.show_result(result)
+
+        value_labels = main_window.details_panel.findChildren(QLabel)
+        filename_label = next(
+            label for label in value_labels if label.text() == file_path.name
+        )
+        location_label = next(
+            label for label in value_labels if label.text() == str(file_path.parent)
+        )
+        assert filename_label.toolTip() == file_path.name
+        assert location_label.toolTip() == str(file_path.parent)
 
 
 class TestMainWindowSearchControls:

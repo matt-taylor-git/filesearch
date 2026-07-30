@@ -74,6 +74,19 @@ def test_add_single_result(results_view, sample_results):
     assert index.data(Qt.ItemDataRole.DisplayRole) == result.get_display_name()
 
 
+def test_result_tooltip_includes_complete_metadata(results_view, sample_results):
+    """A result exposes its full filename, path, size, and modified date."""
+    results_view.add_result(sample_results[0])
+    index = results_view.model().index(0, 0)
+
+    assert index.data(Qt.ItemDataRole.ToolTipRole) == (
+        "Filename: document.txt\n"
+        "Path: /home/user/document.txt\n"
+        "Size: 1.0 KiB\n"
+        "Modified: Jan 01, 2021"
+    )
+
+
 def test_set_results(results_view, sample_results):
     """Test setting multiple results at once."""
     results_view.set_results(sample_results)

@@ -119,6 +119,14 @@ class TestSearchInputWidget:
         # Clear button should disappear
         assert not widget.clear_button.isVisible()
 
+    def test_clear_button_explains_its_action_accessibly(self, widget):
+        """The icon-only clear action is named for hover and assistive tech."""
+        assert widget.clear_button.toolTip()
+        assert widget.clear_button.accessibleName() == widget.clear_button.toolTip()
+        assert widget.clear_button.accessibleDescription() == (
+            widget.clear_button.toolTip()
+        )
+
     def test_max_length_validation(self, widget):
         """Test maximum length validation (255 characters) (AC #2)."""
         # Try to enter more than max length

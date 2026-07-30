@@ -146,8 +146,12 @@ class DetailsPanelWidget(QWidget):
         header_row.addStretch()
 
         self._close_btn = QToolButton()
+        self._close_btn.setObjectName("detailsCloseButton")
         self._close_btn.setIcon(qta.icon("mdi6.close", color=Colors.TEXT_TERTIARY))
         self._close_btn.setProperty("class", "details-close")
+        self._close_btn.setToolTip("Close details")
+        self._close_btn.setAccessibleName("Close details")
+        self._close_btn.setAccessibleDescription("Close details")
         self._close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._close_btn.setFixedSize(24, 24)
         self._close_btn.clicked.connect(self.panel_close_requested.emit)
@@ -265,30 +269,38 @@ class DetailsPanelWidget(QWidget):
         self._icon_label.setPixmap(qta.icon(icon_name, color=icon_color).pixmap(48, 48))
 
         # Filename
-        self._filename_label.setText(path.name)
+        self._set_value_text(self._filename_label, path.name)
 
         # File info
         type_label = _get_file_type_label(path)
         size_str = result.get_display_size()
-        self._fileinfo_label.setText(f"{size_str} — {type_label}")
+        self._set_value_text(self._fileinfo_label, f"{size_str} — {type_label}")
 
         # Metadata
-        self._meta_location_label.setText(str(path.parent))
+        self._set_value_text(self._meta_location_label, str(path.parent))
         try:
             created = datetime.fromtimestamp(path.stat().st_ctime)
-            self._meta_created_label.setText(created.strftime("%b %d, %Y %H:%M"))
+            created_text = created.strftime("%b %d, %Y %H:%M")
         except Exception:
-            self._meta_created_label.setText("—")
+            created_text = "—"
+        self._set_value_text(self._meta_created_label, created_text)
 
         try:
             modified = datetime.fromtimestamp(result.modified)
-            self._meta_modified_label.setText(modified.strftime("%b %d, %Y %H:%M"))
+            modified_text = modified.strftime("%b %d, %Y %H:%M")
         except Exception:
-            self._meta_modified_label.setText("—")
+            modified_text = "—"
+        self._set_value_text(self._meta_modified_label, modified_text)
 
-        self._meta_size_label.setText(size_str)
+        self._set_value_text(self._meta_size_label, size_str)
 
         logger.debug(f"Details panel showing: {path.name}")
+
+    @staticmethod
+    def _set_value_text(label: QLabel, text: str) -> None:
+        """Keep a dynamic label's visible and hover text synchronized."""
+        label.setText(text)
+        label.setToolTip(text)
 
     def clear(self) -> None:
         """Clear panel content (splitter handles hiding via size)."""

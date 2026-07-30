@@ -86,6 +86,7 @@ class PluginSettingsTab(QWidget):
                 item_text += " [Not Loaded]"
 
             item = QListWidgetItem(item_text)
+            item.setToolTip(item_text)
             item.setData(Qt.ItemDataRole.UserRole, plugin_name)
             self.plugin_list.addItem(item)
 

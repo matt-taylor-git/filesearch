@@ -49,6 +49,7 @@ class HighlightSettingsTab(QWidget):
         self.highlight_color_input = QLineEdit()
         self.highlight_color_input.setPlaceholderText("#FFFF99")
         self.highlight_color_input.setMaximumWidth(100)
+        self.highlight_color_input.setToolTip("Hex color used for matching text")
 
         self.highlight_color_button = QPushButton("Choose Color...")
         self.highlight_color_button.clicked.connect(self.choose_highlight_color)

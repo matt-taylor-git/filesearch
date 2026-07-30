@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from PyQt6.QtWidgets import QApplication, QScrollArea
+from PyQt6.QtWidgets import QApplication, QPushButton, QScrollArea
 
 from filesearch.core.config_manager import ConfigManager
 from filesearch.ui.storage_tab import StorageTabWidget
@@ -92,3 +92,34 @@ class TestStorageTabWidget:
     def test_storage_page_uses_scroll_area(self, storage_tab):
         """The storage page should be wrapped in a scroll area for overflow."""
         assert storage_tab.findChild(QScrollArea) is not None
+
+    def test_storage_tooltips_follow_scan_and_navigation_state(
+        self, storage_tab, qtbot, tmp_path
+    ):
+        """Storage actions and clipped paths describe their current behavior."""
+        storage_tab.set_root_path(tmp_path, refresh=False)
+
+        assert storage_tab._root_path_label.toolTip() == str(tmp_path)
+        assert storage_tab._refresh_button.toolTip() == "Rescan storage usage"
+        assert storage_tab._refresh_button.accessibleDescription() == (
+            "Rescan storage usage"
+        )
+
+        storage_tab.refresh()
+
+        assert storage_tab._refresh_button.toolTip() == "Storage scan in progress"
+        assert storage_tab._refresh_button.accessibleDescription() == (
+            "Storage scan in progress"
+        )
+        qtbot.waitUntil(storage_tab.has_analysis, timeout=5000)
+        assert storage_tab._refresh_button.toolTip() == "Rescan storage usage"
+
+        breadcrumb_buttons = storage_tab._breadcrumb_card.findChildren(QPushButton)
+        root_button = next(
+            button for button in breadcrumb_buttons if button.text().strip() != "Up"
+        )
+        up_button = next(
+            button for button in breadcrumb_buttons if button.text().strip() == "Up"
+        )
+        assert root_button.toolTip() == str(tmp_path)
+        assert up_button.toolTip() == "No parent folder in this storage scan"

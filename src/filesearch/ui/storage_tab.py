@@ -51,6 +51,7 @@ class StorageTabWidget(QWidget):
 
         self._setup_ui()
         self._root_path_label.setText(str(self.root_path))
+        self._root_path_label.setToolTip(str(self.root_path))
         self._reset_summary()
         self._set_hover_node(None)
         self._set_placeholder(
@@ -72,6 +73,7 @@ class StorageTabWidget(QWidget):
 
         self.root_path = path
         self._root_path_label.setText(str(path))
+        self._root_path_label.setToolTip(str(path))
         self._reset_summary()
         self._set_hover_node(None)
 
@@ -118,6 +120,7 @@ class StorageTabWidget(QWidget):
         self._node_index.clear()
         self._parent_index.clear()
         self._refresh_button.setEnabled(False)
+        self._set_refresh_tooltip("Storage scan in progress")
         self._status_label.setText("Scanning storage usage...")
         self._set_placeholder("Scanning storage usage...", "storage-empty-state")
 
@@ -174,6 +177,8 @@ class StorageTabWidget(QWidget):
             " Refresh",
         )
         self._refresh_button.setProperty("class", "storage-refresh")
+        self._refresh_button.setAccessibleName("Refresh storage analysis")
+        self._set_refresh_tooltip("Rescan storage usage")
         self._refresh_button.clicked.connect(self.refresh)
         header_row.addWidget(self._refresh_button)
         content_layout.addLayout(header_row)
@@ -307,6 +312,7 @@ class StorageTabWidget(QWidget):
         """Apply a completed storage analysis run."""
         self._worker = None
         self._refresh_button.setEnabled(True)
+        self._set_refresh_tooltip("Rescan storage usage")
         self._analysis_result = result
         self._node_index.clear()
         self._parent_index.clear()
@@ -324,6 +330,7 @@ class StorageTabWidget(QWidget):
         """Display an analysis error."""
         self._worker = None
         self._refresh_button.setEnabled(True)
+        self._set_refresh_tooltip("Rescan storage usage")
         self._treemap.clear()
         self._status_label.setText(f"Storage scan failed: {message}")
         self._set_placeholder(message, "storage-error-state")
@@ -334,6 +341,7 @@ class StorageTabWidget(QWidget):
         """Handle worker cancellation."""
         self._worker = None
         self._refresh_button.setEnabled(True)
+        self._set_refresh_tooltip("Rescan storage usage")
         if self._analysis_result is None:
             self._status_label.setText("Storage scan cancelled")
             self._set_placeholder("Storage scan cancelled.", "storage-empty-state")
@@ -380,9 +388,18 @@ class StorageTabWidget(QWidget):
             " Up",
         )
         up_button.setProperty("class", "storage-breadcrumb")
-        up_button.setEnabled(
+        can_navigate_up = (
             self._current_node is not None and self._current_node.path != self.root_path
         )
+        up_tooltip = (
+            "Go to parent folder"
+            if can_navigate_up
+            else "No parent folder in this storage scan"
+        )
+        up_button.setEnabled(can_navigate_up)
+        up_button.setToolTip(up_tooltip)
+        up_button.setAccessibleName("Go to parent folder")
+        up_button.setAccessibleDescription(up_tooltip)
         up_button.clicked.connect(self._navigate_up)
         self._breadcrumb_layout.addWidget(up_button)
 
@@ -400,6 +417,7 @@ class StorageTabWidget(QWidget):
         for index, path in enumerate(path_chain):
             button = QPushButton(self._breadcrumb_label(path))
             button.setProperty("class", "storage-breadcrumb")
+            button.setToolTip(str(path))
             button.clicked.connect(lambda checked=False, p=path: self._show_node(p))
             self._breadcrumb_layout.addWidget(button)
 
@@ -437,15 +455,24 @@ class StorageTabWidget(QWidget):
         target = node or self._current_node
         if target is None:
             self._detail_name.setText("Hover a tile")
+            self._detail_name.setToolTip("")
             self._detail_type.setText("Storage details will appear here.")
             self._detail_size.setText("0 B")
             self._detail_path.setText("No node selected")
+            self._detail_path.setToolTip("")
             return
 
         self._detail_name.setText(target.name)
+        self._detail_name.setToolTip(target.name)
         self._detail_type.setText("Folder" if target.is_dir else "File")
         self._detail_size.setText(format_bytes(target.size))
         self._detail_path.setText(str(target.path))
+        self._detail_path.setToolTip(str(target.path))
+
+    def _set_refresh_tooltip(self, text: str) -> None:
+        """Keep refresh hover text and assistive description in sync."""
+        self._refresh_button.setToolTip(text)
+        self._refresh_button.setAccessibleDescription(text)
 
     def _set_placeholder(self, message: str, css_class: str) -> None:
         """Show the placeholder page with a themed message."""

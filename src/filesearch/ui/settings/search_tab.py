@@ -38,6 +38,7 @@ class SearchSettingsTab(QWidget):
 
         self.default_dir_input = QLineEdit()
         self.default_dir_input.setPlaceholderText("Enter directory path...")
+        self.default_dir_input.textChanged.connect(self.default_dir_input.setToolTip)
         self.default_dir_browse = QPushButton("Browse...")
         self.default_dir_browse.clicked.connect(self.browse_default_directory)
 
@@ -65,6 +66,7 @@ class SearchSettingsTab(QWidget):
         self.max_results_spin = QSpinBox()
         self.max_results_spin.setRange(1, 10000)
         self.max_results_spin.setSingleStep(100)
+        self.max_results_spin.setToolTip("Limit each search to this many results")
         max_results_layout.addWidget(self.max_results_spin)
 
         layout.addLayout(max_results_layout)
@@ -75,6 +77,7 @@ class SearchSettingsTab(QWidget):
 
         self.exclude_list = QListWidget()
         self.exclude_list.setMaximumHeight(100)
+        self.exclude_list.setToolTip("File extensions skipped during searches")
         exclude_layout.addWidget(self.exclude_list)
 
         # Add/remove extension controls

@@ -460,6 +460,7 @@ class SidebarWidget(QWidget):
             color = TAG_COLORS[i % len(TAG_COLORS)]
             btn = QPushButton(text)
             btn.setProperty("class", "tag-badge")
+            btn.setToolTip(text)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(f"background-color: {color};")
             btn.setMaximumWidth(100)

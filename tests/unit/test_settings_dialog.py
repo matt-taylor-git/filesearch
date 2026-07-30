@@ -85,6 +85,27 @@ class TestSettingsDialog:
         assert settings_dialog.enable_cache_check is not None
         assert settings_dialog.cache_ttl_spin is not None
 
+    def test_consequence_heavy_settings_have_guidance(self, settings_dialog):
+        """Settings with non-obvious effects explain what they change."""
+        assert settings_dialog.default_dir_input.toolTip() == (
+            settings_dialog.default_dir_input.text()
+        )
+        assert settings_dialog.max_results_spin.toolTip() == (
+            "Limit each search to this many results"
+        )
+        assert settings_dialog.auto_expand_results_check.toolTip() == (
+            "Automatically expand the results view"
+        )
+        assert settings_dialog.thread_count_spin.toolTip() == (
+            "Maximum worker threads used by a search"
+        )
+        assert settings_dialog.cache_ttl_spin.toolTip() == (
+            "How long cached search results remain valid"
+        )
+        assert settings_dialog.highlight_color_input.toolTip() == (
+            "Hex color used for matching text"
+        )
+
     def test_load_settings_search_preferences(self, settings_dialog, config_manager):
         """Test loading search preferences."""
         # Set some test values
