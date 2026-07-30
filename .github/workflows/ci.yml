@@ -59,6 +59,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Install Qt runtime libraries
+        run: sudo apt-get update && sudo apt-get install --yes libegl1
       - name: Synchronize locked environment
         run: uv sync --locked --python ${{ matrix.python-version }}
       - name: Run unit tests
@@ -84,6 +86,8 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Install Qt runtime libraries
+        run: sudo apt-get update && sudo apt-get install --yes libegl1
       - name: Synchronize locked environment
         run: uv sync --locked --python 3.14
       - name: Run required tests with coverage
@@ -117,6 +121,9 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Install Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes libegl1
       - name: Synchronize locked environment
         run: uv sync --locked --python 3.14
       - name: Run hermetic integration and UI tests

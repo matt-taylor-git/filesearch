@@ -76,12 +76,13 @@ def test_add_single_result(results_view, sample_results):
 
 def test_result_tooltip_includes_complete_metadata(results_view, sample_results):
     """A result exposes its full filename, path, size, and modified date."""
-    results_view.add_result(sample_results[0])
+    result = sample_results[0]
+    results_view.add_result(result)
     index = results_view.model().index(0, 0)
 
     assert index.data(Qt.ItemDataRole.ToolTipRole) == (
         "Filename: document.txt\n"
-        "Path: /home/user/document.txt\n"
+        f"Path: {result.path}\n"
         "Size: 1.0 KiB\n"
         "Modified: Jan 01, 2021"
     )
