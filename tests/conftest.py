@@ -14,6 +14,45 @@ from filesearch.core.application_runtime import ApplicationRuntime
 
 # This must be set before test modules import PyQt.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+MINIMUM_STATEMENT_COVERAGE = 80.0
+
+
+@pytest.hookimpl(wrapper=True, tryfirst=True)
+def pytest_runtestloop(session: pytest.Session):
+    """Enforce statement coverage separately from reported branch coverage."""
+    result = yield
+    if session.config.option.collectonly or session.config.option.no_cov:
+        return result
+
+    cov_plugin = session.config.pluginmanager.getplugin("_cov")
+    if cov_plugin is None or cov_plugin.cov_controller is None:
+        return result
+
+    coverage = cov_plugin.cov_controller.cov
+    measured_files = coverage.get_data().measured_files()
+    statement_count = 0
+    missing_count = 0
+    for filename in measured_files:
+        _path, statements, _excluded, missing, _formatted = coverage.analysis2(filename)
+        statement_count += len(statements)
+        missing_count += len(missing)
+
+    covered_count = statement_count - missing_count
+    percent = 100 * covered_count / statement_count if statement_count else 100.0
+    reporter = session.config.pluginmanager.getplugin("terminalreporter")
+    reporter.write_sep("=", "statement coverage gate")
+    reporter.write(
+        f"Production statement coverage: {percent:.2f}% "
+        f"({covered_count}/{statement_count}); "
+        f"required: {MINIMUM_STATEMENT_COVERAGE:.2f}%\n",
+        **(
+            {"red": True, "bold": True}
+            if percent < MINIMUM_STATEMENT_COVERAGE
+            else {"green": True}
+        ),
+    )
+    if percent < MINIMUM_STATEMENT_COVERAGE:
+        session.testsfailed += 1
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:

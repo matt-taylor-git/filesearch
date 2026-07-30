@@ -229,6 +229,124 @@ class TestConfigManager:
         assert new_dir.exists()
         assert manager.config_file.exists()
 
+    @pytest.mark.parametrize(
+        ("key", "value", "message"),
+        [
+            (
+                "search_preferences.max_search_results",
+                0,
+                "max_search_results must be between",
+            ),
+            (
+                "search_preferences.case_sensitive_search",
+                "yes",
+                "case_sensitive_search must be a boolean",
+            ),
+            (
+                "search_preferences.include_hidden_files",
+                1,
+                "include_hidden_files must be a boolean",
+            ),
+            (
+                "search_preferences.file_extensions_to_exclude",
+                ".tmp",
+                "file_extensions_to_exclude must be a list",
+            ),
+            ("ui_preferences.result_font_size", "12", "font_size must be an integer"),
+            ("ui_preferences.result_font_size", 100, "font_size must be between"),
+            ("ui_preferences.show_file_icons", 1, "show_file_icons must be a boolean"),
+            (
+                "ui_preferences.auto_expand_results",
+                1,
+                "auto_expand_results must be a boolean",
+            ),
+            ("ui_preferences.window_geometry.x", "0", "geometry.x must be an integer"),
+            ("ui_preferences.window_geometry.y", "0", "geometry.y must be an integer"),
+            (
+                "ui_preferences.window_geometry.width",
+                "800",
+                "geometry.width must be an integer",
+            ),
+            (
+                "ui_preferences.window_geometry.height",
+                "600",
+                "geometry.height must be an integer",
+            ),
+            (
+                "performance_settings.search_thread_count",
+                "4",
+                "search_thread_count must be an integer",
+            ),
+            (
+                "performance_settings.search_thread_count",
+                0,
+                "search_thread_count must be between",
+            ),
+            (
+                "performance_settings.enable_search_cache",
+                1,
+                "enable_search_cache must be a boolean",
+            ),
+            (
+                "performance_settings.cache_ttl_minutes",
+                "30",
+                "cache_ttl_minutes must be an integer",
+            ),
+            (
+                "performance_settings.cache_ttl_minutes",
+                0,
+                "cache_ttl_minutes must be between",
+            ),
+        ],
+    )
+    def test_save_rejects_invalid_user_configuration(
+        self, config_manager, key, value, message
+    ):
+        """Saving rejects each invalid value through the public config API."""
+        config_manager.set(key, value)
+
+        with pytest.raises(ConfigError, match=message):
+            config_manager.save()
+
+    def test_recent_files_are_deduplicated_limited_and_filtered(
+        self, config_manager, tmp_path
+    ):
+        first = tmp_path / "first.txt"
+        second = tmp_path / "second.txt"
+        first.write_text("first")
+        second.write_text("second")
+        config_manager.set("recent_files.max_count", 2)
+
+        config_manager.add_recent_file(first)
+        config_manager.add_recent_file(second)
+        config_manager.add_recent_file(first)
+        config_manager.add_recent_file(tmp_path / "missing.txt")
+
+        assert config_manager.get_recent_files() == [first]
+        config_manager.clear_recent_files()
+        assert config_manager.get_recent_files() == []
+
+    def test_save_reports_filesystem_failure(self, config_manager):
+        with (
+            patch("builtins.open", side_effect=OSError("read-only")),
+            pytest.raises(ConfigError, match="Cannot save configuration"),
+        ):
+            config_manager.save()
+
+    def test_reload_callbacks_can_be_registered_without_duplicates(
+        self, config_manager
+    ):
+        callback = Mock()
+
+        config_manager.add_reload_callback(callback)
+        config_manager.add_reload_callback(callback)
+        config_manager._on_config_file_changed(str(config_manager.config_file))
+        assert callback.call_count == 1
+
+        config_manager.remove_reload_callback(callback)
+        config_manager._on_config_file_changed(str(config_manager.config_file))
+        assert callback.call_count == 1
+
 
 class TestGetConfigFunction:
     """Test cases for get_config convenience function."""

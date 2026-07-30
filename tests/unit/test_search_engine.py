@@ -4,9 +4,12 @@ import contextlib
 import os
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import pytest
 
+from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import SearchError
 from filesearch.core.search_engine import FileSearchEngine, search_files
 
@@ -333,6 +336,109 @@ class TestFileSearchEngine:
         result_paths = {str(r) for r in results}
         assert any("level0" in path for path in result_paths)
         assert any("level4" in path for path in result_paths)
+
+    def test_search_respects_configured_hidden_and_extension_preferences(
+        self, temp_dir, application_runtime
+    ):
+        (temp_dir / ".hidden.txt").write_text("hidden")
+        (temp_dir / "excluded.log").write_text("excluded")
+        config = ConfigManager(runtime=application_runtime, watch_config=False)
+        config.set("search_preferences.include_hidden_files", True)
+        config.set("search_preferences.file_extensions_to_exclude", [".LOG"])
+        config.set("search_preferences.case_sensitive_search", True)
+        config.set("search_preferences.max_search_results", 50)
+        config.set("performance_settings.search_thread_count", 1)
+
+        engine = FileSearchEngine(config_manager=config)
+        results = list(engine.search(temp_dir, "*.txt"))
+
+        assert ".hidden.txt" in {result["name"] for result in results}
+        assert engine.max_workers == 1
+        assert engine.case_sensitive is True
+        assert list(engine.search(temp_dir, "*.log")) == []
+
+    def test_search_emits_status_result_count_and_progress(
+        self, search_engine, temp_dir, qtbot
+    ):
+        statuses = []
+        counts = []
+        progress = []
+        search_engine.status_update.connect(
+            lambda status, count: statuses.append((status, count))
+        )
+        search_engine.results_count_update.connect(
+            lambda current, total: counts.append((current, total))
+        )
+        search_engine.set_progress_callback(
+            lambda found, directory: progress.append((found, directory))
+        )
+        search_engine._last_status_time = -1
+        search_engine._last_progress_time = -1
+
+        results = list(search_engine.search(temp_dir, "README"))
+        qtbot.waitUntil(lambda: counts == [(1, 1)])
+
+        assert statuses == [("searching", 0), ("completed", 1)]
+        assert counts == [(1, 1)]
+        assert progress == [(1, str(temp_dir))]
+        assert results[0]["name"] == "README.md"
+
+    def test_search_ignores_progress_callback_failures(self, search_engine, temp_dir):
+        search_engine.set_progress_callback(Mock(side_effect=RuntimeError("callback")))
+        search_engine._last_progress_time = -1
+
+        assert len(list(search_engine.search(temp_dir, "README"))) == 1
+
+    def test_search_combines_enabled_plugin_results(self, temp_dir):
+        enabled = SimpleNamespace(
+            enabled=True,
+            name="enabled",
+            search=Mock(return_value=[{"name": "plugin-result"}]),
+        )
+        disabled = SimpleNamespace(enabled=False, name="disabled", search=Mock())
+        failing = SimpleNamespace(
+            enabled=True,
+            name="failing",
+            search=Mock(side_effect=RuntimeError("plugin failed")),
+        )
+        manager = Mock()
+        manager.get_loaded_plugins.return_value = [enabled, disabled, failing]
+        engine = FileSearchEngine(plugin_manager=manager)
+
+        results = list(engine.search(temp_dir, "missing-filesystem-result"))
+
+        assert results == [{"name": "plugin-result"}]
+        enabled.search.assert_called_once()
+        disabled.search.assert_not_called()
+
+    def test_search_reports_executor_failures_as_search_errors(
+        self, search_engine, temp_dir
+    ):
+        statuses = []
+        search_engine.status_update.connect(
+            lambda status, count: statuses.append((status, count))
+        )
+
+        with (
+            patch.object(
+                search_engine, "_scan_directory", side_effect=RuntimeError("boom")
+            ),
+            pytest.raises(SearchError, match="Search operation failed"),
+        ):
+            list(search_engine.search(temp_dir, "*.txt"))
+
+        assert statuses[-1] == ("error", 0)
+        assert search_engine._executor is None
+
+    def test_estimate_total_files_counts_visible_files_and_handles_errors(
+        self, search_engine, temp_dir
+    ):
+        assert search_engine.estimate_total_files(temp_dir) == 6
+
+        with patch(
+            "filesearch.core.search_engine.os.walk", side_effect=OSError("boom")
+        ):
+            assert search_engine.estimate_total_files(temp_dir) == 0
 
 
 class TestSearchFilesFunction:

@@ -12,6 +12,7 @@ import pytest
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
     DriveUsage,
+    get_associated_applications,
     get_file_info,
     get_file_modified_time,
     get_file_size,
@@ -21,11 +22,120 @@ from filesearch.core.file_utils import (
     list_drive_usage,
     normalize_path,
     open_containing_folder,
+    open_with_application,
     reveal_file_in_folder,
     safe_open,
     validate_directory,
 )
 from filesearch.models.search_result import SearchResult
+
+
+class TestAssociatedApplications:
+    """Test public desktop-application discovery and launch decisions."""
+
+    def test_linux_application_discovery_parses_unique_desktop_ids(self, tmp_path):
+        file_path = tmp_path / "document.txt"
+        file_path.write_text("content")
+        gio_info = b"standard::content-type: text/plain\n"
+        gio_mime = (
+            b"Default application for text/plain: org.example.Editor.desktop\n"
+            b"Registered applications:\n"
+            b" org.example.Editor.desktop\n"
+            b" org.example.Viewer.desktop\n"
+        )
+
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Linux"),
+            patch(
+                "filesearch.core.file_utils.subprocess.check_output",
+                side_effect=[gio_info, gio_mime],
+            ),
+        ):
+            applications = get_associated_applications(file_path)
+
+        assert applications == [
+            {
+                "name": "Editor",
+                "id": "org.example.Editor.desktop",
+                "type": "desktop_id",
+            },
+            {
+                "name": "Viewer",
+                "id": "org.example.Viewer.desktop",
+                "type": "desktop_id",
+            },
+        ]
+
+    def test_application_discovery_handles_missing_files_and_gio_failures(
+        self, tmp_path
+    ):
+        missing = tmp_path / "missing.txt"
+        assert get_associated_applications(missing) == []
+
+        file_path = tmp_path / "document.txt"
+        file_path.write_text("content")
+        failure = subprocess.CalledProcessError(1, ["gio"])
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Linux"),
+            patch(
+                "filesearch.core.file_utils.subprocess.check_output",
+                side_effect=failure,
+            ),
+        ):
+            assert get_associated_applications(file_path) == []
+
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Linux"),
+            patch(
+                "filesearch.core.file_utils.subprocess.check_output",
+                side_effect=[b"standard::content-type: text/plain", failure],
+            ),
+        ):
+            assert get_associated_applications(file_path) == []
+
+    def test_open_with_launches_linux_desktop_application(self, tmp_path):
+        file_path = tmp_path / "document.txt"
+        file_path.write_text("content")
+
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Linux"),
+            patch("filesearch.core.file_utils.subprocess.Popen") as popen,
+        ):
+            opened = open_with_application(
+                file_path,
+                {"type": "desktop_id", "id": "org.example.Editor.desktop"},
+            )
+
+        assert opened is True
+        assert popen.call_args.args[0] == [
+            "gio",
+            "launch",
+            "org.example.Editor.desktop",
+            str(file_path),
+        ]
+
+    def test_open_with_resolves_direct_commands_and_rejects_invalid_choices(
+        self, tmp_path
+    ):
+        file_path = tmp_path / "document.txt"
+        file_path.write_text("content")
+
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Darwin"),
+            patch(
+                "filesearch.core.file_utils.shutil.which", return_value="/bin/editor"
+            ),
+            patch("filesearch.core.file_utils.subprocess.Popen") as popen,
+        ):
+            assert open_with_application(file_path, {"command": "editor"}) is True
+        assert popen.call_args.args[0] == ["/bin/editor", str(file_path)]
+
+        assert open_with_application(file_path, {}) is False
+        with (
+            patch("filesearch.core.file_utils.shutil.which", return_value=None),
+            pytest.raises(FileSearchError, match="command is unavailable"),
+        ):
+            open_with_application(file_path, {"command": "missing-editor"})
 
 
 class TestGetFileInfo:

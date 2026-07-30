@@ -95,6 +95,11 @@ addopts = [
     "--strict-markers",
     "--timeout=30",
     "-m=not system and not performance",
+    "--cov=filesearch",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=xml:coverage.xml",
+    "--cov-report=json:coverage.json",
 ]
 testpaths = [
     "tests",
