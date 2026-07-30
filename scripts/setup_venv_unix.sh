@@ -19,5 +19,5 @@ echo
 echo "Development environment ready."
 echo "Run the app:   uv run python -m filesearch"
 echo "Run tests:     uv run pytest"
-echo "Format code:   uv run black src/ tests/"
-echo "Lint code:     uv run flake8 src/ tests/"
+echo "Format code:   uv run ruff format ."
+echo "Lint code:     uv run ruff check ."

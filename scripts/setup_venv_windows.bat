@@ -25,7 +25,7 @@ echo To run tests:
 echo   uv run pytest
 echo.
 echo To format code:
-echo   uv run black src tests
+echo   uv run ruff format .
 echo.
 echo To lint code:
-echo   uv run flake8 src tests
+echo   uv run ruff check .

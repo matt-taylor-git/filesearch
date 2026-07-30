@@ -12,9 +12,8 @@ uv run pytest -m unit                    # Unit tests only
 uv run pytest -m integration             # Integration tests
 uv run pytest -m ui                      # UI tests (pytest-qt)
 uv run pytest --cov=filesearch           # With coverage
-uv run black src/ tests/                 # Format
-uv run flake8 src/ tests/                # Lint
-uv run isort --profile=black src/ tests/ # Sort imports
+uv run ruff format .                     # Format and sort imports
+uv run ruff check .                      # Lint
 uv run pre-commit run --all-files        # All checks
 ```
 
@@ -78,9 +77,9 @@ Tests mirror this in `tests/{unit,integration,ui}/`.
 - Search runs in worker threads, results stream via PyQt signals/slots
 
 ### Code Style
-- **Formatter**: Black (88 char line length)
-- **Linting**: flake8 (ignores E203, F401 in `__init__.py`)
-- **Imports**: isort with `--profile=black`
+- **Formatter**: Ruff (88-character line length)
+- **Linting**: Ruff with the policy configured in `pyproject.toml`
+- **Imports**: Ruff import sorting
 - **Paths**: Always `pathlib.Path`, never `os.path`
 - **Logging**: `loguru` (`from loguru import logger`), never `print()`
 - **Type hints**: Required on all function signatures

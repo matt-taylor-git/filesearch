@@ -220,7 +220,7 @@ src/filesearch/
 
 ### Code Style
 - **Line Length**: 88 characters (Ruff formatter)
-- **Import Style**: Ruff's isort-compatible import sorting
+- **Import Style**: Ruff import sorting
 - **Type Hints**: Full type annotation coverage
 - **Docstrings**: Google-style docstrings for all public functions
 

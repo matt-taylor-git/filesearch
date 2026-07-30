@@ -138,11 +138,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check code formatting
-        run: black --check src/ tests/
+        run: uv run ruff format --check .
       - name: Lint code
-        run: flake8 src/ tests/
-      - name: Check import sorting
-        run: isort --check-only src/ tests/
+        run: uv run ruff check .
 
   plugin-api-compliance:
     runs-on: ubuntu-latest
@@ -249,7 +247,7 @@ jobs:
 - [ ] Memory usage within limits (<100MB)
 - [ ] Security tests pass (read-only verification)
 - [ ] Plugin API compliance validated
-- [ ] Code quality checks pass (black, flake8, isort)
+- [ ] Ruff formatting and linting checks pass
 
 ### Continuous Monitoring
 - Performance regression detection

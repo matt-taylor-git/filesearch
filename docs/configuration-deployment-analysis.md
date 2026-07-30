@@ -52,35 +52,29 @@
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
       - id: check-yaml
+      - id: check-toml
       - id: check-added-large-files
+      - id: check-case-conflict
       - id: check-merge-conflict
       - id: debug-statements
       - id: check-docstring-first
 
-  - repo: https://github.com/psf/black
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
     hooks:
-      - id: black
-        args: [--line-length=88]
-
-  - repo: https://github.com/pycqa/flake8
-    hooks:
-      - id: flake8
-        args: [--max-line-length=88, --extend-ignore=E203,F401]
-
-  - repo: https://github.com/pycqa/isort
-    hooks:
-      - id: isort
-        args: [--profile=black, --line-length=88]
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
 ```
 
 ### 2. Code Formatting Standards
-- **Black**: Code formatting with 88-character line length
-- **isort**: Import sorting with Black profile compatibility
-- **Flake8**: Linting with custom ignore rules
+- **Ruff**: Formatting, import sorting, and policy-driven linting
 - **Type Hints**: Full type annotation coverage
 
 ### 3. Testing Configuration
@@ -131,9 +125,9 @@ jobs:
 - **Coverage**: Code coverage reporting with Codecov
 
 ### 3. Quality Gates
-- **Linting**: flake8 with custom configuration
-- **Formatting**: Black compliance checking
-- **Import Sorting**: isort validation
+- **Linting**: Ruff policy from `pyproject.toml`
+- **Formatting**: Ruff formatting checks
+- **Import Sorting**: Ruff import sorting
 - **Testing**: pytest with coverage requirements
 - **Building**: Package building verification
 

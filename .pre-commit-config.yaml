@@ -4,7 +4,11 @@ repos:
     hooks:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+        exclude: >-
+          ^docs/(?:implementation-readiness-report-\d{4}-\d{2}-\d{2}\.md|(?:.*/)?validation-report-\d{4}-\d{2}-\d{2}[^/]*\.(?:md|xml))$
       - id: end-of-file-fixer
+        exclude: >-
+          ^docs/(?:implementation-readiness-report-\d{4}-\d{2}-\d{2}\.md|(?:.*/)?validation-report-\d{4}-\d{2}-\d{2}[^/]*\.(?:md|xml))$
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files
