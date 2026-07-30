@@ -135,7 +135,7 @@ uv run pytest -m "ui and not performance and not system"
 # Timing-sensitive performance tests (opt-in, 120-second per-test timeout)
 uv run pytest -m performance
 
-# Tests that contact real desktop integrations (opt-in)
+# Full-process application tests (opt-in)
 uv run pytest -m system
 ```
 
@@ -143,8 +143,9 @@ The default test command runs the required hermetic unit, integration, and UI
 suites. Test composition redirects home, configuration, data, cache, and log
 state to temporary directories and supplies controlled desktop effects for file
 launching, folder reveal, dialogs, and clipboard operations. Timing-sensitive
-performance tests and real-desktop system tests are excluded unless explicitly
-selected.
+performance tests and full-process system tests are excluded unless explicitly
+selected. System tests start the public module entrypoint and production Qt
+application in fresh child processes with isolated user state.
 
 Unexpected warnings are errors. Required tests time out after 30 seconds, while
 the marked performance suite declares a 120-second limit. Pytest reports all

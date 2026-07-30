@@ -24,6 +24,10 @@ def pytest_runtestloop(session: pytest.Session):
     if session.config.option.collectonly or session.config.option.no_cov:
         return result
 
+    marker_expression = session.config.option.markexpr.strip()
+    if marker_expression in {"performance", "system"}:
+        return result
+
     cov_plugin = session.config.pluginmanager.getplugin("_cov")
     if cov_plugin is None or cov_plugin.cov_controller is None:
         return result
@@ -57,7 +61,7 @@ def pytest_runtestloop(session: pytest.Session):
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Classify tests by their top-level suite directory."""
-    suite_markers = {"unit", "integration", "ui"}
+    suite_markers = {"unit", "integration", "system", "ui"}
     for item in items:
         relative_path = Path(str(item.path)).relative_to(Path(__file__).parent)
         if relative_path.parts and relative_path.parts[0] in suite_markers:
@@ -161,13 +165,17 @@ def hermetic_user_environment(tmp_path_factory, monkeypatch):
     for variable, value in {
         "HOME": home_dir,
         "USERPROFILE": home_dir,
+        "APPDATA": state_dir / "appdata-roaming",
+        "LOCALAPPDATA": state_dir / "appdata-local",
+        "WIN_PD_OVERRIDE_APPDATA": state_dir / "appdata-roaming",
+        "WIN_PD_OVERRIDE_LOCAL_APPDATA": state_dir / "appdata-local",
         "XDG_CONFIG_HOME": state_dir / "xdg-config",
         "XDG_DATA_HOME": state_dir / "xdg-data",
         "XDG_CACHE_HOME": state_dir / "xdg-cache",
     }.items():
         monkeypatch.setenv(variable, str(value))
     logger.disable("filesearch")
-    yield
+    yield state_dir
     logger.enable("filesearch")
 
 

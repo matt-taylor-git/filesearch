@@ -107,13 +107,14 @@ uv run pre-commit run --all-files
 
 The default run is hermetic: it uses temporary user/configuration state,
 contains desktop effects at the application runtime boundary, and excludes
-timing-sensitive performance and real-desktop system tests. Unexpected warnings
+timing-sensitive performance and full-process system tests. Unexpected warnings
 fail the run, required tests have a 30-second timeout, and production statement
 coverage fails below 80%. Branch coverage is reported without a separate minimum.
 The run prints missing lines and writes machine-readable `coverage.xml` and
 `coverage.json` reports. Coverage includes every production module; no omissions
 are currently configured. Performance tests declare an explicit 120-second timeout
-and remain opt-in.
+and remain opt-in. System tests launch fresh application processes with isolated
+user state, including the real production composition root and Qt event loop.
 
 GitHub Actions applies the same contracts as a release gate: Ruff, mypy, and the
 remaining pre-commit hooks run once on Linux; unit tests cover Python 3.11 through
@@ -168,6 +169,7 @@ src/filesearch/
 tests/
   unit/
   integration/
+  system/
   ui/
 ```
 

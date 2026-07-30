@@ -119,7 +119,7 @@ markers = [
     "ui: UI tests",
     "slow: Tests that take materially longer than the normal suite",
     "performance: Timing-sensitive performance tests excluded from required runs",
-    "system: Tests that contact real operating-system desktop integrations",
+    "system: Full-process tests of the production application entrypoint",
 ]
 filterwarnings = [
     "error",
