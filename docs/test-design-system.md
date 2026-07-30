@@ -1,5 +1,11 @@
 # System-Level Test Design
 
+> [!NOTE]
+> This is a historical planning snapshot, not the current test runbook. Some
+> proposed tests and CI examples below were never implemented. Use the
+> [README](../README.md#development), the [Development Guide](development-guide.md),
+> and `.github/workflows/ci.yml` for the current commands and release gate.
+
 ## Testability Assessment
 
 - **Controllability**: ✅ PASS - Dependency injection ready, plugin architecture supports mocking

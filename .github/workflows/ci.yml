@@ -2,67 +2,158 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
+
+permissions:
+  contents: read
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.11', '3.12', '3.13', '3.14']
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - uses: astral-sh/setup-uv@v7
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Synchronize locked environment
-      run: uv sync --locked --python ${{ matrix.python-version }}
-
-    - name: Lint with Ruff
-      run: uv run ruff check .
-
-    - name: Check code formatting with Ruff
-      run: uv run ruff format --check .
-
-    - name: Type-check production code
-      run: uv run python -m mypy
-
-    - name: Test with pytest
-      run: |
-        uv run pytest --cov=filesearch --cov-report=xml --cov-report=term-missing
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
-
-  build:
-    needs: test
+  quality:
+    name: Quality contracts
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
 
-    - uses: astral-sh/setup-uv@v7
+      - name: Synchronize locked environment
+        run: uv sync --locked --python 3.14
+      - name: Check formatting with Ruff
+        run: uv run ruff format --check .
+      - name: Lint with Ruff
+        run: uv run ruff check .
+      - name: Type-check production code
+        run: uv run python -m mypy
+      - name: Run remaining repository hooks
+        env:
+          SKIP: ruff-check,ruff-format
+        run: uv run pre-commit run --all-files
 
-    - name: Build package
-      run: |
-        uv build
+  unit:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    env:
+      QT_QPA_PLATFORM: offscreen
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist
-        path: dist/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Synchronize locked environment
+        run: uv sync --locked --python ${{ matrix.python-version }}
+      - name: Run unit tests
+        run: >-
+          uv run python -m pytest
+          -m "unit and not performance and not system"
+          --no-cov
+
+  coverage:
+    name: Tests and coverage (Python 3.14)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Synchronize locked environment
+        run: uv sync --locked --python 3.14
+      - name: Run required tests with coverage
+        run: uv run python -m pytest
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          flags: required-tests
+          name: python-3.14-linux
+          fail_ci_if_error: true
+
+  integration-ui:
+    name: Integration and UI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Synchronize locked environment
+        run: uv sync --locked --python 3.14
+      - name: Run hermetic integration and UI tests
+        run: >-
+          uv run python -m pytest
+          -m "(integration or ui) and not performance and not system"
+          --no-cov
+
+  package:
+    name: Build and smoke-test package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Synchronize locked environment
+        run: uv sync --locked --python 3.14
+      - name: Build source and wheel artifacts
+        run: uv build
+      - name: Install wheel into a clean environment
+        run: |
+          uv venv --python 3.14 .package-smoke
+          uv pip install --python .package-smoke/bin/python dist/*.whl
+      - name: Smoke-test installed package
+        run: |
+          .package-smoke/bin/python -c "import filesearch"
+          .package-smoke/bin/filesearch --help
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

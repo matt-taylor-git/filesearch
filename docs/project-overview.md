@@ -35,7 +35,7 @@ File Search is a high-performance, cross-platform desktop application built with
 | **File Paths** | platformdirs | >=4.0.0 | Cross-platform directory detection |
 | **Sorting** | natsort | latest | Natural sorting of results |
 | **Testing** | pytest | >=7.4.0 | Testing with pytest-qt for UI |
-| **Code Quality** | Ruff, pre-commit | latest | Automated formatting and linting |
+| **Code Quality** | Ruff, mypy, pre-commit | latest | Formatting, linting, and type checking |
 | **Packaging** | setuptools | modern | Python packaging with pyproject.toml |
 
 ## Architecture Overview
@@ -124,9 +124,9 @@ src/filesearch/
 ## Development Workflow
 
 ### Quality Assurance
-- **Pre-commit Hooks**: Ruff formatting, linting, and import sorting
-- **CI/CD Pipeline**: Multi-platform testing (Ubuntu, Windows, macOS) with Python 3.11–3.14
-- **Test Coverage**: >80% target with unit, integration, and UI tests
+- **Pre-commit Hooks**: File hygiene plus Ruff formatting, linting, and import sorting
+- **CI/CD Pipeline**: Unit tests on Python 3.11–3.14 plus cross-platform integration and UI tests on Python 3.14
+- **Test Coverage**: Required statement coverage of at least 80%, with branch coverage reported
 - **Code Review**: Pull request process with automated quality gates
 
 ### Testing Strategy

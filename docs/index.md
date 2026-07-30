@@ -15,14 +15,18 @@
 - **File Paths**: platformdirs >=4.0.0
 - **Sorting**: natsort
 - **Testing**: pytest >=7.4.0 with pytest-qt
-- **Code Quality**: Ruff and pre-commit
+- **Code Quality**: Ruff, mypy, and pre-commit
 
 ### Entry Point
 - **Main**: `src/filesearch/main.py`
 - **Architecture Pattern**: Event-driven GUI with PyQt6 signals/slots
 - **Plugin System**: Extensible architecture with SearchPlugin base class
 
-## Generated Documentation
+## Generated and Historical Documentation
+
+The analysis and planning pages in this section are historical snapshots and may
+describe proposals that were never implemented. The README, Development Guide,
+Configuration Guide, and checked-in workflows are the canonical living sources.
 
 ### Core Analysis
 - [Project Overview](./project-overview.md)
@@ -36,7 +40,7 @@
 
 ### Development Documentation
 - [Development Guide](./development-guide.md)
-- [Configuration & Deployment Analysis](./configuration-deployment-analysis.md)
+- [Configuration & Deployment Analysis](./configuration-deployment-analysis.md) — historical snapshot
 
 ## Existing Documentation
 
@@ -51,8 +55,8 @@
 - [Epics](./epics.md) - Feature epic breakdown
 - [Backlog](./backlog.md) - Product backlog
 - [Non-Functional Requirements](./nfr-assessment.md) - NFR assessment
-- [Test Design System](./test-design-system.md) - Testing strategy
-- [Test Review](./test-review.md) - Test review documentation
+- [Test Design System](./test-design-system.md) - Historical test-planning snapshot
+- [Test Review](./test-review.md) - Historical test review
 - [Implementation Readiness Report](./implementation-readiness-report-2025-11-13.md) - Implementation readiness
 
 ### Sprint Artifacts
@@ -74,7 +78,7 @@
 2. **Architecture**: Review [Architecture Documentation](./architecture-documentation.md) for system understanding
 3. **Component Development**: Reference [UI Component Inventory](./ui-component-inventory.md) for interface development
 4. **Plugin Development**: See [Plugin Development Guide](./plugin-development.md) for extension development
-5. **Testing**: Follow testing strategy in [Test Design System](./test-design-system.md)
+5. **Testing**: Follow the current commands in the [Development Guide](./development-guide.md)
 
 ### For AI Assistants
 This document serves as the primary entry point for AI-assisted development:

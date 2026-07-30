@@ -95,6 +95,15 @@ uv run ruff check .
 uv run ruff check --fix .
 ```
 
+#### Type Checking and Repository Hooks
+```bash
+# Type-check production code
+uv run python -m mypy
+
+# Run every configured pre-commit hook against the repository
+uv run pre-commit run --all-files
+```
+
 ### Testing
 
 #### Running Tests
@@ -153,6 +162,11 @@ uv run pytest --cov=filesearch --cov-report=term-missing
 uv run pytest --cov=filesearch --cov-fail-under=80
 ```
 
+The repository's default pytest configuration is the canonical coverage gate:
+it measures all production modules, reports branch coverage, and fails when
+statement coverage is below 80%. The explicit commands above are useful when a
+different report format is needed locally.
+
 ### Building and Packaging
 
 #### Development Build
@@ -181,6 +195,25 @@ uv tool run twine upload --repository testpypi dist/*
 # Upload to PyPI (production)
 uv tool run twine upload dist/*
 ```
+
+`uv build` must create both a source distribution and a wheel. CI installs the
+wheel into a fresh environment, imports `filesearch`, and runs `filesearch --help`
+so packaging metadata and the documented command-line entry point are tested
+independently of the source checkout.
+
+### Release Gate
+
+The GitHub Actions release gate mirrors the commands in this guide without
+repeating every check on every runner:
+
+- Linux runs Ruff formatting and linting, mypy, and all pre-commit hooks.
+- Linux runs unit tests on Python 3.11, 3.12, 3.13, and 3.14.
+- Linux, macOS, and Windows run hermetic integration and UI tests on Python 3.14.
+- Linux on Python 3.14 runs the complete required suite and enforces coverage.
+- Linux builds and smoke-tests the source and wheel artifacts.
+
+All jobs synchronize from the committed `uv.lock`, configure Qt offscreen for
+headless tests, and define job-level timeouts.
 
 ## Architecture Overview
 

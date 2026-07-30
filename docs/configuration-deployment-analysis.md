@@ -1,5 +1,11 @@
 # Configuration and Deployment Analysis
 
+> [!NOTE]
+> This is a historical analysis snapshot, not the current configuration or CI
+> runbook. Use the [Configuration Guide](configuration.md), the
+> [Development Guide](development-guide.md), and `.github/workflows/ci.yml` for
+> current behavior and commands.
+
 ## Configuration Management
 
 ### 1. ConfigManager Architecture

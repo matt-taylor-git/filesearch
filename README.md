@@ -115,6 +115,13 @@ The run prints missing lines and writes machine-readable `coverage.xml` and
 are currently configured. Performance tests declare an explicit 120-second timeout
 and remain opt-in.
 
+GitHub Actions applies the same contracts as a release gate: Ruff, mypy, and the
+remaining pre-commit hooks run once on Linux; unit tests cover Python 3.11 through
+3.14 on Linux; the hermetic integration and UI suites run on Linux, macOS, and
+Windows with Python 3.14; and a clean environment imports the built wheel and
+runs the documented `filesearch --help` entry point. Every CI job uses `uv.lock`
+and has a job-level timeout.
+
 For PyQt tests in headless or automation contexts, run with Qt's offscreen platform:
 
 ```bash
