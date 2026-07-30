@@ -1,7 +1,7 @@
 """Unit tests for Open With context menu functionality."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -51,7 +51,7 @@ class TestOpenWithMenu:
         menu.clear.assert_called_once()
 
         # Verify actions were added (2 apps + separator + choose...)
-        # Note: addAction returns an action, so we can't count calls easily if we don't track return values
+        # addAction returns an action, so verify the number of additions directly.
         # But we can check call count for addAction
         assert menu.addAction.call_count == 3  # Text Editor, Vim, Choose...
         menu.addSeparator.assert_called_once()

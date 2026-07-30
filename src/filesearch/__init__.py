@@ -7,6 +7,8 @@ search providers and result processors.
 Version: 0.1.0
 """
 
+from pathlib import Path
+
 __version__ = "0.1.0"
 __author__ = "FileSearch Team"
 __email__ = "team@filesearch.dev"
@@ -18,9 +20,6 @@ APP_DISPLAY_NAME = "File Search"
 APP_INTERNAL_NAME = "filesearch"
 APP_AUTHOR = "filesearch"
 APP_EXECUTABLE_NAME = "FileSearch"
-
-from pathlib import Path
-from typing import Union
 
 
 def get_project_root() -> Path:
@@ -42,13 +41,13 @@ def get_version() -> str:
 
 
 __all__ = [
-    "__version__",
-    "__author__",
-    "__description__",
     "APP_AUTHOR",
     "APP_DISPLAY_NAME",
     "APP_EXECUTABLE_NAME",
     "APP_INTERNAL_NAME",
+    "__author__",
+    "__description__",
+    "__version__",
     "get_project_root",
     "get_version",
 ]

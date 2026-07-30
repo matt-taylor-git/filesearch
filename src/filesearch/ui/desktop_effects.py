@@ -1,7 +1,8 @@
 """Production implementation of effects that contact the graphical desktop."""
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from PyQt6.QtCore import QMimeData, QUrl
 from PyQt6.QtGui import QColor, QGuiApplication

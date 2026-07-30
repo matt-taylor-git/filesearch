@@ -1,8 +1,7 @@
 """Context menu handler mixin for MainWindow."""
 
 from enum import Enum
-from pathlib import Path
-from typing import TYPE_CHECKING, List, cast
+from typing import TYPE_CHECKING, cast
 
 from loguru import logger
 from PyQt6.QtCore import QPoint, Qt
@@ -51,7 +50,7 @@ def _require_action(action: QAction | None) -> QAction:
     return action
 
 
-def _selected_results(results_view: "ResultsView") -> List[SearchResult]:
+def _selected_results(results_view: "ResultsView") -> list[SearchResult]:
     """Return valid search results selected in a results view."""
     selection_model = results_view.selectionModel()
     model = results_view.model()
@@ -125,7 +124,7 @@ class ContextMenuHandlerMixin:
         menu = self._create_context_menu(selected_results)
         menu.exec(pos)
 
-    def _create_context_menu(self, selected_results: List[SearchResult]) -> QMenu:
+    def _create_context_menu(self, selected_results: list[SearchResult]) -> QMenu:
         """Creates and populates the context menu based on selected results.
 
         Args:
@@ -354,16 +353,16 @@ class ContextMenuHandlerMixin:
                 handler(selected_results)
             except Exception as e:
                 logger.error(f"Error executing context menu action {action}: {e}")
-                self.safe_status_message(f"Error: {str(e)}")
+                self.safe_status_message(f"Error: {e!s}")
         else:
             logger.warning(f"Unknown context menu action: {action}")
 
-    def _handle_context_open(self, selected_results: List[SearchResult]) -> None:
+    def _handle_context_open(self, selected_results: list[SearchResult]) -> None:
         """Handle Open action - open files with default application."""
         for result in selected_results:
             self._on_file_open_requested(result)
 
-    def _handle_context_open_with(self, selected_results: List[SearchResult]) -> None:
+    def _handle_context_open_with(self, selected_results: list[SearchResult]) -> None:
         """Handle Open With... submenu action."""
         if len(selected_results) != 1:
             self.safe_status_message(
@@ -377,7 +376,7 @@ class ContextMenuHandlerMixin:
         )
 
     def _handle_context_open_containing_folder(
-        self, selected_results: List[SearchResult]
+        self, selected_results: list[SearchResult]
     ) -> None:
         """Handle Open Containing Folder action."""
         if not selected_results:
@@ -392,7 +391,7 @@ class ContextMenuHandlerMixin:
             self.safe_status_message(f"Failed to open containing folder: {e}")
             logger.error(f"Error opening containing folder for {result.path}: {e}")
 
-    def _handle_context_copy_path(self, selected_results: List[SearchResult]) -> None:
+    def _handle_context_copy_path(self, selected_results: list[SearchResult]) -> None:
         """Handle Copy Path to Clipboard action."""
         try:
             if len(selected_results) == 1:
@@ -408,7 +407,7 @@ class ContextMenuHandlerMixin:
             self.safe_status_message(f"Failed to copy path: {e}")
             logger.error(f"Error copying path to clipboard: {e}")
 
-    def _handle_context_copy_file(self, selected_results: List[SearchResult]) -> None:
+    def _handle_context_copy_file(self, selected_results: list[SearchResult]) -> None:
         """Handle Copy File to Clipboard action."""
         try:
             missing_files = []
@@ -442,10 +441,10 @@ class ContextMenuHandlerMixin:
                 self.safe_status_message(
                     "Failed to copy file object, copied path instead"
                 )
-            except Exception:
-                pass
+            except Exception as fallback_error:
+                logger.warning(f"Clipboard path fallback failed: {fallback_error}")
 
-    def _handle_context_properties(self, selected_results: List[SearchResult]) -> None:
+    def _handle_context_properties(self, selected_results: list[SearchResult]) -> None:
         """Handle Properties dialog action."""
         if len(selected_results) != 1:
             self.safe_status_message("Properties only supported for single selection.")
@@ -459,7 +458,7 @@ class ContextMenuHandlerMixin:
             self.safe_status_message(f"Failed to show properties: {e}")
             logger.error(f"Error showing properties dialog for {result.path}: {e}")
 
-    def _handle_context_delete(self, selected_results: List[SearchResult]) -> None:
+    def _handle_context_delete(self, selected_results: list[SearchResult]) -> None:
         """Handle Delete action with confirmation."""
         try:
             modifiers = QApplication.keyboardModifiers()
@@ -496,7 +495,7 @@ class ContextMenuHandlerMixin:
             logger.error(f"Error in delete operation: {e}")
 
     def _perform_delete(
-        self, selected_results: List[SearchResult], permanent: bool
+        self, selected_results: list[SearchResult], permanent: bool
     ) -> None:
         """Perform the actual delete operation."""
         deleted_count = 0
@@ -508,7 +507,7 @@ class ContextMenuHandlerMixin:
                 deleted_count += 1
                 self._remove_result_from_view(result)
             except Exception as e:
-                errors.append(f"{result.path.name}: {str(e)}")
+                errors.append(f"{result.path.name}: {e!s}")
 
         if errors:
             if len(errors) == 1:
@@ -526,7 +525,7 @@ class ContextMenuHandlerMixin:
         if isinstance(model, ResultsModel):
             cast(ResultsModel, model).remove_result(result)
 
-    def _handle_context_rename(self, selected_results: List[SearchResult]) -> None:
+    def _handle_context_rename(self, selected_results: list[SearchResult]) -> None:
         """Handle Rename action with inline editing."""
         if len(selected_results) != 1:
             self.safe_status_message("Rename only supported for single selection.")

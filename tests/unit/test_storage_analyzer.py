@@ -2,6 +2,7 @@
 
 from collections import namedtuple
 from pathlib import Path
+
 import pytest
 
 from filesearch.core.config_manager import ConfigManager

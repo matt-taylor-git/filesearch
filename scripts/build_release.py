@@ -147,8 +147,11 @@ def create_icns(icon_dir: Path) -> Path:
             )
 
     icns_path = icon_dir / "app_icon.icns"
-    subprocess.run(
-        ["iconutil", "-c", "icns", str(iconset_dir), "-o", str(icns_path)],
+    iconutil = shutil.which("iconutil")
+    if iconutil is None:
+        raise RuntimeError("iconutil is required to create a macOS application icon")
+    subprocess.run(  # noqa: S603 - resolved system tool with controlled arguments.
+        [iconutil, "-c", "icns", str(iconset_dir), "-o", str(icns_path)],
         check=True,
     )
     return icns_path
@@ -178,7 +181,7 @@ def run_pyinstaller(output_dir: Path, build_dir: Path) -> Path:
     if icon_path is not None:
         env["FILESEARCH_PYINSTALLER_ICON"] = str(icon_path)
 
-    subprocess.run(
+    subprocess.run(  # noqa: S603 - current interpreter runs a fixed local module.
         [
             sys.executable,
             "-m",
@@ -246,9 +249,8 @@ def main() -> int:
     args = parse_args()
 
     expected_version = args.expected_version
-    if (
-        expected_version is None
-        and os.environ.get("GITHUB_REF_NAME", "").startswith("v")
+    if expected_version is None and os.environ.get("GITHUB_REF_NAME", "").startswith(
+        "v"
     ):
         expected_version = os.environ["GITHUB_REF_NAME"][1:]
 

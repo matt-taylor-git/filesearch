@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 
 @dataclass
@@ -10,7 +9,7 @@ class SearchResult:
     path: Path  # File/folder path
     size: int  # File size in bytes (0 for directories)
     modified: float  # Modification timestamp
-    plugin_source: Optional[str] = None  # Plugin name if from plugin
+    plugin_source: str | None = None  # Plugin name if from plugin
 
     def get_display_name(self) -> str:
         """Return filename for display"""
@@ -31,9 +30,9 @@ class SearchResult:
         size = float(self.size)
         for unit in ["B", "KiB", "MiB", "GiB"]:
             if size < 1024.0:
-                return "{:.1f} {}".format(size, unit)
+                return f"{size:.1f} {unit}"
             size /= 1024.0
-        return "{:.1f} TiB".format(size)
+        return f"{size:.1f} TiB"
 
     def get_display_date(self) -> str:
         """Return formatted modification date"""

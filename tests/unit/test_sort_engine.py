@@ -4,12 +4,12 @@ Tests all sorting algorithms and edge cases.
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
-from filesearch.core.sort_engine import SortCriteria, SortEngine, SortResult
+from filesearch.core.sort_engine import SortCriteria, SortEngine
 from filesearch.models.search_result import SearchResult
 
 
@@ -259,7 +259,7 @@ class TestSortByType:
         ]
 
         sorted_results = SortEngine.sort_by_type(results, reverse=False)
-        filenames = [r.filename for r in sorted_results]
+        [r.filename for r in sorted_results]
 
         # First should be folder
         assert sorted_results[0].is_directory

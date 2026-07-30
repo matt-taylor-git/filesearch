@@ -1,10 +1,6 @@
 """Unit tests for file operations (rename, delete, etc.)."""
 
-import os
-import shutil
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -109,7 +105,7 @@ class TestDeleteOperations:
         delete_file(file1, permanent=False)
 
         mock_send2trash.assert_called_once_with(file1)
-        # Note: real send2trash would remove the file, but mock doesn't unless side_effect is set
+        # Real send2trash removes the file; this mock only records the boundary call.
         # So we just assert it was called
 
     def test_delete_nonexistent(self, tmp_path):

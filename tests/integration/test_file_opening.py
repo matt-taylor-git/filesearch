@@ -5,7 +5,6 @@ including security warnings and error handling.
 """
 
 import platform
-from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import Qt
@@ -14,6 +13,7 @@ from PyQt6.QtWidgets import QApplication
 
 import filesearch.core.security_manager
 from filesearch.core.config_manager import ConfigManager
+from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import safe_open
 from filesearch.core.security_manager import SecurityManager
 from filesearch.models.search_result import SearchResult
@@ -224,7 +224,7 @@ class TestFileOpeningWithRealFiles:
         test_file = tmp_path / "nonexistent.txt"
 
         # Should raise FileSearchError
-        with pytest.raises(Exception):  # FileSearchError or subclass
+        with pytest.raises(FileSearchError, match="File does not exist"):
             safe_open(test_file)
 
     def test_security_manager_executable_detection(self, tmp_path):

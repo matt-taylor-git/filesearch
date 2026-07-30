@@ -1,7 +1,7 @@
 """Integration tests for context menu end-to-end workflows."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -243,7 +243,7 @@ class TestPerformanceAndMemory:
 
         # Verify menu creation is fast (< 100ms target from AC15)
         duration = end_time - start_time
-        assert duration < 0.1, "Menu creation too slow: {:.3f}s".format(duration)
+        assert duration < 0.1, f"Menu creation too slow: {duration:.3f}s"
 
         # Verify menu is created correctly
         assert menu is not None
@@ -284,6 +284,6 @@ class TestPerformanceAndMemory:
         end_time = time.time()
 
         duration = end_time - start_time
-        assert (
-            duration < 0.05
-        ), "Error handling too slow: {:.3f}s for 10 operations".format(duration)
+        assert duration < 0.05, (
+            f"Error handling too slow: {duration:.3f}s for 10 operations"
+        )

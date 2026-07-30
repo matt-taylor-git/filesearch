@@ -6,11 +6,9 @@ file operations, particularly executable files.
 
 import os
 from pathlib import Path
-from typing import List, Optional, Set, Tuple
+from typing import ClassVar
 
 from loguru import logger
-
-from filesearch.core.exceptions import FileSearchError
 
 
 class SecurityManager:
@@ -21,7 +19,7 @@ class SecurityManager:
     """
 
     # Default executable file extensions by platform
-    WINDOWS_EXECUTABLE_EXTENSIONS = {
+    WINDOWS_EXECUTABLE_EXTENSIONS: ClassVar[set[str]] = {
         ".exe",
         ".bat",
         ".cmd",
@@ -37,7 +35,7 @@ class SecurityManager:
         ".wsh",
     }
 
-    UNIX_EXECUTABLE_EXTENSIONS = {
+    UNIX_EXECUTABLE_EXTENSIONS: ClassVar[set[str]] = {
         ".sh",
         ".bash",
         ".zsh",
@@ -52,7 +50,7 @@ class SecurityManager:
         ".bin",
     }
 
-    MAC_EXECUTABLE_EXTENSIONS = {
+    MAC_EXECUTABLE_EXTENSIONS: ClassVar[set[str]] = {
         ".app",
         ".command",
         ".scpt",
@@ -70,14 +68,14 @@ class SecurityManager:
         """
         self.config_manager = config_manager
         self._executable_extensions = self._get_platform_executable_extensions()
-        self._allowed_extensions: Set[str] = set()
-        self._blocked_extensions: Set[str] = set()
+        self._allowed_extensions: set[str] = set()
+        self._blocked_extensions: set[str] = set()
 
         # Load user preferences if config manager is available
         if self.config_manager:
             self._load_user_preferences()
 
-    def _get_platform_executable_extensions(self) -> Set[str]:
+    def _get_platform_executable_extensions(self) -> set[str]:
         """Get executable file extensions for the current platform.
 
         Returns:
@@ -118,33 +116,32 @@ class SecurityManager:
                 return True
 
             # Check if file has execute permissions (Unix-like systems)
-            if os.name == "posix":  # Unix-like systems
-                if os.access(path, os.X_OK):
-                    # Additional check: make sure it's actually an executable
-                    # and not just a data file with execute bits set
-                    try:
-                        # Read first few bytes to check for executable signatures
-                        with open(path, "rb") as f:
-                            header = f.read(4)
+            if os.name == "posix" and os.access(path, os.X_OK):
+                # Additional check: make sure it's actually an executable
+                # and not just a data file with execute bits set
+                try:
+                    # Read first few bytes to check for executable signatures
+                    with open(path, "rb") as f:
+                        header = f.read(4)
 
-                        # Common executable signatures
-                        elf_signatures = {b"\x7fELF"}  # Linux ELF
-                        pe_signatures = {b"MZ\x90\x00", b"MZ"}  # Windows PE
-                        mach_o_signatures = {
-                            b"\xfe\xed\xfa\xce",
-                            b"\xfe\xed\xfa\xcf",
-                            b"\xce\xfa\xed\xfe",
-                            b"\xcf\xfa\xed\xfe",
-                        }  # macOS Mach-O
+                    # Common executable signatures
+                    elf_signatures = {b"\x7fELF"}  # Linux ELF
+                    pe_signatures = {b"MZ\x90\x00", b"MZ"}  # Windows PE
+                    mach_o_signatures = {
+                        b"\xfe\xed\xfa\xce",
+                        b"\xfe\xed\xfa\xcf",
+                        b"\xce\xfa\xed\xfe",
+                        b"\xcf\xfa\xed\xfe",
+                    }  # macOS Mach-O
 
-                        if (
-                            header in elf_signatures
-                            or header in pe_signatures
-                            or header in mach_o_signatures
-                        ):
-                            return True
-                    except (OSError, IOError):
-                        pass
+                    if (
+                        header in elf_signatures
+                        or header in pe_signatures
+                        or header in mach_o_signatures
+                    ):
+                        return True
+                except OSError as e:
+                    logger.debug(f"Could not inspect executable header for {path}: {e}")
 
             return False
 
@@ -152,7 +149,7 @@ class SecurityManager:
             logger.warning(f"Error checking if file is executable {path}: {e}")
             return False
 
-    def should_warn_before_opening(self, path: Path) -> Tuple[bool, str]:
+    def should_warn_before_opening(self, path: Path) -> tuple[bool, str]:
         """Check if a warning should be shown before opening a file.
 
         Args:
@@ -175,7 +172,8 @@ class SecurityManager:
             logger.debug(f"Extension {extension} is in blocked list")
             return (
                 True,
-                f"This executable file type ({extension}) is blocked by your preferences.",
+                f"This executable file type ({extension}) is blocked by your "
+                "preferences.",
             )
 
         # Default warning for executable files
@@ -219,7 +217,7 @@ class SecurityManager:
         if self.config_manager:
             self._save_user_preferences()
 
-    def get_executable_extensions(self) -> List[str]:
+    def get_executable_extensions(self) -> list[str]:
         """Get list of executable file extensions for current platform.
 
         Returns:
@@ -227,7 +225,7 @@ class SecurityManager:
         """
         return sorted(self._executable_extensions)
 
-    def get_allowed_extensions(self) -> List[str]:
+    def get_allowed_extensions(self) -> list[str]:
         """Get list of user-allowed executable extensions.
 
         Returns:
@@ -235,7 +233,7 @@ class SecurityManager:
         """
         return sorted(self._allowed_extensions)
 
-    def get_blocked_extensions(self) -> List[str]:
+    def get_blocked_extensions(self) -> list[str]:
         """Get list of user-blocked executable extensions.
 
         Returns:
@@ -262,7 +260,9 @@ class SecurityManager:
             self._blocked_extensions = set(blocked)
 
             logger.debug(
-                f"Loaded security preferences: allowed={len(self._allowed_extensions)}, blocked={len(self._blocked_extensions)}"
+                "Loaded security preferences: "
+                f"allowed={len(self._allowed_extensions)}, "
+                f"blocked={len(self._blocked_extensions)}"
             )
 
         except Exception as e:
@@ -291,7 +291,7 @@ class SecurityManager:
 
 
 # Global security manager instance
-_security_manager: Optional[SecurityManager] = None
+_security_manager: SecurityManager | None = None
 
 
 def get_security_manager(config_manager=None) -> SecurityManager:
@@ -324,7 +324,7 @@ def is_executable_file(path: Path) -> bool:
     return security_manager.is_executable(path)
 
 
-def should_warn_before_opening_file(path: Path) -> Tuple[bool, str]:
+def should_warn_before_opening_file(path: Path) -> tuple[bool, str]:
     """Convenience function to check if a warning should be shown.
 
     Args:

@@ -1,7 +1,6 @@
 """Progress widget for displaying search progress."""
 
 import time
-from typing import Optional
 
 from loguru import logger
 from PyQt6.QtCore import QSize, QTimer, pyqtSignal
@@ -27,7 +26,7 @@ class ProgressWidget(QWidget):
     # Signals
     progress_updated = pyqtSignal(int, str)  # files_scanned, current_dir
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         """Initialize progress widget.
 
         Args:
@@ -116,7 +115,7 @@ class ProgressWidget(QWidget):
         Returns:
             Formatted string
         """
-        return "{:,} files scanned".format(count)
+        return f"{count:,} files scanned"
 
     def _truncate_path(self, path: str, max_length: int = 40) -> str:
         """Truncate path if too long.

@@ -29,16 +29,14 @@ File Search is a cross-platform desktop application built with Python and PyQt6 
 | **File Paths** | platformdirs | >=4.0.0 | Cross-platform configuration and data directories |
 | **Sorting** | natsort | latest | Natural sorting of search results |
 | **Testing** | pytest | >=7.4.0 | Testing framework with pytest-qt for UI testing |
-| **Code Quality** | black, flake8, pre-commit | latest | Code formatting, linting, and automated checks |
+| **Code Quality** | Ruff, pre-commit | latest | Code formatting, linting, and automated checks |
 | **Packaging** | setuptools | modern | Python packaging with pyproject.toml configuration |
 
 ### Development Tools
 
 | Tool | Configuration | Purpose |
 |-------|-------------|---------|
-| **Black** | 88-character line length | Code formatting and consistency |
-| **Flake8** | Custom ignore rules (E203, F401) | Linting and code quality |
-| **isort** | Black profile | Import sorting and organization |
+| **Ruff** | Python 3.11 target, 88-character lines | Formatting, linting, and import sorting |
 | **pytest-qt** | Qt API = pyqt6 | GUI testing with Qt event loop |
 | **pre-commit** | Automated hooks | Quality gates before commits |
 
@@ -334,7 +332,7 @@ uv run pre-commit install
 ### Code Quality Standards
 
 #### Style Guidelines
-- **Black**: 88-character line length, consistent formatting
+- **Ruff**: Python 3.11 syntax target and 88-character line length
 - **Type Hints**: Full type annotation coverage
 - **Docstrings**: Google-style docstrings for all public functions
 - **Naming**: snake_case for files/functions, PascalCase for classes

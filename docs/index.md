@@ -15,7 +15,7 @@
 - **File Paths**: platformdirs >=4.0.0
 - **Sorting**: natsort
 - **Testing**: pytest >=7.4.0 with pytest-qt
-- **Code Quality**: black, flake8, pre-commit
+- **Code Quality**: Ruff and pre-commit
 
 ### Entry Point
 - **Main**: `src/filesearch/main.py`

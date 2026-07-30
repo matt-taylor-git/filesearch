@@ -6,7 +6,6 @@ matching, wildcard support, and regex metacharacter escaping.
 """
 
 import re
-from typing import Dict, List, Optional, Tuple
 
 
 class HighlightEngine:
@@ -19,8 +18,8 @@ class HighlightEngine:
         Args:
             max_cache_size: Max entries in highlight cache (default: 10000)
         """
-        self._pattern_cache: Dict[str, re.Pattern] = {}
-        self._highlight_cache: Dict[Tuple[str, str, str], List[Tuple[int, int]]] = {}
+        self._pattern_cache: dict[str, re.Pattern] = {}
+        self._highlight_cache: dict[tuple[str, str, str], list[tuple[int, int]]] = {}
         self.max_cache_size = max_cache_size
 
     def _escape_regex(self, text: str) -> str:
@@ -65,14 +64,11 @@ class HighlightEngine:
         # Check if query contains only wildcards (*, ?, .)
         # . is a wildcard in regex (matches any single character)
         wildcard_only = all(c in "*?." for c in query)
-        if wildcard_only:
-            return False
-
-        return True
+        return not wildcard_only
 
     def _compile_pattern(
         self, query: str, case_sensitive: bool = False
-    ) -> Optional[re.Pattern]:
+    ) -> re.Pattern | None:
         """
         Compile a regex pattern for the query
 
@@ -111,7 +107,7 @@ class HighlightEngine:
 
     def find_matches(
         self, filename: str, query: str, case_sensitive: bool = False
-    ) -> List[Tuple[int, int]]:
+    ) -> list[tuple[int, int]]:
         """
         Find all matching substring positions in a filename
 
@@ -141,7 +137,7 @@ class HighlightEngine:
         matches = []
 
         # Remove extension for highlighting purposes
-        name_without_ext, ext = self._split_filename_and_ext(filename)
+        name_without_ext, _ext = self._split_filename_and_ext(filename)
 
         # Find all matches in the filename (without extension)
         for match in pattern.finditer(name_without_ext):
@@ -156,7 +152,7 @@ class HighlightEngine:
 
         return matches
 
-    def _split_filename_and_ext(self, filename: str) -> Tuple[str, str]:
+    def _split_filename_and_ext(self, filename: str) -> tuple[str, str]:
         """
         Split filename into name and extension parts
 
@@ -285,7 +281,4 @@ def is_valid_highlight_query(query: str) -> bool:
 
     # Check if query contains only wildcards
     wildcard_only = all(c in "*?" for c in query)
-    if wildcard_only:
-        return False
-
-    return True
+    return not wildcard_only

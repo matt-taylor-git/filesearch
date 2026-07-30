@@ -13,8 +13,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from filesearch.core.config_manager import ConfigManager
 from filesearch.core.application_runtime import DesktopEffects
+from filesearch.core.config_manager import ConfigManager
 
 
 class HighlightSettingsTab(QWidget):

@@ -1,7 +1,5 @@
 """Search input widget with history, auto-complete, and visual feedback."""
 
-from typing import List, Optional
-
 from loguru import logger
 from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -47,8 +45,8 @@ class SearchInputWidget(QWidget):
 
     def __init__(
         self,
-        config_manager: Optional[ConfigManager] = None,
-        parent: Optional[QWidget] = None,
+        config_manager: ConfigManager | None = None,
+        parent: QWidget | None = None,
     ):
         """Initialize search input widget.
 
@@ -60,7 +58,7 @@ class SearchInputWidget(QWidget):
 
         # Configuration
         self.config_manager = config_manager
-        self.search_history: List[str] = []
+        self.search_history: list[str] = []
         self.is_loading = False
         self.has_error = False
 

@@ -6,7 +6,6 @@ selected search result.  Hidden by default; appears when a result is selected.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 from loguru import logger
@@ -23,7 +22,7 @@ from PyQt6.QtWidgets import (
 )
 
 from filesearch.models.search_result import SearchResult
-from filesearch.ui.theme import Colors, Fonts, Spacing
+from filesearch.ui.theme import Colors
 
 
 def _get_file_type_icon_info(path: Path) -> tuple:
@@ -121,13 +120,13 @@ class DetailsPanelWidget(QWidget):
     delete_requested = pyqtSignal(object)
     panel_close_requested = pyqtSignal()
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("detailsPanel")
         self.setMinimumWidth(0)  # Allow splitter to collapse to 0
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
 
-        self._current_result: Optional[SearchResult] = None
+        self._current_result: SearchResult | None = None
         self._setup_ui()
 
         logger.debug("DetailsPanelWidget initialized")

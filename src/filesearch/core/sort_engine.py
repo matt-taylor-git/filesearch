@@ -6,12 +6,8 @@ name, size, date, type, and relevance sorting.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
-from pathlib import Path
-from typing import Callable, List
 
 from natsort import natsorted
 
@@ -35,7 +31,7 @@ class SortCriteria(Enum):
 class SortResult:
     """Result of a sorting operation."""
 
-    sorted_results: List[SearchResult]
+    sorted_results: list[SearchResult]
     execution_time_ms: float
     item_count: int
 
@@ -49,8 +45,8 @@ class SortEngine:
 
     @staticmethod
     def sort_by_name(
-        results: List[SearchResult], reverse: bool = False
-    ) -> List[SearchResult]:
+        results: list[SearchResult], reverse: bool = False
+    ) -> list[SearchResult]:
         """Sort results alphabetically by filename using natural sorting.
 
         Folders are grouped separately and sorted before files.
@@ -90,8 +86,8 @@ class SortEngine:
 
     @staticmethod
     def sort_by_size(
-        results: List[SearchResult], reverse: bool = False
-    ) -> List[SearchResult]:
+        results: list[SearchResult], reverse: bool = False
+    ) -> list[SearchResult]:
         """Sort results by file size.
 
         Folders are treated as size 0 and placed based on sort direction.
@@ -126,8 +122,8 @@ class SortEngine:
 
     @staticmethod
     def sort_by_date(
-        results: List[SearchResult], reverse: bool = False
-    ) -> List[SearchResult]:
+        results: list[SearchResult], reverse: bool = False
+    ) -> list[SearchResult]:
         """Sort results by modification date.
 
         Args:
@@ -143,8 +139,8 @@ class SortEngine:
 
     @staticmethod
     def sort_by_type(
-        results: List[SearchResult], reverse: bool = False
-    ) -> List[SearchResult]:
+        results: list[SearchResult], reverse: bool = False
+    ) -> list[SearchResult]:
         """Sort results by file type.
 
         Groups items by type: folders first, then files sorted by extension.
@@ -179,8 +175,8 @@ class SortEngine:
 
     @staticmethod
     def sort_by_relevance(
-        results: List[SearchResult], query: str
-    ) -> List[SearchResult]:
+        results: list[SearchResult], query: str
+    ) -> list[SearchResult]:
         """Sort results by relevance to search query.
 
         Calculates match score based on query position in filename:
@@ -234,8 +230,8 @@ class SortEngine:
 
     @classmethod
     def sort(
-        cls, results: List[SearchResult], criteria: SortCriteria, query: str = ""
-    ) -> List[SearchResult]:
+        cls, results: list[SearchResult], criteria: SortCriteria, query: str = ""
+    ) -> list[SearchResult]:
         """Sort results using the specified criteria.
 
         Args:

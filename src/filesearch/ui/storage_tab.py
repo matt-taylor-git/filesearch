@@ -320,9 +320,8 @@ class StorageTabWidget(QWidget):
         self._update_summary(result)
         self._show_node(result.root.path)
         self._status_label.setText(
-            "Scanned {} items - {} skipped".format(
-                result.summary.item_count, result.summary.skipped_count
-            )
+            f"Scanned {result.summary.item_count} items - "
+            f"{result.summary.skipped_count} skipped"
         )
         logger.info(f"Storage analysis applied for {result.summary.root_path}")
 

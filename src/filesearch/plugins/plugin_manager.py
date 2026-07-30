@@ -9,12 +9,11 @@ import importlib.util
 import inspect
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any
 
 from loguru import logger
 
 from filesearch.core.config_manager import ConfigManager
-from filesearch.core.exceptions import PluginError
 from filesearch.plugins.plugin_base import PluginDiscovery, SearchPlugin
 
 
@@ -32,7 +31,7 @@ class PluginManager:
         Args:
             config_manager: Configuration manager instance for plugin configs
         """
-        self._plugins: Dict[str, SearchPlugin] = {}
+        self._plugins: dict[str, SearchPlugin] = {}
         self._config_manager = config_manager
 
         # Plugin directories
@@ -41,7 +40,7 @@ class PluginManager:
 
         logger.debug("PluginManager initialized")
 
-    def load_plugins(self) -> List[SearchPlugin]:
+    def load_plugins(self) -> list[SearchPlugin]:
         """Load and initialize all available plugins.
 
         Returns:
@@ -81,7 +80,7 @@ class PluginManager:
         logger.info(f"Plugin loading complete. Loaded {len(loaded_plugins)} plugins")
         return loaded_plugins
 
-    def get_plugin(self, name: str) -> Optional[SearchPlugin]:
+    def get_plugin(self, name: str) -> SearchPlugin | None:
         """Get a loaded plugin by name.
 
         Args:
@@ -145,7 +144,7 @@ class PluginManager:
                 return False
         return False
 
-    def get_plugin_config(self, name: str) -> Dict[str, Any]:
+    def get_plugin_config(self, name: str) -> dict[str, Any]:
         """Get configuration for a plugin.
 
         Args:
@@ -160,7 +159,7 @@ class PluginManager:
                 return plugin_config
         return {}
 
-    def set_plugin_config(self, name: str, config: Dict[str, Any]) -> bool:
+    def set_plugin_config(self, name: str, config: dict[str, Any]) -> bool:
         """Set configuration for a plugin.
 
         Args:
@@ -188,7 +187,7 @@ class PluginManager:
 
     def discover_plugins(
         self,
-    ) -> List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]]:
+    ) -> list[tuple[type[SearchPlugin], dict[str, Any] | None]]:
         """Discover plugin classes from all sources.
 
         Returns:
@@ -221,13 +220,13 @@ class PluginManager:
 
     def _discover_from_entry_points(
         self,
-    ) -> List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]]:
+    ) -> list[tuple[type[SearchPlugin], dict[str, Any] | None]]:
         """Discover plugins from Python entry points.
 
         Returns:
             List of tuples (plugin_class, None) for entry point plugins
         """
-        plugins: List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]] = []
+        plugins: list[tuple[type[SearchPlugin], dict[str, Any] | None]] = []
         try:
             entry_points = importlib.metadata.entry_points(group="filesearch.plugins")
             for ep in entry_points:
@@ -249,8 +248,8 @@ class PluginManager:
         return plugins
 
     def _sort_by_dependencies(
-        self, plugins: List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]]
-    ) -> List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]]:
+        self, plugins: list[tuple[type[SearchPlugin], dict[str, Any] | None]]
+    ) -> list[tuple[type[SearchPlugin], dict[str, Any] | None]]:
         """Sort plugins by dependency order using topological sort.
 
         Args:
@@ -295,7 +294,7 @@ class PluginManager:
         # Return in dependency order
         return [name_to_plugin[name] for name in sorted_names]
 
-    def get_loaded_plugins(self) -> List[SearchPlugin]:
+    def get_loaded_plugins(self) -> list[SearchPlugin]:
         """Get list of currently loaded plugins.
 
         Returns:
@@ -303,7 +302,7 @@ class PluginManager:
         """
         return list(self._plugins.values())
 
-    def get_plugin_status(self) -> Dict[str, Dict[str, Any]]:
+    def get_plugin_status(self) -> dict[str, dict[str, Any]]:
         """Get status of all plugins.
 
         Returns:
@@ -321,7 +320,7 @@ class PluginManager:
             }
 
         # Include discovered but not loaded plugins
-        for cls, meta in self.discover_plugins():
+        for cls, _meta in self.discover_plugins():
             name = cls.__name__
             if name not in status:
                 status[name] = {
@@ -337,10 +336,10 @@ class PluginManager:
 
     def _load_plugin(
         self,
-        plugin_class: Type[SearchPlugin],
-        config: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[SearchPlugin]:
+        plugin_class: type[SearchPlugin],
+        config: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> SearchPlugin | None:
         """Load and initialize a single plugin with error isolation.
 
         Args:
@@ -365,7 +364,8 @@ class PluginManager:
                 try:
                     if not (min_v <= app_version <= max_v):
                         logger.warning(
-                            f"Plugin {plugin_class.__name__} requires app version {min_v} - {max_v}, current {app_version}"
+                            f"Plugin {plugin_class.__name__} requires app version "
+                            f"{min_v} - {max_v}, current {app_version}"
                         )
                         return None
                 except TypeError:
@@ -387,9 +387,9 @@ class PluginManager:
             logger.error(f"Error loading plugin {plugin_class.__name__}: {e}")
             return None
 
-    def _discover_from_directory(
+    def _discover_from_directory(  # noqa: C901 - isolates dynamic plugin discovery.
         self, directory: Path
-    ) -> List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]]:
+    ) -> list[tuple[type[SearchPlugin], dict[str, Any] | None]]:
         """Discover plugins from a directory.
 
         Args:
@@ -398,7 +398,7 @@ class PluginManager:
         Returns:
             List of tuples (plugin_class, metadata_dict)
         """
-        plugin_classes: List[Type[SearchPlugin]] = []
+        plugin_classes: list[type[SearchPlugin]] = []
 
         if not directory.exists():
             logger.debug(f"Plugin directory does not exist: {directory}")
@@ -421,7 +421,7 @@ class PluginManager:
                         spec.loader.exec_module(module)
 
                         # Find plugin classes in the module
-                        for name, obj in inspect.getmembers(module):
+                        for _name, obj in inspect.getmembers(module):
                             if (
                                 inspect.isclass(obj)
                                 and issubclass(obj, SearchPlugin)
@@ -444,14 +444,14 @@ class PluginManager:
         metadata_path = directory / "plugin.json"
         if metadata_path.exists():
             try:
-                with open(metadata_path, "r", encoding="utf-8") as f:
+                with open(metadata_path, encoding="utf-8") as f:
                     metadata = json.load(f)
                 logger.debug(f"Loaded metadata from {metadata_path}")
             except Exception as e:
                 logger.error(f"Error loading metadata from {metadata_path}: {e}")
 
         # Assign metadata to all plugins in this directory
-        result: List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]] = [
+        result: list[tuple[type[SearchPlugin], dict[str, Any] | None]] = [
             (cls, metadata) for cls in plugin_classes
         ]
         return result

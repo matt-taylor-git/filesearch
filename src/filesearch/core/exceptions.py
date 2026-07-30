@@ -5,7 +5,7 @@ All custom exceptions inherit from FileSearchError, allowing for consistent
 error handling throughout the application.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 
 class FileSearchError(Exception):
@@ -24,8 +24,8 @@ class FileSearchError(Exception):
     def __init__(
         self,
         message: str,
-        details: Optional[Any] = None,
-        cause: Optional[Exception] = None,
+        details: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -58,10 +58,10 @@ class SearchError(FileSearchError):
     def __init__(
         self,
         message: str,
-        path: Optional[str] = None,
-        pattern: Optional[str] = None,
-        details: Optional[Any] = None,
-        cause: Optional[Exception] = None,
+        path: str | None = None,
+        pattern: str | None = None,
+        details: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
         super().__init__(message, details, cause)
         self.path = path
@@ -87,9 +87,9 @@ class PluginError(FileSearchError):
     def __init__(
         self,
         message: str,
-        plugin_name: Optional[str] = None,
-        details: Optional[Any] = None,
-        cause: Optional[Exception] = None,
+        plugin_name: str | None = None,
+        details: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
         super().__init__(message, details, cause)
         self.plugin_name = plugin_name
@@ -115,10 +115,10 @@ class ConfigError(FileSearchError):
     def __init__(
         self,
         message: str,
-        config_file: Optional[str] = None,
-        config_key: Optional[str] = None,
-        details: Optional[Any] = None,
-        cause: Optional[Exception] = None,
+        config_file: str | None = None,
+        config_key: str | None = None,
+        details: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
         super().__init__(message, details, cause)
         self.config_file = config_file
@@ -143,18 +143,18 @@ class UIError(FileSearchError):
     def __init__(
         self,
         message: str,
-        component: Optional[str] = None,
-        details: Optional[Any] = None,
-        cause: Optional[Exception] = None,
+        component: str | None = None,
+        details: Any | None = None,
+        cause: Exception | None = None,
     ) -> None:
         super().__init__(message, details, cause)
         self.component = component
 
 
 __all__ = [
-    "FileSearchError",
-    "SearchError",
-    "PluginError",
     "ConfigError",
+    "FileSearchError",
+    "PluginError",
+    "SearchError",
     "UIError",
 ]

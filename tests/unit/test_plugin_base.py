@@ -3,11 +3,10 @@
 import inspect
 from abc import ABC
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import pytest
 
-from filesearch.core.exceptions import PluginError
 from filesearch.plugins.plugin_base import ExamplePlugin, PluginDiscovery, SearchPlugin
 
 
@@ -51,13 +50,13 @@ class TestConcretePlugin:
             self.initialized = False
             self.search_called = False
 
-        def initialize(self, config: Dict[str, Any]) -> bool:
+        def initialize(self, config: dict[str, Any]) -> bool:
             """Initialize the mock plugin."""
             self._config = config
             self.initialized = True
             return True
 
-        def search(self, query: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        def search(self, query: str, context: dict[str, Any]) -> list[dict[str, Any]]:
             """Perform search (mock implementation)."""
             self.search_called = True
             return [{"path": "/test/file1.txt", "name": "file1.txt", "type": "text"}]

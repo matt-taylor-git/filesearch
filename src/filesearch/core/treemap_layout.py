@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 
 @dataclass(slots=True)
@@ -63,7 +64,7 @@ def layout_treemap(
             continue
 
         short_side = min(remaining_width, remaining_height)
-        if _worst_ratio(row + [candidate], short_side) <= _worst_ratio(row, short_side):
+        if _worst_ratio([*row, candidate], short_side) <= _worst_ratio(row, short_side):
             row.append(candidate)
             remaining.pop(0)
             continue

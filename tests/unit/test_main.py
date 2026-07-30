@@ -168,79 +168,67 @@ class TestMainFunction:
 
     def test_main_success(self, application_runtime):
         """Test successful main execution."""
-        with patch.object(sys, "argv", ["filesearch"]):
-            with patch(
+        with (  # noqa: SIM117 - staged composition mocks aid readability.
+            patch.object(sys, "argv", ["filesearch"]),
+            patch(
                 "filesearch.main.ensure_log_dir",
                 return_value=application_runtime.log_dir,
-            ):
-                with (
-                    patch("PyQt6.QtWidgets.QApplication") as mock_app,
-                    patch("PyQt6.QtGui.QIcon"),
-                ):
-                    # Mock components to avoid GUI creation issues
+            ),
+            patch("PyQt6.QtWidgets.QApplication") as mock_app,
+            patch("PyQt6.QtGui.QIcon"),
+        ):
+            # Mock components to avoid GUI creation issues
+            with patch("filesearch.core.config_manager.ConfigManager") as mock_config:
+                with patch(
+                    "filesearch.plugins.plugin_manager.PluginManager"
+                ) as mock_plugin_mgr:
                     with patch(
-                        "filesearch.core.config_manager.ConfigManager"
-                    ) as mock_config:
-                        with patch(
-                            "filesearch.plugins.plugin_manager.PluginManager"
-                        ) as mock_plugin_mgr:
-                            with patch(
-                                "filesearch.ui.main_window.MainWindow"
-                            ) as mock_main_window:
-                                mock_app.return_value.exec.return_value = 0
-                                mock_config.return_value = None
-                                mock_plugin_mgr.return_value.load_plugins.return_value = (
-                                    []
-                                )
-                                mock_window = mock_main_window.return_value
-                                mock_window.show.return_value = None
-                                result = main(application_runtime)
-                                assert result == 0
-                                mock_main_window.assert_called_once()
+                        "filesearch.ui.main_window.MainWindow"
+                    ) as mock_main_window:
+                        mock_app.return_value.exec.return_value = 0
+                        mock_config.return_value = None
+                        mock_plugin_mgr.return_value.load_plugins.return_value = []
+                        mock_window = mock_main_window.return_value
+                        mock_window.show.return_value = None
+                        result = main(application_runtime)
+                        assert result == 0
+                        mock_main_window.assert_called_once()
 
     def test_main_with_debug_logging(self, application_runtime):
         """Test main with debug logging."""
-        with patch.object(sys, "argv", ["filesearch", "--debug"]):
-            with patch(
+        with (
+            patch.object(sys, "argv", ["filesearch", "--debug"]),
+            patch(
                 "filesearch.main.ensure_log_dir",
                 return_value=application_runtime.log_dir,
-            ):
-                with (
-                    patch("PyQt6.QtWidgets.QApplication") as mock_app,
-                    patch("PyQt6.QtGui.QIcon"),
-                ):
-                    with patch(
-                        "filesearch.core.config_manager.ConfigManager"
-                    ) as mock_config:
-                        with patch(
-                            "filesearch.plugins.plugin_manager.PluginManager"
-                        ) as mock_plugin_mgr:
-                            with patch(
-                                "filesearch.ui.main_window.MainWindow"
-                            ) as mock_main_window:
-                                mock_app.return_value.exec.return_value = 0
-                                mock_config.return_value = None
-                                mock_plugin_mgr.return_value.load_plugins.return_value = (
-                                    []
-                                )
-                                mock_window = mock_main_window.return_value
-                                mock_window.show.return_value = None
-                                result = main(application_runtime)
-                                assert result == 0
-                                mock_main_window.assert_called_once()
+            ),
+            patch("PyQt6.QtWidgets.QApplication") as mock_app,
+            patch("PyQt6.QtGui.QIcon"),
+            patch("filesearch.core.config_manager.ConfigManager") as mock_config,
+            patch("filesearch.plugins.plugin_manager.PluginManager") as mock_plugin_mgr,
+            patch("filesearch.ui.main_window.MainWindow") as mock_main_window,
+        ):
+            mock_app.return_value.exec.return_value = 0
+            mock_config.return_value = None
+            mock_plugin_mgr.return_value.load_plugins.return_value = []
+            mock_window = mock_main_window.return_value
+            mock_window.show.return_value = None
+            result = main(application_runtime)
+            assert result == 0
+            mock_main_window.assert_called_once()
 
     def test_main_error_handling(self, application_runtime):
         """Test main error handling."""
-        with patch.object(sys, "argv", ["filesearch"]):
-            with patch(
+        with (
+            patch.object(sys, "argv", ["filesearch"]),
+            patch(
                 "filesearch.main.ensure_log_dir",
                 return_value=application_runtime.log_dir,
-            ):
-                with patch(
-                    "filesearch.main.setup_logging", side_effect=Exception("Test error")
-                ):
-                    result = main(application_runtime)
-                    assert result == 1
+            ),
+            patch("filesearch.main.setup_logging", side_effect=Exception("Test error")),
+        ):
+            result = main(application_runtime)
+            assert result == 1
 
     def test_main_closes_config_after_startup_failure(self, application_runtime):
         """Application-owned config resources are released on exceptions."""
@@ -262,7 +250,9 @@ class TestMainFunction:
 
     def test_module_entry_point_invokes_main(self):
         """Test python -m filesearch delegates to filesearch.main.main."""
-        with patch("filesearch.main.main", return_value=0) as mock_main:
+        with patch(  # noqa: SIM117 - staged entry-point controls aid readability.
+            "filesearch.main.main", return_value=0
+        ) as mock_main:
             with patch("sys.exit", side_effect=SystemExit(0)) as mock_exit:
                 with pytest.raises(SystemExit) as exc_info:
                     runpy.run_module("filesearch.__main__", run_name="__main__")
@@ -284,7 +274,6 @@ class TestPathHandling:
 
     def test_pathlib_usage_in_main(self):
         """Test that pathlib.Path is used in main.py."""
-        from filesearch.main import setup_logging
 
         # The function should use pathlib internally
         # This test ensures no ImportError occurs

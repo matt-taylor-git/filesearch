@@ -10,10 +10,10 @@ import platform
 import shutil
 import string
 import subprocess
+from collections.abc import Iterable
 from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Union
 
 from loguru import logger
 from PyQt6.QtCore import QUrl
@@ -22,7 +22,7 @@ from PyQt6.QtGui import QDesktopServices
 from filesearch.core.exceptions import FileSearchError
 from filesearch.models.search_result import SearchResult
 
-_USER_FOLDERS: Dict[str, tuple[Optional[str], Optional[str]]] = {
+_USER_FOLDERS: dict[str, tuple[str | None, str | None]] = {
     "home": (None, None),
     "documents": ("Documents", "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}"),
     "desktop": ("Desktop", "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}"),
@@ -59,7 +59,8 @@ def _get_windows_known_folder_path(folder_id: str) -> Path:
     """Resolve a Windows known folder path via SHGetKnownFolderPath."""
     path_ptr = ctypes.c_wchar_p()
     guid = _guid_from_string(folder_id)
-    windll = getattr(ctypes, "windll")
+    # ``windll`` exists only on Windows and is absent from the portable stubs.
+    windll = getattr(ctypes, "windll")  # noqa: B009
     shell32 = windll.shell32
     ole32 = windll.ole32
 
@@ -154,7 +155,8 @@ def _windows_volume_label(root: Path) -> str:
         max_component = wintypes.DWORD()
         fs_flags = wintypes.DWORD()
         root_path = f"{letter}\\" if not letter.endswith("\\") else letter
-        ok = getattr(ctypes, "windll").kernel32.GetVolumeInformationW(
+        # ``windll`` exists only on Windows and is absent from the portable stubs.
+        ok = getattr(ctypes, "windll").kernel32.GetVolumeInformationW(  # noqa: B009
             root_path,
             volume_name,
             len(volume_name),
@@ -173,20 +175,22 @@ def _windows_volume_label(root: Path) -> str:
 
 def _iter_windows_drive_roots() -> Iterable[Path]:
     """Yield accessible Windows drive roots (``C:\\``, ``D:\\``, ...)."""
-    get_drive_type = getattr(ctypes, "windll").kernel32.GetDriveTypeW
+    # ``windll`` exists only on Windows and is absent from the portable stubs.
+    get_drive_type = getattr(ctypes, "windll").kernel32.GetDriveTypeW  # noqa: B009
     # DRIVE_NO_ROOT_DIR=1, DRIVE_UNKNOWN=0 — skip both
     for letter in string.ascii_uppercase:
         root = Path(f"{letter}:\\")
         try:
             drive_type = int(get_drive_type(str(root)))
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not inspect Windows drive {root}: {e}")
             continue
         if drive_type in (0, 1):
             continue
         yield root
 
 
-def _iter_unix_drive_roots() -> Iterable[Path]:
+def _iter_unix_drive_roots() -> Iterable[Path]:  # noqa: C901 - OS mount formats vary.
     """Yield mounted filesystem roots on macOS/Linux."""
     system = platform.system()
     if system == "Darwin":
@@ -256,7 +260,7 @@ def _format_drive_label(root: Path) -> str:
     return name
 
 
-def list_drive_usage() -> List[DriveUsage]:
+def list_drive_usage() -> list[DriveUsage]:
     """Return disk usage for all accessible mounted drives.
 
     Each entry includes a friendly label (volume name + drive letter on Windows)
@@ -267,7 +271,7 @@ def list_drive_usage() -> List[DriveUsage]:
     else:
         roots = list(_iter_unix_drive_roots())
 
-    drives: List[DriveUsage] = []
+    drives: list[DriveUsage] = []
     seen_keys: set[tuple] = set()
 
     for root in roots:
@@ -312,7 +316,7 @@ def list_drive_usage() -> List[DriveUsage]:
     return drives
 
 
-def list_directory_entries(directory: Union[str, Path]) -> List[SearchResult]:
+def list_directory_entries(directory: str | Path) -> list[SearchResult]:
     """List immediate children of a directory as SearchResult rows.
 
     Non-recursive: only the given directory's direct children are returned.
@@ -332,8 +336,8 @@ def list_directory_entries(directory: Union[str, Path]) -> List[SearchResult]:
         logger.warning(f"Cannot list directory entries; not a directory: {directory}")
         return []
 
-    directories: List[SearchResult] = []
-    files: List[SearchResult] = []
+    directories: list[SearchResult] = []
+    files: list[SearchResult] = []
 
     try:
         with os.scandir(dir_path) as entries:
@@ -369,7 +373,7 @@ def list_directory_entries(directory: Union[str, Path]) -> List[SearchResult]:
     return directories + files
 
 
-def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bool]]:
+def get_file_info(path: str | Path) -> dict[str, str | int | float | bool]:
     """Get comprehensive file information.
 
     Args:
@@ -399,7 +403,7 @@ def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bo
 
         stat = file_path.stat()
 
-        info: Dict[str, Union[str, int, float, bool]] = {
+        info: dict[str, str | int | float | bool] = {
             "path": str(file_path.resolve()),
             "name": file_path.name,
             "size": stat.st_size,
@@ -413,14 +417,14 @@ def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bo
 
     except OSError as e:
         logger.error(f"Error accessing file {path}: {e}")
-        raise FileSearchError(f"Cannot access file {path}: {e}")
+        raise FileSearchError(f"Cannot access file {path}: {e}") from e
     except Exception as e:
         logger.error(f"Unexpected error getting file info for {path}: {e}")
-        raise FileSearchError(f"Error getting file info for {path}: {e}")
+        raise FileSearchError(f"Error getting file info for {path}: {e}") from e
 
 
-def safe_open(
-    path: Union[str, Path], security_manager=None, force_open: bool = False
+def safe_open(  # noqa: C901 - platform fallbacks are intentionally colocated.
+    path: str | Path, security_manager=None, force_open: bool = False
 ) -> bool:
     """Open a file with the system default application.
 
@@ -489,15 +493,21 @@ def safe_open(
                 if system == "Windows":
                     try:
                         # Use os.startfile for Windows (non-blocking)
-                        os.startfile(str(file_path))  # type: ignore[attr-defined]
+                        # Windows shell API is the intended desktop boundary.
+                        os.startfile(str(file_path))  # type: ignore[attr-defined]  # noqa: S606
                         logger.info(f"Opened file with os.startfile (Windows): {path}")
                         success = True
                     except (AttributeError, OSError) as e:
                         logger.warning(f"Windows os.startfile failed: {e}")
                         # Use Popen for non-blocking subprocess
-                        subprocess.Popen(
-                            ["cmd", "/c", "start", "", str(file_path)],
-                            shell=True,
+                        subprocess.Popen(  # noqa: S603 - fixed executable, no shell.
+                            [  # noqa: S607 - standard Windows shell command.
+                                "cmd",
+                                "/c",
+                                "start",
+                                "",
+                                str(file_path),
+                            ],
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL,
                         )
@@ -506,8 +516,8 @@ def safe_open(
 
                 elif system == "Darwin":  # macOS
                     # Use Popen for non-blocking subprocess
-                    subprocess.Popen(
-                        ["open", str(file_path)],
+                    subprocess.Popen(  # noqa: S603 - fixed desktop opener.
+                        ["open", str(file_path)],  # noqa: S607 - standard macOS opener.
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
@@ -516,8 +526,8 @@ def safe_open(
 
                 else:  # Linux and other Unix-like
                     # Use Popen for non-blocking subprocess
-                    subprocess.Popen(
-                        ["xdg-open", str(file_path)],
+                    subprocess.Popen(  # noqa: S603 - fixed desktop opener.
+                        ["xdg-open", str(file_path)],  # noqa: S607 - freedesktop opener.
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
@@ -539,10 +549,12 @@ def safe_open(
         raise
     except Exception as e:
         logger.error(f"Unexpected error opening file {path}: {e}")
-        raise FileSearchError(f"Error opening file {path}: {e}")
+        raise FileSearchError(f"Error opening file {path}: {e}") from e
 
 
-def reveal_file_in_folder(path: Union[str, Path]) -> bool:
+def reveal_file_in_folder(  # noqa: C901 - platform fallbacks are intentionally colocated.
+    path: str | Path,
+) -> bool:
     """Reveal a file in the system file manager (select it).
 
     On most platforms, this opens the parent folder and selects the file.
@@ -575,10 +587,7 @@ def reveal_file_in_folder(path: Union[str, Path]) -> bool:
             raise FileSearchError(f"Path does not exist: {path}")
 
         # Get the containing directory
-        if file_path.is_file():
-            folder_path = file_path.parent
-        else:
-            folder_path = file_path
+        folder_path = file_path.parent if file_path.is_file() else file_path
 
         system = platform.system()
 
@@ -586,14 +595,14 @@ def reveal_file_in_folder(path: Union[str, Path]) -> bool:
         if system == "Windows":
             if file_path.is_file():
                 # Try to select the file in Explorer
-                subprocess.Popen(
-                    ["explorer", "/select,", str(file_path)],
+                subprocess.Popen(  # noqa: S603 - fixed desktop file manager.
+                    ["explorer", "/select,", str(file_path)],  # noqa: S607
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
             else:
-                subprocess.Popen(
-                    ["explorer", str(folder_path)],
+                subprocess.Popen(  # noqa: S603 - fixed desktop file manager.
+                    ["explorer", str(folder_path)],  # noqa: S607 - Windows shell.
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -602,14 +611,14 @@ def reveal_file_in_folder(path: Union[str, Path]) -> bool:
         elif system == "Darwin":  # macOS
             if file_path.is_file():
                 # Reveal file in Finder
-                subprocess.Popen(
-                    ["open", "-R", str(file_path)],
+                subprocess.Popen(  # noqa: S603 - fixed desktop file manager.
+                    ["open", "-R", str(file_path)],  # noqa: S607 - macOS opener.
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
             else:
-                subprocess.Popen(
-                    ["open", str(folder_path)],
+                subprocess.Popen(  # noqa: S603 - fixed desktop file manager.
+                    ["open", str(folder_path)],  # noqa: S607 - macOS opener.
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -620,16 +629,16 @@ def reveal_file_in_folder(path: Union[str, Path]) -> bool:
             if file_path.is_file():
                 # Try to select the file with common file managers
                 if shutil.which("nautilus"):
-                    subprocess.Popen(
-                        ["nautilus", "--select", str(file_path)],
+                    subprocess.Popen(  # noqa: S603 - fixed desktop file manager.
+                        ["nautilus", "--select", str(file_path)],  # noqa: S607
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
                     logger.info(f"Revealed file with nautilus (Linux): {file_path}")
                     success = True
                 elif shutil.which("dolphin"):
-                    subprocess.Popen(
-                        ["dolphin", "--select", str(file_path)],
+                    subprocess.Popen(  # noqa: S603 - fixed desktop file manager.
+                        ["dolphin", "--select", str(file_path)],  # noqa: S607
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                     )
@@ -638,8 +647,8 @@ def reveal_file_in_folder(path: Union[str, Path]) -> bool:
 
             if not success:
                 # Fallback to xdg-open on parent directory (no selection)
-                subprocess.Popen(
-                    ["xdg-open", str(folder_path)],
+                subprocess.Popen(  # noqa: S603 - fixed desktop file manager.
+                    ["xdg-open", str(folder_path)],  # noqa: S607 - freedesktop opener.
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
@@ -649,15 +658,15 @@ def reveal_file_in_folder(path: Union[str, Path]) -> bool:
 
         return True
 
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         logger.error(f"Path not found: {path}")
-        raise FileSearchError(f"Path not found: {path}")
+        raise FileSearchError(f"Path not found: {path}") from e
     except OSError as e:
         logger.error(f"OS error revealing {path}: {e}")
-        raise FileSearchError(f"OS error revealing {path}: {e}")
+        raise FileSearchError(f"OS error revealing {path}: {e}") from e
     except Exception as e:
         logger.error(f"Unexpected error revealing {path}: {e}")
-        raise FileSearchError(f"Error revealing {path}: {e}")
+        raise FileSearchError(f"Error revealing {path}: {e}") from e
 
 
 # Alias for backward compatibility
@@ -667,7 +676,7 @@ open_containing_folder = reveal_file_in_folder
 # Convenience functions for common operations
 
 
-def get_file_size(path: Union[str, Path]) -> int:
+def get_file_size(path: str | Path) -> int:
     """Get file size in bytes.
 
     Args:
@@ -683,7 +692,7 @@ def get_file_size(path: Union[str, Path]) -> int:
     return int(info["size"])
 
 
-def get_file_modified_time(path: Union[str, Path]) -> float:
+def get_file_modified_time(path: str | Path) -> float:
     """Get file modification timestamp.
 
     Args:
@@ -699,7 +708,7 @@ def get_file_modified_time(path: Union[str, Path]) -> float:
     return float(info["modified"])
 
 
-def is_directory(path: Union[str, Path]) -> bool:
+def is_directory(path: str | Path) -> bool:
     """Check if path is a directory.
 
     Args:
@@ -739,7 +748,7 @@ def normalize_path(path: str) -> Path:
     return Path(expanded_path).resolve()
 
 
-def validate_directory(path: Path) -> Optional[str]:
+def validate_directory(path: Path) -> str | None:
     """Validate if a Path object points to an existing, readable directory.
 
     Args:
@@ -763,7 +772,9 @@ def validate_directory(path: Path) -> Optional[str]:
     return None
 
 
-def get_associated_applications(path: Union[str, Path]) -> List[Dict[str, str]]:
+def get_associated_applications(  # noqa: C901 - queries platform-specific registries.
+    path: str | Path,
+) -> list[dict[str, str]]:
     """Get list of applications associated with the file type.
 
     Args:
@@ -773,7 +784,7 @@ def get_associated_applications(path: Union[str, Path]) -> List[Dict[str, str]]:
         List of dictionaries containing 'name' and 'command'/'id' for each application.
         Example: [{'name': 'Text Editor', 'id': 'org.gnome.TextEditor.desktop'}]
     """
-    apps: List[Dict[str, str]] = []
+    apps: list[dict[str, str]] = []
     file_path = Path(path)
     if not file_path.exists():
         return apps
@@ -787,8 +798,8 @@ def get_associated_applications(path: Union[str, Path]) -> List[Dict[str, str]]:
             # Using check_output with error handling
             try:
                 mime_type = (
-                    subprocess.check_output(
-                        [
+                    subprocess.check_output(  # noqa: S603 - fixed metadata command.
+                        [  # noqa: S607 - standard GLib desktop command.
                             "gio",
                             "info",
                             "-a",
@@ -813,8 +824,9 @@ def get_associated_applications(path: Union[str, Path]) -> List[Dict[str, str]]:
 
                 # 2. Get apps for MIME type
                 try:
-                    output = subprocess.check_output(
-                        ["gio", "mime", mime_type_str], stderr=subprocess.DEVNULL
+                    output = subprocess.check_output(  # noqa: S603 - fixed command.
+                        ["gio", "mime", mime_type_str],  # noqa: S607 - GLib command.
+                        stderr=subprocess.DEVNULL,
                     ).decode("utf-8")
                 except subprocess.CalledProcessError:
                     return apps
@@ -835,7 +847,8 @@ def get_associated_applications(path: Union[str, Path]) -> List[Dict[str, str]]:
                         # minimal effort name extraction
                         name = app_id.replace(".desktop", "").split(".")[-1]
                         apps.append({"name": name, "id": app_id, "type": "desktop_id"})
-                    except Exception:
+                    except Exception as e:
+                        logger.debug(f"Could not identify application {app_id}: {e}")
                         continue
 
     except Exception as e:
@@ -844,7 +857,7 @@ def get_associated_applications(path: Union[str, Path]) -> List[Dict[str, str]]:
     return apps
 
 
-def open_with_application(path: Union[str, Path], app_info: Dict[str, str]) -> bool:
+def open_with_application(path: str | Path, app_info: dict[str, str]) -> bool:
     """Open file with specific application.
 
     Args:
@@ -859,8 +872,13 @@ def open_with_application(path: Union[str, Path], app_info: Dict[str, str]) -> b
 
     try:
         if system == "Linux" and app_info.get("type") == "desktop_id":
-            subprocess.Popen(
-                ["gio", "launch", app_info["id"], str(file_path)],
+            subprocess.Popen(  # noqa: S603 - fixed launcher with argument list.
+                [  # noqa: S607 - standard GLib desktop command.
+                    "gio",
+                    "launch",
+                    app_info["id"],
+                    str(file_path),
+                ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -868,8 +886,11 @@ def open_with_application(path: Union[str, Path], app_info: Dict[str, str]) -> b
 
         # Fallback for direct commands
         if "command" in app_info:
-            subprocess.Popen(
-                [app_info["command"], str(file_path)],
+            command = shutil.which(app_info["command"])
+            if command is None:
+                raise FileSearchError("Selected application command is unavailable")
+            subprocess.Popen(  # noqa: S603 - executable resolved from PATH.
+                [command, str(file_path)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
@@ -879,10 +900,10 @@ def open_with_application(path: Union[str, Path], app_info: Dict[str, str]) -> b
 
     except Exception as e:
         logger.error(f"Error opening with application: {e}")
-        raise FileSearchError(f"Failed to open with application: {e}")
+        raise FileSearchError(f"Failed to open with application: {e}") from e
 
 
-def validate_filename(name: str) -> Optional[str]:
+def validate_filename(name: str) -> str | None:
     """Validate a filename.
 
     Args:
@@ -939,12 +960,12 @@ def rename_file(path: Path, new_name: str) -> Path:
 
     except OSError as e:
         logger.error(f"OS error renaming {path}: {e}")
-        raise FileSearchError(f"Failed to rename: {e}")
+        raise FileSearchError(f"Failed to rename: {e}") from e
     except Exception as e:
         if isinstance(e, FileSearchError):
             raise
         logger.error(f"Unexpected error renaming {path}: {e}")
-        raise FileSearchError(f"Error renaming file: {e}")
+        raise FileSearchError(f"Error renaming file: {e}") from e
 
 
 def delete_file(path: Path, permanent: bool = False) -> None:
@@ -975,9 +996,9 @@ def delete_file(path: Path, permanent: bool = False) -> None:
 
     except OSError as e:
         logger.error(f"OS error deleting {path}: {e}")
-        raise FileSearchError(f"Failed to delete: {e}")
+        raise FileSearchError(f"Failed to delete: {e}") from e
     except Exception as e:
         if isinstance(e, FileSearchError):
             raise
         logger.error(f"Unexpected error deleting {path}: {e}")
-        raise FileSearchError(f"Error deleting file: {e}")
+        raise FileSearchError(f"Error deleting file: {e}") from e

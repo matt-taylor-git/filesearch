@@ -14,9 +14,9 @@ def format_bytes(size_bytes: int) -> str:
     size = float(size_bytes)
     for unit in ["B", "KiB", "MiB", "GiB"]:
         if size < 1024.0:
-            return "{:.1f} {}".format(size, unit)
+            return f"{size:.1f} {unit}"
         size /= 1024.0
-    return "{:.1f} TiB".format(size)
+    return f"{size:.1f} TiB"
 
 
 @dataclass(slots=True)
@@ -26,7 +26,7 @@ class StorageNode:
     path: Path
     size: int
     is_dir: bool
-    children: list["StorageNode"] = field(default_factory=list)
+    children: list[StorageNode] = field(default_factory=list)
 
     @property
     def name(self) -> str:

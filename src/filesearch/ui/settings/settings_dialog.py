@@ -4,8 +4,6 @@ This module provides the SettingsDialog class that composes tab widgets
 into a tabbed settings interface.
 """
 
-from typing import Optional
-
 from loguru import logger
 from PyQt6.QtWidgets import QDialog, QDialogButtonBox, QTabWidget, QVBoxLayout, QWidget
 
@@ -37,8 +35,8 @@ class SettingsDialog(QDialog):
     def __init__(
         self,
         config_manager: ConfigManager,
-        plugin_manager: Optional[PluginManager] = None,
-        parent: Optional[QWidget] = None,
+        plugin_manager: PluginManager | None = None,
+        parent: QWidget | None = None,
         *,
         desktop_effects: DesktopEffects,
     ):
@@ -183,9 +181,9 @@ class SettingsDialog(QDialog):
         try:
             self.save_settings()
             super().accept()
-        except Exception:
+        except Exception as e:
             # Don't close dialog if save failed
-            pass
+            logger.debug(f"Settings dialog remains open after save failure: {e}")
 
     def reject(self) -> None:
         """Handle Cancel button click."""

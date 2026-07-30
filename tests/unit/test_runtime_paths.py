@@ -40,7 +40,9 @@ def test_get_log_dir_uses_platformdirs():
 def test_ensure_log_dir_creates_user_log_directory():
     """ensure_log_dir should create the resolved log folder."""
     expected = Path(r"C:\Users\example\AppData\Local\filesearch\filesearch\Logs")
-    with patch("platformdirs.user_log_dir", return_value=str(expected)):
+    with patch(  # noqa: SIM117 - separates path and filesystem boundaries.
+        "platformdirs.user_log_dir", return_value=str(expected)
+    ):
         with patch.object(Path, "mkdir") as mock_mkdir:
             created = ensure_log_dir()
 

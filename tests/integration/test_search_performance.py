@@ -46,13 +46,12 @@ class TestSearchPerformance:
         assert len(results) == 1000
 
         # Should complete within 2 seconds (performance requirement)
-        assert (
-            search_time < 2.0
-        ), f"Search took {search_time:.2f} seconds, expected < 2.0"
+        assert search_time < 2.0, (
+            f"Search took {search_time:.2f} seconds, expected < 2.0"
+        )
 
     def test_search_memory_usage_under_100mb(self, large_temp_dir):
         """Test that search uses less than 100MB memory for 10,000 files."""
-        import os
 
         import psutil
 
@@ -100,7 +99,7 @@ class TestSearchPerformance:
         assert time_4_threads <= time_1_thread * 1.2  # Allow 20% variance
 
     def test_early_termination_performance(self, large_temp_dir):
-        """Test that early termination improves performance when max_results is limited."""
+        """Test early termination performance with a limited result count."""
         # Search for all results
         engine_all = FileSearchEngine(max_workers=4, max_results=0)  # 0 = unlimited
         start_time = time.time()
@@ -118,9 +117,10 @@ class TestSearchPerformance:
         assert len(results_all) == 1000
 
         # Limited search should be faster
-        assert (
-            time_limited < time_all
-        ), f"Limited search ({time_limited:.3f}s) should be faster than unlimited search ({time_all:.3f}s)"
+        assert time_limited < time_all, (
+            f"Limited search ({time_limited:.3f}s) should be faster than "
+            f"unlimited search ({time_all:.3f}s)"
+        )
 
     def test_generator_pattern_memory_efficiency(self, large_temp_dir):
         """Test that generator pattern is memory efficient."""
@@ -167,6 +167,6 @@ class TestSearchPerformance:
         assert len(results2) == 1000  # .py files
 
         # Should complete in reasonable time (allowing for concurrent execution)
-        assert (
-            concurrent_time < 3.0
-        ), f"Concurrent search took {concurrent_time:.2f}s, expected < 3.0s"
+        assert concurrent_time < 3.0, (
+            f"Concurrent search took {concurrent_time:.2f}s, expected < 3.0s"
+        )

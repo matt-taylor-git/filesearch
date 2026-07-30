@@ -7,7 +7,7 @@ with search input, directory selection, and results display functionality.
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 from PyQt6.QtCore import (  # noqa: F401
@@ -24,7 +24,7 @@ from PyQt6.QtGui import (  # noqa: F401
     QKeySequence,
     QShortcut,
 )
-from PyQt6.QtWidgets import (  # noqa: F401
+from PyQt6.QtWidgets import (
     QApplication,
     QHBoxLayout,
     QLabel,
@@ -38,8 +38,8 @@ from PyQt6.QtWidgets import (  # noqa: F401
 )
 
 from filesearch import APP_DISPLAY_NAME
-from filesearch.core.config_manager import ConfigManager
 from filesearch.core.application_runtime import ApplicationRuntime
+from filesearch.core.config_manager import ConfigManager
 from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
     list_directory_entries,
@@ -60,7 +60,7 @@ from filesearch.ui.search_controls import (
     SearchState,
     StatusWidget,
 )
-from filesearch.ui.search_worker import SearchWorker  # noqa: F401 — re-exported
+from filesearch.ui.search_worker import SearchWorker
 from filesearch.ui.settings_dialog import SettingsDialog
 from filesearch.ui.sidebar_widget import SidebarWidget
 from filesearch.ui.sort_controls import SortControls
@@ -91,9 +91,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
     def __init__(
         self,
-        config_manager: Optional[ConfigManager] = None,
-        plugin_manager: Optional[PluginManager] = None,
-        runtime: Optional[ApplicationRuntime] = None,
+        config_manager: ConfigManager | None = None,
+        plugin_manager: PluginManager | None = None,
+        runtime: ApplicationRuntime | None = None,
     ):
         """Initialize the main window.
 
@@ -124,17 +124,17 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.config_manager = config_manager or ConfigManager(runtime=runtime)
         self.plugin_manager = plugin_manager or PluginManager(self.config_manager)
         self.search_engine = FileSearchEngine(config_manager=self.config_manager)
-        self.search_worker: Optional[SearchWorker] = None
+        self.search_worker: SearchWorker | None = None
         self.is_searching = False
-        self.search_results: List[Dict[str, Any]] = []
-        self.plugin_results: List[Dict[str, Any]] = []
+        self.search_results: list[dict[str, Any]] = []
+        self.plugin_results: list[dict[str, Any]] = []
         self.current_directory = self._get_startup_directory()
         self.search_start_time = 0.0
-        self._active_search_request: Optional[SearchRequest] = None
-        self._pending_search_request: Optional[SearchRequest] = None
+        self._active_search_request: SearchRequest | None = None
+        self._pending_search_request: SearchRequest | None = None
         self._cancel_requested = False
         # Browse history for Back navigation (most recent previous folders last)
-        self._directory_history: List[Path] = []
+        self._directory_history: list[Path] = []
         self._max_directory_history = 50
 
         # Setup UI
@@ -619,7 +619,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
                 return directory
         except Exception as e:
             logger.warning(
-                f"Invalid configured default search directory '{configured_directory}': {e}"
+                "Invalid configured default search directory "
+                f"'{configured_directory}': {e}"
             )
 
         return self.runtime.home_dir
@@ -763,7 +764,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         }
         recent_directories = self.config_manager.get("recent.directories", [])
 
-        custom_path: Optional[Path] = None
+        custom_path: Path | None = None
         for directory in recent_directories:
             candidate = Path(directory)
             if candidate in preset_paths:
@@ -852,7 +853,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.safe_status_message(status_message)
         logger.info("Search stop requested")
 
-    def _get_current_search_request(self) -> Optional[SearchRequest]:
+    def _get_current_search_request(self) -> SearchRequest | None:
         """Build and validate a search request from current UI state."""
         directory = self.current_directory
         query = self.query_input.get_text()
@@ -973,7 +974,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         )
         logger.debug(f"Progress: {progress}% in {current_dir}, {files_found} files")
 
-    def _finish_search_worker(self) -> tuple[float, Optional[SearchRequest]]:
+    def _finish_search_worker(self) -> tuple[float, SearchRequest | None]:
         """Reset worker/UI state and return terminal-search metadata."""
         duration = time.time() - self.search_start_time
         search_request = self._active_search_request
@@ -1035,9 +1036,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             directory=str(search_request.directory) if search_request else "",
             duration=duration,
         )
-        self.safe_status_message(
-            "Found {} results in {:.1f}s".format(total_files, duration)
-        )
+        self.safe_status_message(f"Found {total_files} results in {duration:.1f}s")
         # Auto-scroll to first result when search completes
         if (
             hasattr(self.results_view, "_results_model")
@@ -1312,8 +1311,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
 
 def create_main_window(
-    config_manager: Optional[ConfigManager] = None,
-    runtime: Optional[ApplicationRuntime] = None,
+    config_manager: ConfigManager | None = None,
+    runtime: ApplicationRuntime | None = None,
 ) -> MainWindow:
     """Create and return the main application window.
 

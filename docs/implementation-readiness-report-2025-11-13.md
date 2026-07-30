@@ -511,17 +511,17 @@ File Search is a minimal, clean Python GUI application for fast, cross-platform 
 1. **Story 1.1:** Project Setup and Core Infrastructure
    - Create project structure, pyproject.toml, virtual environment setup
    - Establish CI/CD pipeline and development tooling
-   
+
 2. **Story 1.2:** Implement Modular Code Structure
    - Create core modules (search_engine, file_utils, config_manager, plugin_base)
    - Establish UI module structure (main_window)
    - Implement error handling framework
-   
+
 3. **Story 1.3:** Create Configuration File System
    - Implement QSettings wrapper for cross-platform config
    - Create settings dialog UI
    - Add configuration validation
-   
+
 4. **Story 1.4:** Implement Plugin Architecture Foundation
    - Create plugin base class and manager
    - Implement plugin discovery mechanism
@@ -532,26 +532,26 @@ File Search is a minimal, clean Python GUI application for fast, cross-platform 
    - Build multi-threaded search using os.scandir()
    - Implement generator pattern for streaming results
    - Add progress callbacks and cancellation support
-   
+
 6. **Story 2.2:** Create Search Input Interface
    - Build search input field with history and auto-complete
    - Implement keyboard shortcuts and accessibility features
-   
+
 7. **Story 2.3:** Implement Directory Selection Controls
    - Create directory browser dialog
    - Add recent directories functionality
    - Implement drag-and-drop support
-   
+
 8. **Story 2.4:** Add Search Initiation and Control
    - Build Search/Stop button functionality
    - Implement search state management
    - Add keyboard shortcuts for search control
-   
+
 9. **Story 2.5:** Add Progress Indication During Search
    - Create progress bar and status indicators
    - Implement file scan counters
    - Add performance monitoring
-   
+
 10. **Story 2.6:** Add Search Status Display
     - Build results counter and search summary
     - Implement error state handling
@@ -562,27 +562,27 @@ File Search is a minimal, clean Python GUI application for fast, cross-platform 
     - Create virtual scrolling results list
     - Add file metadata display (name, path, size, date)
     - Implement selection and keyboard navigation
-    
+
 12. **Story 3.2:** Implement Search Result Highlighting
     - Add text highlighting for matching substrings
     - Implement case-insensitive highlighting
     - Add configurable highlight colors
-    
+
 13. **Story 3.3:** Implement Results Sorting Functionality
     - Create sort controls for name, size, date, type
     - Implement natural sorting for filenames
     - Add sort state persistence
-    
+
 14. **Story 3.4:** Implement Double-Click to Open Files
     - Build double-click and Enter key file opening
     - Implement platform-specific file opening mechanisms
     - Add security warnings for executable files
-    
+
 15. **Story 3.5:** Implement Right-Click Context Menu
     - Create context menu with file operations
     - Add keyboard shortcuts for all actions
     - Implement multi-selection support
-    
+
 16. **Story 3.6:** Implement "Open Containing Folder" Functionality
     - Build "Open Containing Folder" action
     - Implement platform-specific folder opening

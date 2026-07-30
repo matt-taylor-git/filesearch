@@ -4,12 +4,9 @@ Tests end-to-end sorting flow from UI to results display.
 """
 
 import time
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
-import pytest
-
-from filesearch.core.sort_engine import SortCriteria, SortEngine
+from filesearch.core.sort_engine import SortCriteria
 from filesearch.models.search_result import SearchResult
 from filesearch.ui.results_view import ResultsModel, ResultsView
 

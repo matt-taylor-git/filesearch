@@ -1,7 +1,6 @@
 """Directory selector widget for choosing search directories."""
 
 from pathlib import Path
-from typing import List, Optional
 
 from loguru import logger
 from PyQt6.QtCore import QEvent, QSize, Qt, pyqtSignal
@@ -18,8 +17,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from filesearch.core.config_manager import ConfigManager
 from filesearch.core.application_runtime import DesktopEffects
+from filesearch.core.config_manager import ConfigManager
 from filesearch.core.file_utils import normalize_path, validate_directory
 
 
@@ -39,14 +38,14 @@ class DirectorySelectorWidget(QWidget):
     def __init__(
         self,
         config_manager: ConfigManager,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
         *,
         desktop_effects: DesktopEffects,
     ):
         super().__init__(parent)
         self.config_manager = config_manager
         self.desktop_effects = desktop_effects
-        self.recent_directories: List[str] = []
+        self.recent_directories: list[str] = []
         self._setup_ui()
         self._setup_style()
         self._load_recent_directories()
@@ -360,8 +359,11 @@ class DirectorySelectorWidget(QWidget):
 
     def eventFilter(self, obj, event):
         """Event filter to detect Enter key in directory input."""
-        if obj == self.directory_input and event.type() == QEvent.Type.KeyPress:
-            if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
-                self.enter_pressed.emit()
-                return True  # Consume the event
+        if (
+            obj == self.directory_input
+            and event.type() == QEvent.Type.KeyPress
+            and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
+        ):
+            self.enter_pressed.emit()
+            return True  # Consume the event
         return super().eventFilter(obj, event)

@@ -1,7 +1,5 @@
 """Tests for the application runtime composition boundary."""
 
-from pathlib import Path
-
 from filesearch.core.application_runtime import ApplicationRuntime
 from filesearch.core.config_manager import ConfigManager
 from filesearch.plugins.plugin_manager import PluginManager

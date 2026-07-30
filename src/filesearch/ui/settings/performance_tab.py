@@ -33,9 +33,7 @@ class PerformanceSettingsTab(QWidget):
         self.thread_count_spin = QSpinBox()
         self.thread_count_spin.setRange(1, 32)
         self.thread_count_spin.setSuffix(" threads")
-        self.thread_count_spin.setToolTip(
-            "Maximum worker threads used by a search"
-        )
+        self.thread_count_spin.setToolTip("Maximum worker threads used by a search")
 
         thread_layout.addWidget(QLabel("Search thread count:"))
         thread_layout.addWidget(self.thread_count_spin)
@@ -56,9 +54,7 @@ class PerformanceSettingsTab(QWidget):
         self.cache_ttl_spin = QSpinBox()
         self.cache_ttl_spin.setRange(1, 1440)  # 1 minute to 24 hours
         self.cache_ttl_spin.setSuffix(" minutes")
-        self.cache_ttl_spin.setToolTip(
-            "How long cached search results remain valid"
-        )
+        self.cache_ttl_spin.setToolTip("How long cached search results remain valid")
         self.cache_ttl_spin.setEnabled(False)
 
         cache_ttl_layout.addWidget(QLabel("Cache TTL:"))

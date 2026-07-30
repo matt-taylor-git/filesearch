@@ -5,12 +5,11 @@ keyboard interactions, visual feedback, search history, and accessibility.
 """
 
 import os
-import platform
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from PyQt6.QtCore import QMimeData, QPoint, Qt, QTimer, QUrl
+from PyQt6.QtCore import QMimeData, QPoint, Qt, QUrl
 from PyQt6.QtGui import QDragEnterEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
@@ -24,6 +23,8 @@ from filesearch.ui.search_controls import (
     SearchState,
     StatusWidget,
 )
+
+SYNTHETIC_TMP_ROOT = "/tmp"  # noqa: S108 - paths are mocked, never accessed.
 
 
 class TestSearchInputWidget:
@@ -412,7 +413,7 @@ class TestDirectorySelectorWidget:
 
     def test_directory_changed_signal(self, widget, qtbot):
         """Test directory_changed signal emits correct Path object."""
-        new_path = Path("/tmp/test_new_dir")
+        new_path = Path(SYNTHETIC_TMP_ROOT) / "test_new_dir"
 
         with qtbot.waitSignal(widget.directory_changed, timeout=1000) as blocker:
             widget.directory_input.setText(str(new_path))
@@ -421,11 +422,12 @@ class TestDirectorySelectorWidget:
 
     def test_browse_button_opens_dialog_and_updates_path(self, widget, qtbot):
         """Test browse button opens dialog and updates input (AC #3)."""
-        widget.desktop_effects.directory_choice = Path("/tmp/selected_dir")
+        selected_dir = Path(SYNTHETIC_TMP_ROOT) / "selected_dir"
+        widget.desktop_effects.directory_choice = selected_dir
         qtbot.mouseClick(widget.browse_button, Qt.MouseButton.LeftButton)
 
         # Check input was updated
-        assert widget.get_directory() == Path("/tmp/selected_dir")
+        assert widget.get_directory() == selected_dir
 
     def test_browse_button_dialog_cancelled(self, widget, qtbot):
         """Test browse dialog cancellation does not change path."""
@@ -441,8 +443,8 @@ class TestDirectorySelectorWidget:
         """Test adding a directory to the recent list and persistence (AC #4)."""
         # Mock Path.is_dir() to return True for test paths
         with patch.object(Path, "is_dir", return_value=True):
-            dir1 = Path("/tmp/dir1")
-            dir2 = Path("/tmp/dir2")
+            dir1 = Path(SYNTHETIC_TMP_ROOT) / "dir1"
+            dir2 = Path(SYNTHETIC_TMP_ROOT) / "dir2"
 
             # Clear existing recent directories for clean test
             widget.recent_directories = []
@@ -461,17 +463,20 @@ class TestDirectorySelectorWidget:
         """Test recent directories list is limited to 5 entries (AC #4)."""
         with patch.object(Path, "is_dir", return_value=True):
             for i in range(10):
-                widget._add_to_recent_directories(Path(f"/tmp/dir{i}"))
+                widget._add_to_recent_directories(Path(SYNTHETIC_TMP_ROOT) / f"dir{i}")
 
             # Check size
             assert len(widget.recent_directories) == 5
             # Check order (most recent first)
-            assert widget.recent_directories[0] == "/tmp/dir9"
-            assert widget.recent_directories[-1] == "/tmp/dir5"
+            assert widget.recent_directories[0] == f"{SYNTHETIC_TMP_ROOT}/dir9"
+            assert widget.recent_directories[-1] == f"{SYNTHETIC_TMP_ROOT}/dir5"
 
     def test_recent_directories_menu_display(self, widget, qtbot):
         """Test recent directories menu is created and displayed (AC #4)."""
-        widget.recent_directories = ["/tmp/dir1", "/tmp/dir2"]
+        widget.recent_directories = [
+            f"{SYNTHETIC_TMP_ROOT}/dir1",
+            f"{SYNTHETIC_TMP_ROOT}/dir2",
+        ]
 
         # Exercise menu creation without entering a nested modal event loop.
         with patch(
@@ -489,7 +494,7 @@ class TestDirectorySelectorWidget:
 
     def test_path_validation_and_error_state(self, widget, qtbot, mock_path_utils):
         """Test path validation updates error state and tooltip (AC #2)."""
-        mock_normalize, mock_validate = mock_path_utils
+        _mock_normalize, mock_validate = mock_path_utils
 
         # 1. Test invalid path (non-existent)
         mock_validate.return_value = "Directory does not exist."

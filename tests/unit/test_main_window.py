@@ -1,13 +1,11 @@
 """Unit tests for the main window module."""
 
-import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
-from PyQt6.QtCore import Qt, QThread
-from PyQt6.QtTest import QTest
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication, QLabel, QToolButton
 
 from filesearch.core.config_manager import ConfigManager
@@ -816,7 +814,9 @@ class TestMainWindowCloseEvent:
 
     def test_close_event_saves_settings(self, main_window):
         """Test that close event saves window settings."""
-        with patch.object(main_window, "save_window_settings") as mock_save:
+        with patch.object(  # noqa: SIM117 - staged Qt event controls aid readability.
+            main_window, "save_window_settings"
+        ) as mock_save:
             with patch.object(main_window, "close"):
                 # Simulate close event
                 from PyQt6.QtGui import QCloseEvent
@@ -1011,7 +1011,9 @@ class TestIdleFolderListing:
             assert selected.path == target
 
             # Open path reuses the same handler as search results
-            with patch.object(window, "_open_file_with_status") as mock_open:
+            with patch.object(  # noqa: SIM117 - staged security mocks aid readability.
+                window, "_open_file_with_status"
+            ) as mock_open:
                 with patch(
                     "filesearch.core.security_manager.get_security_manager"
                 ) as mock_sec:

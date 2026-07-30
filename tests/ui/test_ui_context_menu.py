@@ -1,11 +1,6 @@
-import os
-import sys
-from pathlib import Path
-
 import pytest
-from PyQt6.QtCore import QItemSelectionModel, QPoint, Qt
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QApplication, QMenu
+from PyQt6.QtWidgets import QMenu
 
 from filesearch.models.search_result import SearchResult
 from filesearch.ui.main_window import MainWindow
@@ -98,9 +93,9 @@ def test_context_menu_creation_and_actions(main_window, add_search_results):
     ]
 
     actual_actions = get_visible_menu_actions(context_menu)
-    assert (
-        actual_actions == expected_actions
-    ), f"Actions mismatch.\nGot: {actual_actions}\nExpected: {expected_actions}"
+    assert actual_actions == expected_actions, (
+        f"Actions mismatch.\nGot: {actual_actions}\nExpected: {expected_actions}"
+    )
 
     # AC1: Open (default action, bold text)
     open_action = get_action_by_text(context_menu, "Open")
@@ -110,21 +105,21 @@ def test_context_menu_creation_and_actions(main_window, add_search_results):
     # AC2: Menu Keyboard Shortcuts
     open_folder_action = get_action_by_text(context_menu, "Open Containing Folder")
     assert open_folder_action is not None, "Open Containing Folder action not found."
-    assert (
-        open_folder_action.shortcut().toString() == "Ctrl+Shift+O"
-    ), "Open Containing Folder shortcut should be Ctrl+Shift+O"
+    assert open_folder_action.shortcut().toString() == "Ctrl+Shift+O", (
+        "Open Containing Folder shortcut should be Ctrl+Shift+O"
+    )
 
     copy_path_action = get_action_by_text(context_menu, "Copy Path to Clipboard")
     assert copy_path_action is not None, "Copy Path to Clipboard action not found."
-    assert (
-        copy_path_action.shortcut().toString() == "Ctrl+Shift+C"
-    ), "Copy Path to Clipboard shortcut should be Ctrl+Shift+C"
+    assert copy_path_action.shortcut().toString() == "Ctrl+Shift+C", (
+        "Copy Path to Clipboard shortcut should be Ctrl+Shift+C"
+    )
 
     properties_action = get_action_by_text(context_menu, "Properties")
     assert properties_action is not None, "Properties action not found."
-    assert (
-        properties_action.shortcut().toString() == "Alt+Return"
-    ), "Properties shortcut should be Alt+Return"
+    assert properties_action.shortcut().toString() == "Alt+Return", (
+        "Properties shortcut should be Alt+Return"
+    )
 
     delete_action = get_action_by_text(context_menu, "Delete")
     assert delete_action is not None, "Delete action not found."
@@ -168,16 +163,16 @@ def test_context_menu_multi_selection(main_window, add_search_results):
             break
 
     assert open_with_action is not None, "Open With... action not found."
-    assert (
-        not open_with_action.isEnabled()
-    ), "Open With... should be disabled for multi-selection"
+    assert not open_with_action.isEnabled(), (
+        "Open With... should be disabled for multi-selection"
+    )
 
-    assert (
-        not properties_action.isEnabled()
-    ), "Properties should be disabled for multi-selection"
-    assert (
-        not rename_action.isEnabled()
-    ), "Rename should be disabled for multi-selection"
+    assert not properties_action.isEnabled(), (
+        "Properties should be disabled for multi-selection"
+    )
+    assert not rename_action.isEnabled(), (
+        "Rename should be disabled for multi-selection"
+    )
 
     # Multi-selection actions should remain enabled
     open_action = get_action_by_text(context_menu, "Open")
@@ -186,10 +181,10 @@ def test_context_menu_multi_selection(main_window, add_search_results):
     delete_action = get_action_by_text(context_menu, "Delete")
 
     assert open_action.isEnabled(), "Open should be enabled for multi-selection"
-    assert (
-        copy_path_action.isEnabled()
-    ), "Copy Path to Clipboard should be enabled for multi-selection"
-    assert (
-        copy_file_action.isEnabled()
-    ), "Copy File to Clipboard should be enabled for multi-selection"
+    assert copy_path_action.isEnabled(), (
+        "Copy Path to Clipboard should be enabled for multi-selection"
+    )
+    assert copy_file_action.isEnabled(), (
+        "Copy File to Clipboard should be enabled for multi-selection"
+    )
     assert delete_action.isEnabled(), "Delete should be enabled for multi-selection"

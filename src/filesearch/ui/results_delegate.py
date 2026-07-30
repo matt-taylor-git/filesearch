@@ -1,7 +1,6 @@
 """Custom delegate for rendering search result items with highlighting."""
 
 from datetime import datetime
-from typing import Dict
 
 import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 from PyQt6.QtCore import QModelIndex, QRect, QSize, Qt
@@ -77,7 +76,7 @@ def _get_file_icon_info(path) -> tuple:
 
 
 # Pixmap cache for file-type icons (key = "icon_name:color")
-_icon_pixmap_cache: Dict[str, QPixmap] = {}
+_icon_pixmap_cache: dict[str, QPixmap] = {}
 
 
 def _get_file_icon_pixmap(path, size: int = 20) -> QPixmap:

@@ -4,10 +4,8 @@ This plugin provides search functionality for recently accessed files.
 It serves as a template for creating custom plugins.
 """
 
-import json
-import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 
@@ -25,11 +23,11 @@ class ExamplePlugin(SearchPlugin):
     def __init__(self, metadata=None):
         """Initialize the example plugin."""
         super().__init__(metadata)
-        self._recent_files: List[Dict[str, Any]] = []
+        self._recent_files: list[dict[str, Any]] = []
         self._max_recent_files = 100
         self._name = "Recent Files Search"
 
-    def initialize(self, config: Dict[str, Any]) -> bool:
+    def initialize(self, config: dict[str, Any]) -> bool:
         """Initialize the plugin with configuration.
 
         Args:
@@ -63,7 +61,7 @@ class ExamplePlugin(SearchPlugin):
         """
         return self._name
 
-    def search(self, query: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def search(self, query: str, context: dict[str, Any]) -> list[dict[str, Any]]:
         """Perform search on recent files.
 
         Args:
@@ -142,7 +140,7 @@ class ExamplePlugin(SearchPlugin):
         except Exception as e:
             logger.error(f"Error adding recent file {file_path}: {e}")
 
-    def get_recent_files(self) -> List[Dict[str, Any]]:
+    def get_recent_files(self) -> list[dict[str, Any]]:
         """Get the list of recent files.
 
         Returns:

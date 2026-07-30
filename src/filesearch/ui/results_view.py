@@ -1,16 +1,14 @@
 """Results view component for displaying search results."""
 
-from typing import List, Optional
-
-from PyQt6.QtCore import QModelIndex, QPoint, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QModelIndex, QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QCursor, QStandardItem, QStandardItemModel
 from PyQt6.QtWidgets import QAbstractItemView, QListView
 
-from filesearch.core.sort_engine import SortCriteria
 from filesearch.core.application_runtime import DesktopEffects
+from filesearch.core.sort_engine import SortCriteria
 from filesearch.models.search_result import SearchResult
 from filesearch.ui.results_delegate import ResultsItemDelegate
-from filesearch.ui.results_model import ResultsModel  # noqa: F401 — re-exported
+from filesearch.ui.results_model import ResultsModel
 
 
 class ResultsView(QListView):
@@ -29,7 +27,7 @@ class ResultsView(QListView):
 
         # Model - use ResultsModel for virtual scrolling
         self._empty_model = QStandardItemModel()  # For empty states
-        self._results_model: Optional[ResultsModel] = None
+        self._results_model: ResultsModel | None = None
         self.setModel(self._empty_model)
 
         # Enable custom context menu policy
@@ -118,7 +116,7 @@ class ResultsView(QListView):
         item.setData(None, Qt.ItemDataRole.UserRole)  # No SearchResult
         self._empty_model.appendRow(item)
 
-    def set_results(self, results: List[SearchResult]):
+    def set_results(self, results: list[SearchResult]):
         """Set search results to display"""
         if results:
             if not self._results_model:
@@ -180,7 +178,7 @@ class ResultsView(QListView):
         if scroll_bar:
             scroll_bar.setValue(vertical_scroll)
 
-    def get_selected_result(self) -> Optional[SearchResult]:
+    def get_selected_result(self) -> SearchResult | None:
         """Get the currently selected SearchResult"""
         indexes = self.selectedIndexes()
         if indexes:
@@ -204,13 +202,13 @@ class ResultsView(QListView):
         # Apply sorting
         self._results_model.sort_results(criteria, query)
 
-    def get_current_sort_criteria(self) -> Optional[SortCriteria]:
+    def get_current_sort_criteria(self) -> SortCriteria | None:
         """Get the current sort criteria"""
         if self._results_model:
             return self._results_model.get_current_sort_criteria()
         return None
 
-    def keyPressEvent(self, e) -> None:
+    def keyPressEvent(self, e) -> None:  # noqa: C901 - maps supported key commands.
         """Handle keyboard navigation for results list"""
         if e is None:
             super().keyPressEvent(e)
@@ -252,14 +250,15 @@ class ResultsView(QListView):
                 return
 
         # Handle Ctrl+Shift+O (Open Containing Folder)
-        if e.modifiers() == (
-            Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier
+        if (
+            e.modifiers()
+            == (Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.ShiftModifier)
+            and e.key() == Qt.Key.Key_O
         ):
-            if e.key() == Qt.Key.Key_O:
-                result = self.get_selected_result()
-                if result:
-                    self.folder_open_requested.emit(result)
-                return
+            result = self.get_selected_result()
+            if result:
+                self.folder_open_requested.emit(result)
+            return
 
         if not self._results_model:
             super().keyPressEvent(e)

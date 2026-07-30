@@ -1,7 +1,5 @@
 """Search control button widget for initiating and stopping searches."""
 
-from typing import Optional
-
 from loguru import logger
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -28,7 +26,7 @@ class SearchControlWidget(QWidget):
     search_requested = pyqtSignal()
     search_stopped = pyqtSignal()
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         """Initialize search control widget.
 
         Args:
@@ -132,12 +130,7 @@ class SearchControlWidget(QWidget):
             self.search_button.setProperty("state", "stop")
             self.search_button.setEnabled(False)
 
-        elif self._state == SearchState.COMPLETED:
-            self.search_button.setText("Search")
-            self.search_button.setProperty("state", "search")
-            self.search_button.setEnabled(self._can_start_search())
-
-        elif self._state == SearchState.ERROR:
+        elif self._state == SearchState.COMPLETED or self._state == SearchState.ERROR:
             self.search_button.setText("Search")
             self.search_button.setProperty("state", "search")
             self.search_button.setEnabled(self._can_start_search())

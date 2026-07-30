@@ -8,9 +8,10 @@ generator-based result streaming.
 import fnmatch
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, Generator, Optional, Set
+from typing import Any
 
 from loguru import logger
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -41,7 +42,7 @@ class FileSearchEngine(QObject):
         self,
         max_workers: int = 4,
         max_results: int = 1000,
-        config_manager: Optional[ConfigManager] = None,
+        config_manager: ConfigManager | None = None,
         plugin_manager=None,
         progress_callback=None,
     ):
@@ -80,7 +81,7 @@ class FileSearchEngine(QObject):
             self.file_extensions_to_exclude = []
 
         self._cancelled = False
-        self._executor: Optional[ThreadPoolExecutor] = None
+        self._executor: ThreadPoolExecutor | None = None
         self.plugin_manager = plugin_manager
         self.progress_callback = progress_callback
 
@@ -155,7 +156,7 @@ class FileSearchEngine(QObject):
             return False
 
     def _record_match(
-        self, path: Path, results: Set[Path], scanned_directory: Path
+        self, path: Path, results: set[Path], scanned_directory: Path
     ) -> bool:
         """Record a matching file or folder and emit throttled progress.
 
@@ -175,21 +176,23 @@ class FileSearchEngine(QObject):
             self.results_count_update.emit(1, len(results))
             self._last_status_time = current_time
 
-        if self.progress_callback:
-            if current_time - self._last_progress_time >= self._progress_throttle_ms:
-                try:
-                    self.progress_callback(len(results), str(scanned_directory))
-                    self._last_progress_time = current_time
-                except Exception as e:
-                    logger.warning(f"Progress callback error: {e}")
+        if (
+            self.progress_callback
+            and current_time - self._last_progress_time >= self._progress_throttle_ms
+        ):
+            try:
+                self.progress_callback(len(results), str(scanned_directory))
+                self._last_progress_time = current_time
+            except Exception as e:
+                logger.warning(f"Progress callback error: {e}")
 
         if self.max_results > 0 and len(results) >= self.max_results:
             self._cancelled = True
             return True
         return False
 
-    def _scan_directory(
-        self, directory: Path, pattern: str, results: Set[Path], depth: int = 0
+    def _scan_directory(  # noqa: C901 - traversal branches reflect filesystem states.
+        self, directory: Path, pattern: str, results: set[Path], depth: int = 0
     ) -> None:
         """Scan a single directory for matching files and folders.
 
@@ -237,18 +240,20 @@ class FileSearchEngine(QObject):
                                 ]:
                                     continue
 
-                            if self._match_pattern(entry.name, pattern):
-                                if self._record_match(
-                                    Path(entry.path), results, directory
-                                ):
-                                    break
+                            if self._match_pattern(
+                                entry.name, pattern
+                            ) and self._record_match(
+                                Path(entry.path), results, directory
+                            ):
+                                break
 
                         elif entry.is_dir():
-                            if self._match_pattern(entry.name, pattern):
-                                if self._record_match(
-                                    Path(entry.path), results, directory
-                                ):
-                                    break
+                            if self._match_pattern(
+                                entry.name, pattern
+                            ) and self._record_match(
+                                Path(entry.path), results, directory
+                            ):
+                                break
 
                             # Handle symlinks with cycle detection
                             if entry.is_symlink():
@@ -288,7 +293,7 @@ class FileSearchEngine(QObject):
             logger.warning(f"Cannot access directory {directory}: {e}")
         except Exception as e:
             logger.error(f"Unexpected error scanning {directory}: {e}")
-            raise SearchError(f"Error scanning directory {directory}: {e}")
+            raise SearchError(f"Error scanning directory {directory}: {e}") from e
 
     def estimate_total_files(self, directory: Path) -> int:
         """Estimate total number of files in directory for progress calculation.
@@ -315,9 +320,9 @@ class FileSearchEngine(QObject):
             logger.warning(f"Error estimating total files: {e}")
             return 0
 
-    def search(
+    def search(  # noqa: C901 - coordinates filesystem and plugin result streams.
         self, directory: Path, query: str
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[dict[str, Any], None, None]:
         """Search for files and folders matching query pattern.
 
         Args:
@@ -356,7 +361,7 @@ class FileSearchEngine(QObject):
         self._reset_cancel_state()
 
         # Use a thread-safe set to store results
-        results: Set[Path] = set()
+        results: set[Path] = set()
 
         try:
             # Emit searching status
@@ -376,7 +381,7 @@ class FileSearchEngine(QObject):
                     future.result()  # Wait for scanning to complete
                 except Exception as e:
                     logger.error(f"Error in search execution: {e}")
-                    raise SearchError(f"Search execution failed: {e}")
+                    raise SearchError(f"Search execution failed: {e}") from e
 
                 # Emit completed status
                 self.status_update.emit("completed", len(results))
@@ -410,8 +415,7 @@ class FileSearchEngine(QObject):
                         if plugin.enabled:
                             try:
                                 plugin_results = plugin.search(query, context)
-                                for result in plugin_results:
-                                    yield result
+                                yield from plugin_results
                             except Exception as e:
                                 logger.error(f"Plugin {plugin.name} search failed: {e}")
 
@@ -420,7 +424,7 @@ class FileSearchEngine(QObject):
         except Exception as e:
             logger.error(f"Search failed: {e}")
             self.status_update.emit("error", 0)
-            raise SearchError(f"Search operation failed: {e}")
+            raise SearchError(f"Search operation failed: {e}") from e
         finally:
             self._executor = None
 
@@ -428,7 +432,7 @@ class FileSearchEngine(QObject):
 # Convenience function for simple searches
 def search_files(
     directory: Path, pattern: str, max_results: int = 1000, max_workers: int = 4
-) -> Generator[Dict[str, Any], None, None]:
+) -> Generator[dict[str, Any], None, None]:
     """Convenience function for one-off file searches.
 
     Args:

@@ -5,10 +5,9 @@ must inherit from, along with plugin metadata and discovery mechanisms.
 """
 
 import inspect
-import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -30,22 +29,22 @@ class SearchPlugin(ABC):
         _enabled (bool): Whether plugin is enabled
     """
 
-    def __init__(self, metadata: Optional[Dict[str, Any]] = None):
+    def __init__(self, metadata: dict[str, Any] | None = None):
         """Initialize the plugin with default metadata."""
         self._name: str = self.__class__.__name__
         self._version: str = "1.0.0"
         self._author: str = "Unknown"
         self._description: str = "No description provided"
-        self._config: Dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
         self._enabled: bool = True
-        self._metadata: Dict[str, Any] = {}
+        self._metadata: dict[str, Any] = {}
 
         if metadata:
             self._load_metadata(metadata)
 
         logger.debug(f"Plugin initialized: {self._name}")
 
-    def _load_metadata(self, metadata: Dict[str, Any]) -> None:
+    def _load_metadata(self, metadata: dict[str, Any]) -> None:
         """Load metadata from dictionary.
 
         Args:
@@ -94,7 +93,7 @@ class SearchPlugin(ABC):
         return self._description
 
     @property
-    def dependencies(self) -> List[str]:
+    def dependencies(self) -> list[str]:
         """Get plugin dependencies.
 
         Returns:
@@ -103,7 +102,7 @@ class SearchPlugin(ABC):
         return self._metadata.get("dependencies", [])
 
     @property
-    def config(self) -> Dict[str, Any]:
+    def config(self) -> dict[str, Any]:
         """Get plugin configuration.
 
         Returns:
@@ -131,7 +130,7 @@ class SearchPlugin(ABC):
         logger.debug(f"Plugin {self._name} enabled set to: {self._enabled}")
 
     @abstractmethod
-    def initialize(self, config: Dict[str, Any]) -> bool:
+    def initialize(self, config: dict[str, Any]) -> bool:
         """Initialize the plugin with configuration.
 
         Args:
@@ -150,7 +149,7 @@ class SearchPlugin(ABC):
         pass
 
     @abstractmethod
-    def search(self, query: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def search(self, query: str, context: dict[str, Any]) -> list[dict[str, Any]]:
         """Perform a search using this plugin.
 
         Args:
@@ -208,7 +207,7 @@ class SearchPlugin(ABC):
         """
         logger.debug(f"Cleaning up plugin: {self._name}")
 
-    def update_config(self, config: Dict[str, Any]) -> bool:
+    def update_config(self, config: dict[str, Any]) -> bool:
         """Update plugin configuration.
 
         Args:
@@ -225,7 +224,7 @@ class SearchPlugin(ABC):
             logger.error(f"Error updating config for plugin {self._name}: {e}")
             return False
 
-    def validate_config(self, config: Dict[str, Any]) -> bool:
+    def validate_config(self, config: dict[str, Any]) -> bool:
         """Validate plugin configuration.
 
         Args:
@@ -239,7 +238,7 @@ class SearchPlugin(ABC):
         """
         return True
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         """Get plugin metadata.
 
         Returns:
@@ -263,7 +262,7 @@ class PluginDiscovery:
     """
 
     @staticmethod
-    def discover_from_directory(plugin_dir: Path) -> List[type]:
+    def discover_from_directory(plugin_dir: Path) -> list[type]:
         """Discover plugins from a directory.
 
         Args:
@@ -272,7 +271,7 @@ class PluginDiscovery:
         Returns:
             List of plugin classes found
         """
-        plugins: List[type] = []
+        plugins: list[type] = []
 
         if not plugin_dir.exists():
             logger.warning(f"Plugin directory does not exist: {plugin_dir}")
@@ -327,7 +326,8 @@ class PluginDiscovery:
 
             if abstract_methods:
                 logger.warning(
-                    f"Plugin {cls.__name__} missing abstract methods: {abstract_methods}"
+                    f"Plugin {cls.__name__} missing abstract methods: "
+                    f"{abstract_methods}"
                 )
                 return False
 
@@ -339,8 +339,8 @@ class PluginDiscovery:
 
     @staticmethod
     def load_plugin(
-        plugin_class: type, config: Optional[Dict[str, Any]] = None
-    ) -> Optional[SearchPlugin]:
+        plugin_class: type, config: dict[str, Any] | None = None
+    ) -> SearchPlugin | None:
         """Load and initialize a plugin.
 
         Args:
@@ -386,7 +386,7 @@ class ExamplePlugin(SearchPlugin):
         self._author = "FileSearch Team"
         self._description = "Filters search results by file size"
 
-    def initialize(self, config: Dict[str, Any]) -> bool:
+    def initialize(self, config: dict[str, Any]) -> bool:
         """Initialize the example plugin.
 
         Args:
@@ -409,7 +409,7 @@ class ExamplePlugin(SearchPlugin):
             logger.error(f"ExamplePlugin initialization failed: {e}")
             return False
 
-    def search(self, query: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def search(self, query: str, context: dict[str, Any]) -> list[dict[str, Any]]:
         """Perform size-based search filtering.
 
         Args:
@@ -421,14 +421,11 @@ class ExamplePlugin(SearchPlugin):
         """
         # This is a simplified example
         # In a real plugin, you would implement actual search logic
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         try:
             # Get search parameters from context
             directory = context.get("directory", ".")
-            min_size = self._config.get("min_size", 0)
-            max_size = self._config.get("max_size", float("inf"))
-
             logger.debug(f"ExamplePlugin searching in {directory} with size filter")
 
             # Example search logic (simplified)
@@ -436,7 +433,7 @@ class ExamplePlugin(SearchPlugin):
 
         except Exception as e:
             logger.error(f"ExamplePlugin search failed: {e}")
-            raise PluginError(f"ExamplePlugin search error: {e}")
+            raise PluginError(f"ExamplePlugin search error: {e}") from e
 
         return results
 

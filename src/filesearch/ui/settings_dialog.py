@@ -4,6 +4,6 @@ All implementation has moved to filesearch.ui.settings.
 This file exists for backward compatibility.
 """
 
-from filesearch.ui.settings import SettingsDialog  # noqa: F401
+from filesearch.ui.settings import SettingsDialog
 
 __all__ = ["SettingsDialog"]

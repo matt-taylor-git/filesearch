@@ -6,7 +6,6 @@ the GUI event loop.
 """
 
 import sys
-from typing import Optional
 from pathlib import Path
 
 from loguru import logger
@@ -18,11 +17,11 @@ from filesearch import (
     __version__,
     get_project_root,
 )
-from filesearch.core.runtime_paths import ensure_log_dir, get_app_icon_path
 from filesearch.core.application_runtime import ApplicationRuntime
+from filesearch.core.runtime_paths import ensure_log_dir, get_app_icon_path
 
 
-def setup_logging(log_level: str = "INFO", log_dir: Optional[Path] = None) -> None:
+def setup_logging(log_level: str = "INFO", log_dir: Path | None = None) -> None:
     """Configure logging with rotating file handler.
 
     Args:
@@ -66,7 +65,7 @@ def setup_logging(log_level: str = "INFO", log_dir: Optional[Path] = None) -> No
     logger.info("Log directory: {}", log_dir)
 
 
-def parse_arguments() -> Optional[str]:
+def parse_arguments() -> str | None:
     """Parse command-line arguments.
 
     Returns:
@@ -106,7 +105,9 @@ def parse_arguments() -> Optional[str]:
     return None
 
 
-def main(runtime: Optional[ApplicationRuntime] = None) -> int:
+def main(  # noqa: C901 - this is the application composition root.
+    runtime: ApplicationRuntime | None = None,
+) -> int:
     """Main application entry point.
 
     Returns:
@@ -198,8 +199,8 @@ def main(runtime: Optional[ApplicationRuntime] = None) -> int:
                 if not isinstance(app_instance, QApplication):
                     QApplication(sys.argv)
                 QMessageBox.critical(None, APP_DISPLAY_NAME, message)
-        except Exception:
-            pass
+        except Exception as display_error:
+            logger.debug("Could not display startup error: {}", display_error)
         logger.exception("Fatal error in main application: {}", e)
         return 1
     finally:

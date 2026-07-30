@@ -59,7 +59,7 @@ class TestConfigManager:
         assert manager.config_file.is_file()
 
         # Verify default config content
-        with open(manager.config_file, "r") as f:
+        with open(manager.config_file) as f:
             config_data = json.load(f)
 
         assert "search_preferences" in config_data
@@ -171,13 +171,13 @@ class TestConfigManager:
     def test_validate_config_invalid_type(self, config_manager):
         """Test configuration validation with invalid type."""
         # Set invalid type
-        config_manager._config["search_preferences"][
-            "max_search_results"
-        ] = "not_an_int"
+        config_manager._config["search_preferences"]["max_search_results"] = (
+            "not_an_int"
+        )
 
         with pytest.raises(
             ConfigError,
-            match="search_preferences.max_search_results must be an integer",
+            match=r"search_preferences\.max_search_results must be an integer",
         ):
             config_manager._validate_config()
 

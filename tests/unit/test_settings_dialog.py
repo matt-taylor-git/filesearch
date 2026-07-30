@@ -1,7 +1,6 @@
 """Unit tests for the settings dialog module."""
 
 import json  # noqa: F401
-from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch  # noqa: F401
 
 import pytest
@@ -354,12 +353,12 @@ class TestSettingsDialog:
         """Test error handling during settings save."""
         # Mock an error during save
         with patch.object(
-            settings_dialog.config_manager, "save", side_effect=Exception("Save error")
+            settings_dialog.config_manager,
+            "save",
+            side_effect=RuntimeError("Save error"),
         ):
-            try:
+            with pytest.raises(RuntimeError, match="Save error"):
                 settings_dialog.save_settings()
-            except Exception:
-                pass  # Expected to raise
             assert settings_dialog.desktop_effects.errors[-1][0] == "Save Error"
 
 

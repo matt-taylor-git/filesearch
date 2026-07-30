@@ -6,11 +6,15 @@ application configuration using JSON format with cross-platform directory suppor
 
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any
 
 import platformdirs
 from loguru import logger
+
+from filesearch.core.application_runtime import ApplicationRuntime
+from filesearch.core.exceptions import ConfigError
 
 QT_AVAILABLE: bool
 if TYPE_CHECKING:
@@ -26,9 +30,6 @@ else:
         QT_AVAILABLE = False
         QFileSystemWatcher = None
         QApplication = None
-
-from filesearch.core.exceptions import ConfigError
-from filesearch.core.application_runtime import ApplicationRuntime
 
 
 class ConfigManager:
@@ -51,7 +52,7 @@ class ConfigManager:
         app_name: str = "filesearch",
         app_author: str = "filesearch",
         *,
-        runtime: Optional[ApplicationRuntime] = None,
+        runtime: ApplicationRuntime | None = None,
         watch_config: bool = True,
     ):
         """Initialize the configuration manager.
@@ -75,10 +76,10 @@ class ConfigManager:
         self.config_file = self.config_dir / "config.json"
 
         # Initialize configuration cache
-        self._config: Dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
 
         # Define default configuration values matching AC requirements
-        self._defaults: Dict[str, Any] = {
+        self._defaults: dict[str, Any] = {
             "search_preferences": {
                 "default_search_directory": str(self.home_dir),
                 "case_sensitive_search": False,
@@ -115,7 +116,7 @@ class ConfigManager:
         }
 
         # File watcher for auto-reload (optional, requires PyQt6)
-        self._file_watcher: Optional[QFileSystemWatcher] = None
+        self._file_watcher: QFileSystemWatcher | None = None
         self._reload_callbacks: list[Callable] = []
 
         logger.debug(f"ConfigManager initialized with config_dir={self.config_dir}")
@@ -145,10 +146,10 @@ class ConfigManager:
 
         except OSError as e:
             logger.error(f"Error creating config directory or file: {e}")
-            raise ConfigError(f"Cannot create configuration: {e}")
+            raise ConfigError(f"Cannot create configuration: {e}") from e
         except Exception as e:
             logger.error(f"Unexpected error creating default config: {e}")
-            raise ConfigError(f"Error creating default configuration: {e}")
+            raise ConfigError(f"Error creating default configuration: {e}") from e
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a configuration value.
@@ -230,7 +231,7 @@ class ConfigManager:
 
         except Exception as e:
             logger.error(f"Error setting config value for {key}: {e}")
-            raise ConfigError(f"Cannot set configuration value: {e}")
+            raise ConfigError(f"Cannot set configuration value: {e}") from e
 
     def save(self) -> None:
         """Save the current configuration to file.
@@ -253,10 +254,10 @@ class ConfigManager:
 
         except OSError as e:
             logger.error(f"Error saving configuration: {e}")
-            raise ConfigError(f"Cannot save configuration: {e}")
+            raise ConfigError(f"Cannot save configuration: {e}") from e
         except Exception as e:
             logger.error(f"Unexpected error saving configuration: {e}")
-            raise ConfigError(f"Error saving configuration: {e}")
+            raise ConfigError(f"Error saving configuration: {e}") from e
 
     def load(self) -> None:
         """Load configuration from file.
@@ -274,7 +275,7 @@ class ConfigManager:
                 self._create_default_config()
 
             # Load configuration from file
-            with open(self.config_file, "r", encoding="utf-8") as f:
+            with open(self.config_file, encoding="utf-8") as f:
                 loaded_config = json.load(f)
 
             # Merge with defaults to ensure all keys exist
@@ -292,12 +293,12 @@ class ConfigManager:
             self.load()
         except OSError as e:
             logger.error(f"Error loading configuration: {e}")
-            raise ConfigError(f"Cannot load configuration: {e}")
+            raise ConfigError(f"Cannot load configuration: {e}") from e
         except Exception as e:
             logger.error(f"Unexpected error loading configuration: {e}")
-            raise ConfigError(f"Error loading configuration: {e}")
+            raise ConfigError(f"Error loading configuration: {e}") from e
 
-    def _merge_with_defaults(self, loaded_config: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_with_defaults(self, loaded_config: dict[str, Any]) -> dict[str, Any]:
         """Merge loaded configuration with default values.
 
         Args:
@@ -308,8 +309,8 @@ class ConfigManager:
         """
 
         def deep_merge(
-            defaults: Dict[str, Any], loaded: Dict[str, Any]
-        ) -> Dict[str, Any]:
+            defaults: dict[str, Any], loaded: dict[str, Any]
+        ) -> dict[str, Any]:
             result = defaults.copy()
 
             for key, value in loaded.items():
@@ -326,7 +327,7 @@ class ConfigManager:
 
         return deep_merge(self._defaults, loaded_config)
 
-    def _validate_config(self) -> None:
+    def _validate_config(self) -> None:  # noqa: C901 - validates one config schema.
         """Validate the current configuration.
 
         Raises:
@@ -442,9 +443,9 @@ class ConfigManager:
             raise
         except Exception as e:
             logger.error(f"Configuration validation failed: {e}")
-            raise ConfigError(f"Invalid configuration: {e}")
+            raise ConfigError(f"Invalid configuration: {e}") from e
 
-    def get_all(self) -> Dict[str, Any]:
+    def get_all(self) -> dict[str, Any]:
         """Get the entire configuration dictionary.
 
         Returns:
@@ -601,7 +602,7 @@ def get_config(
     app_name: str = "filesearch",
     app_author: str = "filesearch",
     *,
-    runtime: Optional[ApplicationRuntime] = None,
+    runtime: ApplicationRuntime | None = None,
     watch_config: bool = True,
 ) -> ConfigManager:
     """Get a ConfigManager instance.

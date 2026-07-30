@@ -5,7 +5,7 @@ import platform
 import subprocess
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -226,11 +226,12 @@ class TestSafeOpen:
     @patch("PyQt6.QtGui.QDesktopServices.openUrl", return_value=False)
     def test_safe_open_subprocess_error(self, mock_open_url, mock_popen, temp_file):
         """Test handling subprocess error."""
-        import subprocess
 
         mock_popen.side_effect = OSError("Failed to execute")
 
-        with pytest.raises(FileSearchError, match="Failed to open file"):
+        with pytest.raises(  # noqa: SIM117 - separates outcome and OS controls.
+            FileSearchError, match="Failed to open file"
+        ):
             # Force Linux path for consistent testing
             with patch("platform.system", return_value="Linux"):
                 safe_open(temp_file)
@@ -475,7 +476,8 @@ class TestPathNormalizationAndValidation:
         monkeypatch.setenv("TEST_VAR", str(self.test_dir))
 
         # Ensure the test directory is readable
-        os.chmod(self.test_dir, 0o755)
+        # Test cleanup requires restoring owner-readable directory permissions.
+        os.chmod(self.test_dir, 0o755)  # noqa: S103
 
         yield
 
@@ -559,7 +561,8 @@ class TestPathNormalizationAndValidation:
             assert error == "Permission denied: Cannot read directory contents."
         finally:
             # Restore permissions for cleanup
-            os.chmod(temp_dir_path, 0o755)
+            # Test cleanup requires restoring owner-readable directory permissions.
+            os.chmod(temp_dir_path, 0o755)  # noqa: S103
             temp_dir_path.rmdir()
 
 
@@ -578,28 +581,28 @@ class TestUserFolderResolution:
         """Windows should prefer known-folder lookup when available."""
         resolved = Path(r"D:\Redirected\Downloads")
 
-        with patch(
-            "filesearch.core.file_utils.platform.system", return_value="Windows"
-        ):
-            with patch(
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Windows"),
+            patch(
                 "filesearch.core.file_utils._get_windows_known_folder_path",
                 return_value=resolved,
-            ) as mock_lookup:
-                assert get_user_folder("downloads") == resolved
-                mock_lookup.assert_called_once()
+            ) as mock_lookup,
+        ):
+            assert get_user_folder("downloads") == resolved
+            mock_lookup.assert_called_once()
 
     def test_get_user_folder_windows_falls_back_on_lookup_failure(self):
         """Windows should fall back to home-relative paths if lookup fails."""
         home = Path.home()
 
-        with patch(
-            "filesearch.core.file_utils.platform.system", return_value="Windows"
-        ):
-            with patch(
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Windows"),
+            patch(
                 "filesearch.core.file_utils._get_windows_known_folder_path",
                 side_effect=OSError("boom"),
-            ):
-                assert get_user_folder("downloads") == home / "Downloads"
+            ),
+        ):
+            assert get_user_folder("downloads") == home / "Downloads"
 
 
 class TestListDriveUsage:
@@ -617,17 +620,18 @@ class TestListDriveUsage:
         """Windows enumeration should include each accessible lettered drive."""
         usage = type("Usage", (), {"total": 1000, "used": 400, "free": 600})()
 
-        with patch(
-            "filesearch.core.file_utils.platform.system", return_value="Windows"
-        ), patch(
-            "filesearch.core.file_utils._iter_windows_drive_roots",
-            return_value=[Path("C:\\"), Path("D:\\")],
-        ), patch(
-            "filesearch.core.file_utils.shutil.disk_usage", return_value=usage
-        ), patch(
-            "filesearch.core.file_utils._windows_volume_label",
-            side_effect=lambda root: (
-                "System (C:)" if str(root).upper().startswith("C") else "Data (D:)"
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Windows"),
+            patch(
+                "filesearch.core.file_utils._iter_windows_drive_roots",
+                return_value=[Path("C:\\"), Path("D:\\")],
+            ),
+            patch("filesearch.core.file_utils.shutil.disk_usage", return_value=usage),
+            patch(
+                "filesearch.core.file_utils._windows_volume_label",
+                side_effect=lambda root: (
+                    "System (C:)" if str(root).upper().startswith("C") else "Data (D:)"
+                ),
             ),
         ):
             drives = list_drive_usage()
@@ -645,16 +649,19 @@ class TestListDriveUsage:
                 raise OSError("device not ready")
             return type("Usage", (), {"total": 500, "used": 100, "free": 400})()
 
-        with patch(
-            "filesearch.core.file_utils.platform.system", return_value="Windows"
-        ), patch(
-            "filesearch.core.file_utils._iter_windows_drive_roots",
-            return_value=[Path("C:\\"), Path("D:\\")],
-        ), patch(
-            "filesearch.core.file_utils.shutil.disk_usage", side_effect=fake_usage
-        ), patch(
-            "filesearch.core.file_utils._windows_volume_label",
-            return_value="C:",
+        with (
+            patch("filesearch.core.file_utils.platform.system", return_value="Windows"),
+            patch(
+                "filesearch.core.file_utils._iter_windows_drive_roots",
+                return_value=[Path("C:\\"), Path("D:\\")],
+            ),
+            patch(
+                "filesearch.core.file_utils.shutil.disk_usage", side_effect=fake_usage
+            ),
+            patch(
+                "filesearch.core.file_utils._windows_volume_label",
+                return_value="C:",
+            ),
         ):
             drives = list_drive_usage()
 

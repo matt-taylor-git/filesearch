@@ -13,10 +13,7 @@ from filesearch.ui.sidebar_widget import SidebarWidget
 @pytest.fixture
 def app():
     """Create QApplication for testing."""
-    if not QApplication.instance():
-        app = QApplication([])
-    else:
-        app = QApplication.instance()
+    app = QApplication([]) if not QApplication.instance() else QApplication.instance()
     yield app
 
 

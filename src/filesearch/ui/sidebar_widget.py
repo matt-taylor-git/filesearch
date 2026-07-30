@@ -4,8 +4,8 @@ Provides location shortcuts, file type filters, recent search tags,
 and disk storage indicator.
 """
 
+import contextlib
 from pathlib import Path
-from typing import Dict, List, Optional, Set
 
 import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 from loguru import logger
@@ -22,10 +22,10 @@ from PyQt6.QtWidgets import (
 )
 
 from filesearch.core.file_utils import DriveUsage, get_user_folder, list_drive_usage
-from filesearch.ui.theme import Colors, Fonts, Spacing
+from filesearch.ui.theme import Colors
 
 # File type extension mapping for client-side filtering
-FILE_TYPE_EXTENSIONS: Dict[str, Set[str]] = {
+FILE_TYPE_EXTENSIONS: dict[str, set[str]] = {
     "Documents": {
         ".txt",
         ".pdf",
@@ -148,7 +148,7 @@ class SidebarWidget(QWidget):
     browse_requested = pyqtSignal()
 
     def __init__(
-        self, parent: Optional[QWidget] = None, *, home_dir: Optional[Path] = None
+        self, parent: QWidget | None = None, *, home_dir: Path | None = None
     ) -> None:
         super().__init__(parent)
         self._home_dir = Path(home_dir) if home_dir is not None else Path.home()
@@ -156,14 +156,14 @@ class SidebarWidget(QWidget):
         self.setFixedWidth(240)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
-        self._location_buttons: List[QPushButton] = []
-        self._active_location: Optional[QPushButton] = None
-        self._filter_buttons: Dict[str, QPushButton] = {}
-        self._active_filters: Set[str] = set()
-        self._tag_buttons: List[QPushButton] = []
-        self._custom_location_button: Optional[QPushButton] = None
-        self._browse_button: Optional[QPushButton] = None
-        self._location_map: Dict[str, Path] = {}
+        self._location_buttons: list[QPushButton] = []
+        self._active_location: QPushButton | None = None
+        self._filter_buttons: dict[str, QPushButton] = {}
+        self._active_filters: set[str] = set()
+        self._tag_buttons: list[QPushButton] = []
+        self._custom_location_button: QPushButton | None = None
+        self._browse_button: QPushButton | None = None
+        self._location_map: dict[str, Path] = {}
 
         self._setup_ui()
         logger.debug("SidebarWidget initialized")
@@ -300,7 +300,7 @@ class SidebarWidget(QWidget):
         ]
 
         # Two chips per row
-        row: Optional[QHBoxLayout] = None
+        row: QHBoxLayout | None = None
         for i, (name, icon_name, color) in enumerate(chip_specs):
             if i % 2 == 0:
                 row = QHBoxLayout()
@@ -396,7 +396,7 @@ class SidebarWidget(QWidget):
             self._active_filters.discard(name)
 
         # Collect all extensions from active filters
-        extensions: List[str] = []
+        extensions: list[str] = []
         for f in self._active_filters:
             extensions.extend(FILE_TYPE_EXTENSIONS.get(f, set()))
 
@@ -424,7 +424,7 @@ class SidebarWidget(QWidget):
         """Return the configured path for a built-in location."""
         return self._location_map[label]
 
-    def set_custom_location(self, path: Optional[Path]) -> None:
+    def set_custom_location(self, path: Path | None) -> None:
         """Show or hide the custom folder location row."""
         if self._custom_location_button is None:
             return
@@ -441,10 +441,8 @@ class SidebarWidget(QWidget):
         self._custom_location_button.setText(f"  {folder_name}")
         self._custom_location_button.setToolTip(str(path))
         self._custom_location_button.setProperty("path", str(path))
-        try:
+        with contextlib.suppress(TypeError):
             self._custom_location_button.clicked.disconnect()
-        except TypeError:
-            pass
         self._custom_location_button.clicked.connect(
             lambda checked=False, p=path, b=self._custom_location_button: (
                 self._on_location_clicked(p, b)
@@ -452,7 +450,7 @@ class SidebarWidget(QWidget):
         )
         self._custom_location_button.setVisible(True)
 
-    def get_custom_location(self) -> Optional[Path]:
+    def get_custom_location(self) -> Path | None:
         """Return the currently displayed custom folder, if any."""
         if not self._custom_location_button:
             return None
@@ -463,7 +461,7 @@ class SidebarWidget(QWidget):
 
         return Path(custom_path)
 
-    def set_tags(self, searches: List[str]) -> None:
+    def set_tags(self, searches: list[str]) -> None:
         """Update the recent search tags."""
         # Clear existing
         for btn in self._tag_buttons:
@@ -471,7 +469,7 @@ class SidebarWidget(QWidget):
         self._tag_buttons.clear()
 
         # Wrap tags in a flow-like layout (row of 2-3)
-        row: Optional[QHBoxLayout] = None
+        row: QHBoxLayout | None = None
         for i, text in enumerate(searches[:8]):
             if i % 3 == 0:
                 row = QHBoxLayout()
@@ -563,14 +561,14 @@ class SidebarWidget(QWidget):
         for drive in drives:
             self._storage_layout.addWidget(self._create_drive_storage_row(drive))
 
-    def get_active_extensions(self) -> List[str]:
+    def get_active_extensions(self) -> list[str]:
         """Return list of active filter extensions (empty = no filter)."""
-        extensions: List[str] = []
+        extensions: list[str] = []
         for f in self._active_filters:
             extensions.extend(FILE_TYPE_EXTENSIONS.get(f, set()))
         return extensions
 
-    def _set_active_button(self, button: Optional[QPushButton]) -> None:
+    def _set_active_button(self, button: QPushButton | None) -> None:
         """Update sidebar active styling so only one location is highlighted."""
         all_buttons = list(self._location_buttons)
         if self._custom_location_button is not None:

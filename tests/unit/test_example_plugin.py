@@ -1,9 +1,6 @@
 """Unit tests for ExamplePlugin class."""
 
 from pathlib import Path
-from unittest.mock import patch
-
-import pytest
 
 from filesearch.plugins.builtin.example_plugin import ExamplePlugin
 
@@ -117,19 +114,19 @@ class TestExamplePlugin:
         plugin.clear_recent_files()
         assert len(plugin._recent_files) == 0
 
-    def test_max_recent_files_limit(self):
+    def test_max_recent_files_limit(self, tmp_path):
         """Test that max_recent_files limit is enforced."""
         plugin = ExamplePlugin()
         plugin.initialize({"max_recent_files": 2})
 
         # Add more files than the limit
         for i in range(5):
-            temp_file = f"/tmp/test_file_{i}.txt"
+            temp_file = tmp_path / f"test_file_{i}.txt"
             # Create a temporary file for testing
-            Path(temp_file).touch()
+            temp_file.touch()
             try:
                 plugin.add_recent_file(temp_file)
             finally:
-                Path(temp_file).unlink(missing_ok=True)
+                temp_file.unlink(missing_ok=True)
 
         assert len(plugin._recent_files) <= 2

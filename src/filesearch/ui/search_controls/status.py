@@ -1,7 +1,5 @@
 """Status widget for displaying search status and results count."""
 
-from typing import Optional
-
 from loguru import logger
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import QLabel, QMenu, QVBoxLayout, QWidget
@@ -27,9 +25,9 @@ class StatusWidget(QWidget):
 
     def __init__(
         self,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
         *,
-        config_manager: Optional[ConfigManager] = None,
+        config_manager: ConfigManager | None = None,
         desktop_effects: DesktopEffects,
     ):
         """Initialize status widget.
@@ -92,7 +90,7 @@ class StatusWidget(QWidget):
             Formatted string
         """
         # Use Python's built-in thousands separator
-        return "{:,} files found".format(count)
+        return f"{count:,} files found"
 
     def _format_duration(self, duration: float) -> str:
         """Format duration in human-readable format.
@@ -103,9 +101,9 @@ class StatusWidget(QWidget):
         Returns:
             Formatted duration string
         """
-        return "{:.1f}s".format(duration)
+        return f"{duration:.1f}s"
 
-    def update_status(
+    def update_status(  # noqa: C901 - maps the finite UI status states.
         self,
         status: str,
         result_count: int = 0,
@@ -215,7 +213,7 @@ class StatusWidget(QWidget):
             copy_action.triggered.connect(self.copy_status_to_clipboard)
         menu.exec(event.globalPos())
 
-    def _get_summary_text(
+    def _get_summary_text(  # noqa: C901 - summarizes the finite UI status states.
         self,
         status: str,
         result_count: int,

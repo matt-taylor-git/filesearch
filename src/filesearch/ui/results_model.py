@@ -1,7 +1,5 @@
 """Results data model for the search results list view."""
 
-from typing import List, Optional
-
 from loguru import logger
 from PyQt6.QtCore import QAbstractListModel, QModelIndex, Qt, pyqtSignal
 
@@ -17,15 +15,18 @@ class ResultsModel(QAbstractListModel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._all_results: List[SearchResult] = []  # Unfiltered master list
-        self._results: List[SearchResult] = []  # Filtered view
+        self._all_results: list[SearchResult] = []  # Unfiltered master list
+        self._results: list[SearchResult] = []  # Filtered view
         self._displayed_count = 0
         self._batch_size = 100  # Load 100 items at a time for smooth scrolling
         self._current_sort_criteria = None
         self._current_query = ""
-        self._extension_filter: List[str] = []  # Empty = show all
+        self._extension_filter: list[str] = []  # Empty = show all
 
-    def rowCount(self, parent=QModelIndex()):
+    def rowCount(
+        self,
+        parent=QModelIndex(),  # noqa: B008 - required Qt override signature.
+    ):
         return self._displayed_count
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
@@ -89,13 +90,19 @@ class ResultsModel(QAbstractListModel):
             self.error_occurred.emit(str(e))
             return False
 
-    def canFetchMore(self, parent=QModelIndex()):
+    def canFetchMore(
+        self,
+        parent=QModelIndex(),  # noqa: B008 - required Qt override signature.
+    ):
         """Check if more results can be fetched for virtual scrolling"""
         if parent.isValid():
             return False
         return self._displayed_count < len(self._results)
 
-    def fetchMore(self, parent=QModelIndex()):
+    def fetchMore(
+        self,
+        parent=QModelIndex(),  # noqa: B008 - required Qt override signature.
+    ):
         """Fetch more results for virtual scrolling"""
         if parent.isValid():
             return
@@ -177,7 +184,7 @@ class ResultsModel(QAbstractListModel):
         """Get all results (including those not yet displayed)"""
         return self._results
 
-    def set_extension_filter(self, extensions: List[str]) -> None:
+    def set_extension_filter(self, extensions: list[str]) -> None:
         """Filter visible results by file extension (client-side, no re-search).
 
         Args:
@@ -219,7 +226,7 @@ class ResultsModel(QAbstractListModel):
         # Reset model with sorted results
         self.set_results(sorted_results)
 
-    def get_current_sort_criteria(self) -> Optional[SortCriteria]:
+    def get_current_sort_criteria(self) -> SortCriteria | None:
         """Get the currently applied sort criteria"""
         return self._current_sort_criteria
 

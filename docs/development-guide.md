@@ -74,37 +74,25 @@ uv run filesearch --version
 
 ### Code Quality Tools
 
-#### Code Formatting
+#### Formatting and Import Sorting
 ```bash
-# Format all source files
-uv run black src/ tests/
+# Format all source and test files
+uv run ruff format .
 
 # Check formatting without modifying
-uv run black --check src/ tests/
+uv run ruff format --check .
 
 # Format specific file
-uv run black src/filesearch/core/search_engine.py
-```
-
-#### Import Sorting
-```bash
-# Sort imports in all files
-uv run isort src/ tests/
-
-# Check import sorting
-uv run isort --check-only --profile=black src/ tests/
+uv run ruff format src/filesearch/core/search_engine.py
 ```
 
 #### Linting
 ```bash
 # Lint all source and test files
-uv run flake8 src/ tests/
+uv run ruff check .
 
-# Lint with specific configuration
-uv run flake8 --max-line-length=88 --extend-ignore=E203,F401 src/ tests/
-
-# Show statistics
-uv run flake8 --statistics src/ tests/
+# Apply safe lint and import-sorting fixes
+uv run ruff check --fix .
 ```
 
 ### Testing
@@ -231,8 +219,8 @@ src/filesearch/
 ## Development Guidelines
 
 ### Code Style
-- **Line Length**: 88 characters (Black default)
-- **Import Style**: isort with Black profile
+- **Line Length**: 88 characters (Ruff formatter)
+- **Import Style**: Ruff's isort-compatible import sorting
 - **Type Hints**: Full type annotation coverage
 - **Docstrings**: Google-style docstrings for all public functions
 

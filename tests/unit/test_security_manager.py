@@ -11,7 +11,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from filesearch.core.exceptions import FileSearchError
 from filesearch.core.security_manager import (
     SecurityManager,
     get_security_manager,
@@ -338,13 +337,15 @@ class TestGlobalFunctions:
 
         filesearch.core.security_manager._security_manager = None
 
-        with patch("platform.system", return_value="Windows"):
-            with tempfile.NamedTemporaryFile(suffix=".exe") as f:
-                temp_path = Path(f.name)
-                should_warn, message = should_warn_before_opening_file(temp_path)
+        with (
+            patch("platform.system", return_value="Windows"),
+            tempfile.NamedTemporaryFile(suffix=".exe") as f,
+        ):
+            temp_path = Path(f.name)
+            should_warn, message = should_warn_before_opening_file(temp_path)
 
-                assert should_warn is True
-                assert "executable file" in message
+            assert should_warn is True
+            assert "executable file" in message
 
 
 class TestPlatformSpecificBehavior:
@@ -384,7 +385,7 @@ class TestPlatformSpecificBehavior:
             (b"", False),  # Empty file
         ]
 
-        for signature, expected in test_cases:
+        for signature, _expected in test_cases:
             with tempfile.NamedTemporaryFile(delete=False) as f:
                 temp_path = Path(f.name)
                 f.write(signature)
@@ -396,7 +397,9 @@ class TestPlatformSpecificBehavior:
                     mock_file.read.return_value = signature
                     mock_open.return_value.__enter__.return_value = mock_file
 
-                    with patch("os.access", return_value=True):
+                    with patch(  # noqa: SIM117 - staged OS controls aid readability.
+                        "os.access", return_value=True
+                    ):
                         with patch("os.name", "posix"):
                             result = manager.is_executable(temp_path)
                             # Only check if we can detect the signature

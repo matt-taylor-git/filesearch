@@ -13,8 +13,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from filesearch.plugins.plugin_manager import PluginManager
 from filesearch.core.application_runtime import DesktopEffects
+from filesearch.plugins.plugin_manager import PluginManager
 
 
 class PluginSettingsTab(QWidget):

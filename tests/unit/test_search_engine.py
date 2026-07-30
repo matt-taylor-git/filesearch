@@ -1,9 +1,9 @@
 """Unit tests for the search engine module."""
 
+import contextlib
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 import pytest
 
@@ -262,10 +262,9 @@ class TestFileSearchEngine:
 
         finally:
             # Restore permissions for cleanup
-            try:
-                os.chmod(restricted_dir, 0o755)
-            except:
-                pass
+            with contextlib.suppress(BaseException):
+                # Test cleanup requires restoring directory traversal permissions.
+                os.chmod(restricted_dir, 0o755)  # noqa: S103
 
     def test_search_unicode_filenames(self, search_engine, temp_dir):
         """Test search with Unicode filenames."""

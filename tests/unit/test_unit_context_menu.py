@@ -58,9 +58,8 @@ class TestContextMenuActionRouting:
 
         window = Mock(spec=MainWindow)
         window.results_view = Mock()
-        window.results_view.selectionModel.return_value.selectedIndexes.return_value = (
-            []
-        )
+        selection_model = window.results_view.selectionModel.return_value
+        selection_model.selectedIndexes.return_value = []
         window.safe_status_message = Mock()
 
         window._on_context_menu_action = MainWindow._on_context_menu_action.__get__(

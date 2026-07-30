@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
 
 from loguru import logger
 
@@ -33,7 +33,7 @@ class _AnalysisCounters:
 class StorageAnalyzer:
     """Analyze a directory tree into aggregate storage metrics."""
 
-    def __init__(self, config_manager: Optional[ConfigManager] = None) -> None:
+    def __init__(self, config_manager: ConfigManager | None = None) -> None:
         self.config_manager = config_manager
         self.include_hidden = False
         if config_manager is not None:
@@ -53,7 +53,7 @@ class StorageAnalyzer:
     def analyze(
         self,
         root_path: Path,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> StorageAnalysisResult:
         """Analyze *root_path* recursively."""
         self._cancelled = False
@@ -82,9 +82,8 @@ class StorageAnalyzer:
             skipped_count=counters.skipped_count,
         )
         logger.info(
-            "Storage analysis complete for {}: {} items, {} skipped".format(
-                path, counters.item_count, counters.skipped_count
-            )
+            f"Storage analysis complete for {path}: {counters.item_count} items, "
+            f"{counters.skipped_count} skipped"
         )
         return StorageAnalysisResult(root=root_node, summary=summary)
 
@@ -92,7 +91,7 @@ class StorageAnalyzer:
         self,
         directory: Path,
         counters: _AnalysisCounters,
-        progress_callback: Optional[ProgressCallback],
+        progress_callback: ProgressCallback | None,
     ) -> StorageNode:
         """Recursively build a storage tree for *directory*."""
         total_size = 0
@@ -156,7 +155,7 @@ class StorageAnalyzer:
         self,
         path: Path,
         counters: _AnalysisCounters,
-        progress_callback: Optional[ProgressCallback],
+        progress_callback: ProgressCallback | None,
     ) -> None:
         """Throttle progress notifications to keep the UI readable."""
         if progress_callback is None:

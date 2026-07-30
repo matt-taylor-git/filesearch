@@ -27,18 +27,11 @@ jobs:
     - name: Synchronize locked environment
       run: uv sync --locked --python ${{ matrix.python-version }}
 
-    - name: Lint with flake8
-      run: |
-        uv run flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        uv run flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+    - name: Lint with Ruff
+      run: uv run ruff check .
 
-    - name: Check code formatting with black
-      run: |
-        uv run black --check src/ tests/
-
-    - name: Check import sorting with isort
-      run: |
-        uv run isort --check-only --profile=black src/ tests/
+    - name: Check code formatting with Ruff
+      run: uv run ruff format --check .
 
     - name: Type-check production code
       run: uv run python -m mypy
@@ -58,7 +51,7 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v4
 

@@ -6,10 +6,8 @@ including size, modification dates, permissions, and checksums.
 
 import hashlib
 import math
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Union
 
 from loguru import logger
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
@@ -32,7 +30,8 @@ class ChecksumWorker(QThread):
     """Worker thread for calculating file checksums in the background.
 
     Signals:
-        checksum_calculated(hash_type: str, hash_value: str): Emitted when checksum is calculated
+        checksum_calculated(hash_type: str, hash_value: str): Emitted when the
+            checksum is calculated
         error_occurred(error_message: str): Emitted when an error occurs
     """
 
@@ -63,7 +62,7 @@ class ChecksumWorker(QThread):
 
         except Exception as e:
             logger.error(f"Error calculating checksum for {self.file_path}: {e}")
-            self.error_occurred.emit(f"Error calculating checksum: {str(e)}")
+            self.error_occurred.emit(f"Error calculating checksum: {e!s}")
 
 
 class PropertiesDialog(QDialog):
@@ -73,7 +72,7 @@ class PropertiesDialog(QDialog):
     permissions, and checksums. Checksums are calculated on-demand.
     """
 
-    def __init__(self, file_path: Union[str, Path], parent=None):
+    def __init__(self, file_path: str | Path, parent=None):
         """Initialize the properties dialog.
 
         Args:
@@ -90,7 +89,7 @@ class PropertiesDialog(QDialog):
         self.setModal(True)
         self.resize(400, 600)
 
-        self.checksum_worker: Optional[ChecksumWorker] = None
+        self.checksum_worker: ChecksumWorker | None = None
         self.setup_ui()
         self.load_file_info()
 
@@ -187,7 +186,7 @@ class PropertiesDialog(QDialog):
 
         except Exception as e:
             logger.error(f"Error loading file info for {self.file_path}: {e}")
-            self._add_info_row("Error:", f"Could not read file information: {str(e)}")
+            self._add_info_row("Error:", f"Could not read file information: {e!s}")
 
     def _add_info_row(self, label_text: str, value_text: str) -> QLabel:
         """Add a label-value pair to the form layout.
@@ -216,7 +215,7 @@ class PropertiesDialog(QDialog):
             return "0 bytes"
 
         size_names = ["bytes", "KB", "MB", "GB", "TB"]
-        i = int(math.floor(math.log(size_bytes, 1024)))
+        i = math.floor(math.log(size_bytes, 1024))
         p = math.pow(1024, i)
         s = round(size_bytes / p, 2)
         return f"{s} {size_names[i]}"

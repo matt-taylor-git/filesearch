@@ -6,7 +6,6 @@ from unittest.mock import Mock
 import pytest
 
 from filesearch.core.config_manager import ConfigManager
-from filesearch.plugins.builtin.example_plugin import ExamplePlugin
 from filesearch.plugins.plugin_manager import PluginManager
 
 
@@ -149,14 +148,14 @@ class TestPluginSystemIntegration:
 
     def test_plugin_status_reporting(self, manager):
         """Test plugin status reporting."""
-        loaded_plugins = manager.load_plugins()
+        manager.load_plugins()
 
         status = manager.get_plugin_status()
 
         # Should have status for loaded plugins
         assert len(status) >= 1
 
-        for plugin_name, plugin_status in status.items():
+        for _plugin_name, plugin_status in status.items():
             if plugin_status["loaded"]:
                 assert "enabled" in plugin_status
                 assert "name" in plugin_status

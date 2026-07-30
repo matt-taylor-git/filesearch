@@ -1,6 +1,5 @@
 """Integration tests for Open Containing Folder functionality."""
 
-from pathlib import Path
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -22,10 +21,10 @@ class TestOpenContainingFolderIntegration:
         return window
 
     @pytest.fixture
-    def sample_result(self):
+    def sample_result(self, tmp_path):
         """Create a sample search result."""
         return SearchResult(
-            path=Path("/tmp/test/file.txt"),
+            path=tmp_path / "test" / "file.txt",
             size=1024,
             modified=1000.0,
             plugin_source=None,
