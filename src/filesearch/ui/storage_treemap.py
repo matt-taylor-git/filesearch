@@ -175,7 +175,7 @@ class StorageTreemapWidget(QWidget):
         if self._current_node is None:
             return
 
-        bounds = self.rect().adjusted(8, 8, -8, -8)
+        bounds = QRectF(self.rect().adjusted(8, 8, -8, -8))
         if bounds.width() <= 0 or bounds.height() <= 0:
             return
 

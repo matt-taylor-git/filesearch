@@ -1,11 +1,9 @@
 """Search control button widget for initiating and stopping searches."""
 
-from pathlib import Path
 from typing import Optional
 
 from loguru import logger
 from PyQt6.QtCore import QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QDropEvent
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
@@ -210,14 +208,3 @@ class SearchControlWidget(QWidget):
 
         # Pass other events to parent
         super().keyPressEvent(event)
-
-    def dropEvent(self, event: QDropEvent) -> None:
-        """Handle drop event to set the directory path."""
-        if event.mimeData().hasUrls():
-            urls = event.mimeData().urls()
-            if len(urls) == 1 and urls[0].isLocalFile():
-                path = Path(urls[0].toLocalFile())
-                if path.is_dir():
-                    self.set_directory(path)
-                    self._add_to_recent_directories(path)
-                    event.acceptProposedAction()

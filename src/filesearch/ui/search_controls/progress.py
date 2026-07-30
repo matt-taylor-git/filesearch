@@ -41,7 +41,7 @@ class ProgressWidget(QWidget):
         self.is_visible = False
         self.is_determinate = False
         self.total_files_estimate = 0
-        self.start_time = 0
+        self.start_time = 0.0
 
         # Animation state
         self.spinner_angle = 0

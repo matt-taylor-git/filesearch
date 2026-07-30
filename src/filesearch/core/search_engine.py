@@ -85,11 +85,11 @@ class FileSearchEngine(QObject):
         self.progress_callback = progress_callback
 
         # Progress throttling
-        self._last_progress_time = 0
+        self._last_progress_time = 0.0
         self._progress_throttle_ms = 100  # 10 updates per second max
 
         # Status update throttling
-        self._last_status_time = 0
+        self._last_status_time = 0.0
         self._status_throttle_ms = 200  # 5 updates per second max
 
         logger.debug(

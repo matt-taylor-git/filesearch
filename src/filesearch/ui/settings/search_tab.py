@@ -141,7 +141,9 @@ class SearchSettingsTab(QWidget):
 
         extensions = []
         for i in range(self.exclude_list.count()):
-            extensions.append(self.exclude_list.item(i).text())
+            item = self.exclude_list.item(i)
+            if item is not None:
+                extensions.append(item.text())
         config_manager.set("search_preferences.file_extensions_to_exclude", extensions)
 
     def browse_default_directory(self) -> None:
@@ -172,7 +174,8 @@ class SearchSettingsTab(QWidget):
                 ext = "." + ext
 
             for i in range(self.exclude_list.count()):
-                if self.exclude_list.item(i).text().lower() == ext.lower():
+                item = self.exclude_list.item(i)
+                if item is not None and item.text().lower() == ext.lower():
                     QMessageBox.warning(
                         self, "Duplicate Extension", f"Extension {ext} already exists."
                     )

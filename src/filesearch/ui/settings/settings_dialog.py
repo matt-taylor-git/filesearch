@@ -129,9 +129,9 @@ class SettingsDialog(QDialog):
         # Connect button signals
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
-        button_box.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(
-            self.reset_to_defaults
-        )
+        reset_button = button_box.button(QDialogButtonBox.StandardButton.Reset)
+        if reset_button is not None:
+            reset_button.clicked.connect(self.reset_to_defaults)
 
         main_layout.addWidget(button_box)
 

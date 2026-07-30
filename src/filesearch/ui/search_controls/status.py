@@ -208,7 +208,8 @@ class StatusWidget(QWidget):
         """Show context menu on right-click."""
         menu = QMenu(self)
         copy_action = menu.addAction("Copy Status")
-        copy_action.triggered.connect(self.copy_status_to_clipboard)
+        if copy_action is not None:
+            copy_action.triggered.connect(self.copy_status_to_clipboard)
         menu.exec(event.globalPos())
 
     def _get_summary_text(
@@ -283,6 +284,8 @@ class StatusWidget(QWidget):
             return self.tr("Please select a different directory and try again.")
         else:
             return ""
+
+        return ""
 
     def set_error_message(self, error_message: str) -> None:
         """Set error message display.

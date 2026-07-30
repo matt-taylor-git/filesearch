@@ -95,6 +95,7 @@ uv run python -m pytest -m unit
 uv run python -m pytest -m integration
 uv run python -m pytest -m ui
 
+uv run python -m mypy
 uv run black src/ tests/
 uv run flake8 src/ tests/
 uv run pre-commit run --all-files

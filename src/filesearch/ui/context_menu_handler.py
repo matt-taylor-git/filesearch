@@ -2,13 +2,14 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING, List, cast
 
 from loguru import logger
 from PyQt6.QtCore import QMimeData, QPoint, Qt, QUrl
-from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtGui import QAction, QGuiApplication
 from PyQt6.QtWidgets import (
     QApplication,
+    QMainWindow,
     QMenu,
     QMessageBox,
     QStyle,
@@ -22,9 +23,13 @@ from filesearch.core.file_utils import (
     open_with_application,
 )
 from filesearch.models.search_result import SearchResult
+from filesearch.ui.results_model import ResultsModel
+
+if TYPE_CHECKING:
+    from filesearch.ui.results_view import ResultsView
 
 
-class ContextMenuAction(Enum):
+class _ContextMenuAction(Enum):
     """Enum for context menu actions to ensure type safety and consistency."""
 
     OPEN = "Open"
@@ -35,6 +40,33 @@ class ContextMenuAction(Enum):
     PROPERTIES = "Properties"
     DELETE = "Delete"
     RENAME = "Rename"
+
+
+# Public compatibility name used by callers importing the action enum directly.
+ContextMenuAction = _ContextMenuAction
+
+
+def _require_action(action: QAction | None) -> QAction:
+    """Return a menu action or fail if Qt could not create it."""
+    if action is None:
+        raise RuntimeError("Qt did not create the requested menu action")
+    return action
+
+
+def _selected_results(results_view: "ResultsView") -> List[SearchResult]:
+    """Return valid search results selected in a results view."""
+    selection_model = results_view.selectionModel()
+    model = results_view.model()
+    if selection_model is None or model is None:
+        return []
+    return [
+        result
+        for index in selection_model.selectedIndexes()
+        if index.isValid()
+        and isinstance(
+            result := model.data(index, Qt.ItemDataRole.UserRole), SearchResult
+        )
+    ]
 
 
 class ContextMenuHandlerMixin:
@@ -49,11 +81,31 @@ class ContextMenuHandlerMixin:
     """
 
     # Alias the enum on the class so self.ContextMenuAction works unchanged
-    ContextMenuAction = ContextMenuAction
+    ContextMenuAction = _ContextMenuAction
+
+    if TYPE_CHECKING:
+        results_view: "ResultsView"
+
+        def safe_status_message(self, message: str) -> None: ...
+
+        def _on_file_open_requested(self, result: SearchResult) -> None: ...
+
+    def _host_widget(self) -> QMainWindow:
+        """Return the QMainWindow that hosts this mixin."""
+        if not isinstance(self, QMainWindow):
+            raise TypeError("ContextMenuHandlerMixin requires a QMainWindow host")
+        return self
+
+    def _host_style(self) -> QStyle:
+        """Return the host window style once Qt has initialized it."""
+        style = self._host_widget().style()
+        if style is None:
+            raise RuntimeError("Qt did not provide a window style")
+        return style
 
     def _setup_context_menu(self) -> None:
         """Sets up the context menu infrastructure."""
-        self.setAccessibleName("Main Window")
+        self._host_widget().setAccessibleName("Main Window")
         self.results_view.setAccessibleName("Search Results List")
         self.results_view.setAccessibleDescription(
             "List of files matching the search query. Use arrow keys to "
@@ -66,12 +118,7 @@ class ContextMenuHandlerMixin:
         Args:
             pos: The global position where the context menu should appear.
         """
-        selected_indexes = self.results_view.selectionModel().selectedIndexes()
-        selected_results = [
-            self.results_view.model().data(index, Qt.ItemDataRole.UserRole)
-            for index in selected_indexes
-            if index.isValid()
-        ]
+        selected_results = _selected_results(self.results_view)
 
         if not selected_results:
             return
@@ -88,12 +135,16 @@ class ContextMenuHandlerMixin:
         Returns:
             A QMenu instance ready to be displayed.
         """
-        menu = QMenu(self)
+        menu = QMenu(self._host_widget())
 
         # AC1: Open (default action, bold text)
-        open_action = menu.addAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton),
-            self.ContextMenuAction.OPEN.value,
+        open_action = _require_action(
+            menu.addAction(
+                self._host_style().standardIcon(
+                    QStyle.StandardPixmap.SP_DialogOpenButton
+                ),
+                self.ContextMenuAction.OPEN.value,
+            )
         )
         open_action.triggered.connect(
             lambda: self._on_context_menu_action(self.ContextMenuAction.OPEN)
@@ -103,10 +154,10 @@ class ContextMenuHandlerMixin:
         open_action.setFont(font)
 
         # AC4: Open With... Submenu
-        open_with_menu = QMenu("Open With...", self)
-        open_with_action = menu.addMenu(open_with_menu)
+        open_with_menu = QMenu("Open With...", self._host_widget())
+        open_with_action = _require_action(menu.addMenu(open_with_menu))
         open_with_action.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)
+            self._host_style().standardIcon(QStyle.StandardPixmap.SP_DesktopIcon)
         )
 
         if len(selected_results) == 1:
@@ -119,9 +170,11 @@ class ContextMenuHandlerMixin:
             open_with_action.setEnabled(False)
 
         # AC5: Open Containing Folder
-        open_folder_action = menu.addAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon),
-            self.ContextMenuAction.OPEN_CONTAINING_FOLDER.value,
+        open_folder_action = _require_action(
+            menu.addAction(
+                self._host_style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon),
+                self.ContextMenuAction.OPEN_CONTAINING_FOLDER.value,
+            )
         )
         open_folder_action.triggered.connect(
             lambda: self._on_context_menu_action(
@@ -133,9 +186,13 @@ class ContextMenuHandlerMixin:
         menu.addSeparator()
 
         # AC6: Copy Path to Clipboard
-        copy_path_action = menu.addAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),
-            self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD.value,
+        copy_path_action = _require_action(
+            menu.addAction(
+                self._host_style().standardIcon(
+                    QStyle.StandardPixmap.SP_DialogSaveButton
+                ),
+                self.ContextMenuAction.COPY_PATH_TO_CLIPBOARD.value,
+            )
         )
         copy_path_action.triggered.connect(
             lambda: self._on_context_menu_action(
@@ -145,9 +202,11 @@ class ContextMenuHandlerMixin:
         copy_path_action.setShortcut("Ctrl+Shift+C")
 
         # AC7: Copy File to Clipboard
-        copy_file_action = menu.addAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon),
-            self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD.value,
+        copy_file_action = _require_action(
+            menu.addAction(
+                self._host_style().standardIcon(QStyle.StandardPixmap.SP_FileIcon),
+                self.ContextMenuAction.COPY_FILE_TO_CLIPBOARD.value,
+            )
         )
         copy_file_action.triggered.connect(
             lambda: self._on_context_menu_action(
@@ -158,9 +217,13 @@ class ContextMenuHandlerMixin:
         menu.addSeparator()
 
         # AC8: Properties Dialog
-        properties_action = menu.addAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation),
-            self.ContextMenuAction.PROPERTIES.value,
+        properties_action = _require_action(
+            menu.addAction(
+                self._host_style().standardIcon(
+                    QStyle.StandardPixmap.SP_MessageBoxInformation
+                ),
+                self.ContextMenuAction.PROPERTIES.value,
+            )
         )
         properties_action.triggered.connect(
             lambda: self._on_context_menu_action(self.ContextMenuAction.PROPERTIES)
@@ -168,9 +231,11 @@ class ContextMenuHandlerMixin:
         properties_action.setShortcut("Alt+Return")
 
         # AC9: Delete with Confirmation
-        delete_action = menu.addAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon),
-            self.ContextMenuAction.DELETE.value,
+        delete_action = _require_action(
+            menu.addAction(
+                self._host_style().standardIcon(QStyle.StandardPixmap.SP_TrashIcon),
+                self.ContextMenuAction.DELETE.value,
+            )
         )
         delete_action.triggered.connect(
             lambda: self._on_context_menu_action(self.ContextMenuAction.DELETE)
@@ -178,9 +243,13 @@ class ContextMenuHandlerMixin:
         delete_action.setShortcut(Qt.Key.Key_Delete)
 
         # AC10: Rename with Validation
-        rename_action = menu.addAction(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_LineEditClearButton),
-            self.ContextMenuAction.RENAME.value,
+        rename_action = _require_action(
+            menu.addAction(
+                self._host_style().standardIcon(
+                    QStyle.StandardPixmap.SP_LineEditClearButton
+                ),
+                self.ContextMenuAction.RENAME.value,
+            )
         )
         rename_action.triggered.connect(
             lambda: self._on_context_menu_action(self.ContextMenuAction.RENAME)
@@ -207,7 +276,7 @@ class ContextMenuHandlerMixin:
         apps = get_associated_applications(result.path)
 
         for app in apps:
-            action = menu.addAction(app["name"])
+            action = _require_action(menu.addAction(app["name"]))
             action.triggered.connect(
                 lambda checked, a=app: self._handle_open_with_app(a, result)
             )
@@ -215,7 +284,7 @@ class ContextMenuHandlerMixin:
         if apps:
             menu.addSeparator()
 
-        choose_action = menu.addAction("Choose another application...")
+        choose_action = _require_action(menu.addAction("Choose another application..."))
         choose_action.triggered.connect(lambda: self._handle_choose_application(result))
 
     def _handle_open_with_app(self, app_info: dict, result: SearchResult) -> None:
@@ -248,7 +317,7 @@ class ContextMenuHandlerMixin:
         """
         from PyQt6.QtWidgets import QFileDialog
 
-        file_dialog = QFileDialog(self, "Choose Application")
+        file_dialog = QFileDialog(self._host_widget(), "Choose Application")
         file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
 
         if file_dialog.exec():
@@ -258,18 +327,13 @@ class ContextMenuHandlerMixin:
                 app_info = {"name": Path(executable).name, "command": executable}
                 self._handle_open_with_app(app_info, result)
 
-    def _on_context_menu_action(self, action: ContextMenuAction) -> None:
+    def _on_context_menu_action(self, action: _ContextMenuAction) -> None:
         """Routes context menu actions to their respective handlers.
 
         Args:
             action: The ContextMenuAction enum value representing the chosen action.
         """
-        selected_indexes = self.results_view.selectionModel().selectedIndexes()
-        selected_results = [
-            self.results_view.model().data(index, Qt.ItemDataRole.UserRole)
-            for index in selected_indexes
-            if index.isValid()
-        ]
+        selected_results = _selected_results(self.results_view)
 
         if not selected_results:
             self.safe_status_message("No item selected for action.")
@@ -340,6 +404,8 @@ class ContextMenuHandlerMixin:
         """Handle Copy Path to Clipboard action."""
         try:
             clipboard = QGuiApplication.clipboard()
+            if clipboard is None:
+                raise RuntimeError("Clipboard is unavailable")
             if len(selected_results) == 1:
                 path_text = str(selected_results[0].path)
             else:
@@ -357,6 +423,8 @@ class ContextMenuHandlerMixin:
         """Handle Copy File to Clipboard action."""
         try:
             clipboard = QGuiApplication.clipboard()
+            if clipboard is None:
+                raise RuntimeError("Clipboard is unavailable")
 
             missing_files = []
             for result in selected_results:
@@ -410,7 +478,7 @@ class ContextMenuHandlerMixin:
         try:
             from filesearch.ui.dialogs.properties_dialog import PropertiesDialog
 
-            dialog = PropertiesDialog(result.path, self)
+            dialog = PropertiesDialog(result.path, self._host_widget())
             dialog.exec()
             logger.info(f"Showed properties dialog for {result.path}")
         except Exception as e:
@@ -438,7 +506,7 @@ class ContextMenuHandlerMixin:
                 title = "Confirm Delete"
 
             reply = QMessageBox.question(
-                self,
+                self._host_widget(),
                 title,
                 message,
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -483,8 +551,8 @@ class ContextMenuHandlerMixin:
     def _remove_result_from_view(self, result: SearchResult) -> None:
         """Remove a result from the view's model."""
         model = self.results_view.model()
-        if hasattr(model, "remove_result"):
-            model.remove_result(result)
+        if isinstance(model, ResultsModel):
+            cast(ResultsModel, model).remove_result(result)
 
     def _handle_context_rename(self, selected_results: List[SearchResult]) -> None:
         """Handle Rename action with inline editing."""

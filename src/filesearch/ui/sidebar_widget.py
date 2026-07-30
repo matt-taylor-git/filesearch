@@ -7,7 +7,7 @@ and disk storage indicator.
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 
-import qtawesome as qta
+import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 from loguru import logger
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -477,6 +477,8 @@ class SidebarWidget(QWidget):
         """Remove and delete all widgets from *layout*."""
         while layout.count():
             item = layout.takeAt(0)
+            if item is None:
+                continue
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
@@ -486,6 +488,8 @@ class SidebarWidget(QWidget):
             elif child_layout is not None:
                 while child_layout.count():
                     nested = child_layout.takeAt(0)
+                    if nested is None:
+                        continue
                     nested_widget = nested.widget()
                     if nested_widget is not None:
                         nested_widget.deleteLater()

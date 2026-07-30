@@ -272,7 +272,7 @@ class PluginDiscovery:
         Returns:
             List of plugin classes found
         """
-        plugins = []
+        plugins: List[type] = []
 
         if not plugin_dir.exists():
             logger.warning(f"Plugin directory does not exist: {plugin_dir}")
@@ -421,7 +421,7 @@ class ExamplePlugin(SearchPlugin):
         """
         # This is a simplified example
         # In a real plugin, you would implement actual search logic
-        results = []
+        results: List[Dict[str, Any]] = []
 
         try:
             # Get search parameters from context

@@ -101,8 +101,8 @@ class DirectorySelectorWidget(QWidget):
         self.directory_input.textChanged.connect(self._on_text_changed)
         self.directory_input.setDragEnabled(True)
         self.directory_input.setAcceptDrops(True)
-        self.directory_input.dragEnterEvent = self.dragEnterEvent
-        self.directory_input.dropEvent = self.dropEvent
+        self.directory_input.dragEnterEvent = self.dragEnterEvent  # type: ignore[method-assign,assignment]  # Qt forwards line-edit drag events to the containing selector.
+        self.directory_input.dropEvent = self.dropEvent  # type: ignore[method-assign]  # Qt forwards line-edit drop events to the containing selector.
         self.directory_input.setContextMenuPolicy(
             Qt.ContextMenuPolicy.CustomContextMenu
         )
@@ -123,21 +123,24 @@ class DirectorySelectorWidget(QWidget):
 
         if not self.recent_directories:
             action = menu.addAction("No recent directories")
-            action.setEnabled(False)
+            if action is not None:
+                action.setEnabled(False)
         else:
             for directory in self.recent_directories:
                 # AC: Display friendly names: /home/user/Documents -> "Documents"
                 path_obj = Path(directory)
                 friendly_name = path_obj.name if path_obj.name else str(path_obj)
                 action = menu.addAction(f"{friendly_name} ({directory})")
-                action.setData(directory)
-                action.triggered.connect(
-                    lambda checked, d=directory: self.set_directory(Path(d))
-                )
+                if action is not None:
+                    action.setData(directory)
+                    action.triggered.connect(
+                        lambda checked, d=directory: self.set_directory(Path(d))
+                    )
 
             menu.addSeparator()
             clear_action = menu.addAction("Clear History")
-            clear_action.triggered.connect(self._clear_recent_history)
+            if clear_action is not None:
+                clear_action.triggered.connect(self._clear_recent_history)
 
         # Show the menu below the button
         menu.exec(
@@ -152,16 +155,19 @@ class DirectorySelectorWidget(QWidget):
                 path_obj = Path(directory)
                 friendly_name = path_obj.name if path_obj.name else str(path_obj)
                 action = menu.addAction(f"{friendly_name} ({directory})")
-                action.setData(directory)
-                action.triggered.connect(
-                    lambda checked, d=directory: self.set_directory(Path(d))
-                )
+                if action is not None:
+                    action.setData(directory)
+                    action.triggered.connect(
+                        lambda checked, d=directory: self.set_directory(Path(d))
+                    )
             menu.addSeparator()
             clear_action = menu.addAction("Clear History")
-            clear_action.triggered.connect(self._clear_recent_history)
+            if clear_action is not None:
+                clear_action.triggered.connect(self._clear_recent_history)
         else:
             action = menu.addAction("No recent directories")
-            action.setEnabled(False)
+            if action is not None:
+                action.setEnabled(False)
         menu.exec(self.directory_input.mapToGlobal(pos))
 
     def _clear_recent_history(self) -> None:
@@ -286,8 +292,7 @@ class DirectorySelectorWidget(QWidget):
         if not text.strip():
             self.directory_input.setToolTip("")
             self.directory_input.setProperty("state", "normal")
-            self.directory_input.style().unpolish(self.directory_input)
-            self.directory_input.style().polish(self.directory_input)
+            self._refresh_input_style()
             self.directory_changed.emit(Path(""))
             return
 
@@ -302,8 +307,7 @@ class DirectorySelectorWidget(QWidget):
                 # Show error state for invalid paths (red border, tooltip)
                 self.directory_input.setToolTip(error_message)
                 self.directory_input.setProperty("state", "error")
-                self.directory_input.style().unpolish(self.directory_input)
-                self.directory_input.style().polish(self.directory_input)
+                self._refresh_input_style()
                 self.directory_changed.emit(
                     normalized_path
                 )  # Emit even on error to allow search engine to handle it
@@ -311,17 +315,22 @@ class DirectorySelectorWidget(QWidget):
                 # Valid path
                 self.directory_input.setToolTip(str(normalized_path))
                 self.directory_input.setProperty("state", "normal")
-                self.directory_input.style().unpolish(self.directory_input)
-                self.directory_input.style().polish(self.directory_input)
+                self._refresh_input_style()
                 self.directory_changed.emit(normalized_path)
 
         except Exception as e:
             logger.error(f"Error during path validation: {e}")
             self.directory_input.setToolTip(f"Internal error: {e}")
             self.directory_input.setProperty("state", "error")
-            self.directory_input.style().unpolish(self.directory_input)
-            self.directory_input.style().polish(self.directory_input)
+            self._refresh_input_style()
             self.directory_changed.emit(Path(text))
+
+    def _refresh_input_style(self) -> None:
+        """Reapply the input's theme after its state property changes."""
+        style = self.directory_input.style()
+        if style is not None:
+            style.unpolish(self.directory_input)
+            style.polish(self.directory_input)
 
     def get_directory(self) -> Path:
         """Get the current directory path as a Path object."""
@@ -342,15 +351,19 @@ class DirectorySelectorWidget(QWidget):
         self.browse_button.setEnabled(not read_only)
         self.recent_button.setEnabled(not read_only)
 
-    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+    def dragEnterEvent(self, event: QDragEnterEvent | None) -> None:
         """Handle drag enter event to accept directory drops."""
-        if event.mimeData().hasUrls():
-            # Check if the drop contains a single directory
-            urls = event.mimeData().urls()
-            if len(urls) == 1 and urls[0].isLocalFile():
-                path = Path(urls[0].toLocalFile())
-                if path.is_dir():
-                    event.acceptProposedAction()
+        if event is None:
+            return
+        mime_data = event.mimeData()
+        if mime_data is None or not mime_data.hasUrls():
+            return
+
+        urls = mime_data.urls()
+        if len(urls) == 1 and urls[0].isLocalFile():
+            path = Path(urls[0].toLocalFile())
+            if path.is_dir():
+                event.acceptProposedAction()
 
     def eventFilter(self, obj, event):
         """Event filter to detect Enter key in directory input."""

@@ -7,7 +7,7 @@ with search input, directory selection, and results display functionality.
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 from PyQt6.QtCore import (  # noqa: F401
@@ -117,8 +117,8 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.search_engine = FileSearchEngine(config_manager=self.config_manager)
         self.search_worker: Optional[SearchWorker] = None
         self.is_searching = False
-        self.search_results = []
-        self.plugin_results = []
+        self.search_results: List[Dict[str, Any]] = []
+        self.plugin_results: List[Dict[str, Any]] = []
         self.current_directory = self._get_startup_directory()
         self.search_start_time = 0.0
         self._active_search_request: Optional[SearchRequest] = None
@@ -208,7 +208,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         results_header = QHBoxLayout()
         results_header.setSpacing(8)
 
-        import qtawesome as qta
+        import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 
         from filesearch.ui.theme import Colors
 
@@ -230,9 +230,7 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self.up_button.setProperty("class", "browse-nav")
         self.up_button.setAccessibleName("Go to parent folder")
         self.up_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.up_button.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed
-        )
+        self.up_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         results_header.addWidget(self.up_button)
 
         self.results_label = QLabel("RESULTS")
@@ -642,13 +640,10 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         if hasattr(self, "up_button"):
             parent = self.current_directory.parent
             can_go_up = (
-                parent != self.current_directory
-                and validate_directory(parent) is None
+                parent != self.current_directory and validate_directory(parent) is None
             )
             up_tooltip = (
-                "Go to parent folder (Alt+Up)"
-                if can_go_up
-                else "No parent folder"
+                "Go to parent folder (Alt+Up)" if can_go_up else "No parent folder"
             )
             self.up_button.setEnabled(can_go_up)
             self.up_button.setToolTip(up_tooltip)
@@ -829,7 +824,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         self._pending_search_request = SearchRequest(directory, query)
         self._request_search_cancel(f"Restarting search in {directory}...")
 
-    def _request_search_cancel(self, status_message: str = "Stopping search...") -> None:
+    def _request_search_cancel(
+        self, status_message: str = "Stopping search..."
+    ) -> None:
         """Request cooperative cancellation for the current worker."""
         if not self.is_searching or not self.search_worker:
             return

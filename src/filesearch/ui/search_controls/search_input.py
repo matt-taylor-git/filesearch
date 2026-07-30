@@ -117,7 +117,7 @@ class SearchInputWidget(QWidget):
 
         # Search icon
         try:
-            import qtawesome as qta
+            import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 
             from filesearch.ui.theme import Colors as _C
 

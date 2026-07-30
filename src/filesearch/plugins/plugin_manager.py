@@ -226,7 +226,7 @@ class PluginManager:
         Returns:
             List of tuples (plugin_class, None) for entry point plugins
         """
-        plugins = []
+        plugins: List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]] = []
         try:
             entry_points = importlib.metadata.entry_points(group="filesearch.plugins")
             for ep in entry_points:
@@ -397,11 +397,11 @@ class PluginManager:
         Returns:
             List of tuples (plugin_class, metadata_dict)
         """
-        plugin_classes = []
+        plugin_classes: List[Type[SearchPlugin]] = []
 
         if not directory.exists():
             logger.debug(f"Plugin directory does not exist: {directory}")
-            return plugin_classes
+            return []
 
         try:
             # Scan for Python files
@@ -450,5 +450,7 @@ class PluginManager:
                 logger.error(f"Error loading metadata from {metadata_path}: {e}")
 
         # Assign metadata to all plugins in this directory
-        result = [(cls, metadata) for cls in plugin_classes]
+        result: List[Tuple[Type[SearchPlugin], Optional[Dict[str, Any]]]] = [
+            (cls, metadata) for cls in plugin_classes
+        ]
         return result

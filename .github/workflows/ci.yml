@@ -40,6 +40,9 @@ jobs:
       run: |
         uv run isort --check-only --profile=black src/ tests/
 
+    - name: Type-check production code
+      run: uv run python -m mypy
+
     - name: Test with pytest
       run: |
         uv run pytest --cov=filesearch --cov-report=xml --cov-report=term-missing

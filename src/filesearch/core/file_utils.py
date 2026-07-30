@@ -59,8 +59,9 @@ def _get_windows_known_folder_path(folder_id: str) -> Path:
     """Resolve a Windows known folder path via SHGetKnownFolderPath."""
     path_ptr = ctypes.c_wchar_p()
     guid = _guid_from_string(folder_id)
-    shell32 = ctypes.windll.shell32
-    ole32 = ctypes.windll.ole32
+    windll = getattr(ctypes, "windll")
+    shell32 = windll.shell32
+    ole32 = windll.ole32
 
     result = shell32.SHGetKnownFolderPath(
         ctypes.byref(guid),
@@ -72,6 +73,8 @@ def _get_windows_known_folder_path(folder_id: str) -> Path:
         raise OSError(f"SHGetKnownFolderPath failed with HRESULT {result}")
 
     try:
+        if path_ptr.value is None:
+            raise OSError("SHGetKnownFolderPath returned an empty path")
         return Path(path_ptr.value)
     finally:
         ole32.CoTaskMemFree(path_ptr)
@@ -151,7 +154,7 @@ def _windows_volume_label(root: Path) -> str:
         max_component = wintypes.DWORD()
         fs_flags = wintypes.DWORD()
         root_path = f"{letter}\\" if not letter.endswith("\\") else letter
-        ok = ctypes.windll.kernel32.GetVolumeInformationW(
+        ok = getattr(ctypes, "windll").kernel32.GetVolumeInformationW(
             root_path,
             volume_name,
             len(volume_name),
@@ -170,7 +173,7 @@ def _windows_volume_label(root: Path) -> str:
 
 def _iter_windows_drive_roots() -> Iterable[Path]:
     """Yield accessible Windows drive roots (``C:\\``, ``D:\\``, ...)."""
-    get_drive_type = ctypes.windll.kernel32.GetDriveTypeW
+    get_drive_type = getattr(ctypes, "windll").kernel32.GetDriveTypeW
     # DRIVE_NO_ROOT_DIR=1, DRIVE_UNKNOWN=0 — skip both
     for letter in string.ascii_uppercase:
         root = Path(f"{letter}:\\")
@@ -203,7 +206,9 @@ def _iter_unix_drive_roots() -> Iterable[Path]:
     if mounts_file.is_file():
         seen_mounts: set[str] = set()
         try:
-            for line in mounts_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+            for line in mounts_file.read_text(
+                encoding="utf-8", errors="ignore"
+            ).splitlines():
                 parts = line.split()
                 if len(parts) < 3:
                     continue
@@ -394,7 +399,7 @@ def get_file_info(path: Union[str, Path]) -> Dict[str, Union[str, int, float, bo
 
         stat = file_path.stat()
 
-        info = {
+        info: Dict[str, Union[str, int, float, bool]] = {
             "path": str(file_path.resolve()),
             "name": file_path.name,
             "size": stat.st_size,
@@ -768,7 +773,7 @@ def get_associated_applications(path: Union[str, Path]) -> List[Dict[str, str]]:
         List of dictionaries containing 'name' and 'command'/'id' for each application.
         Example: [{'name': 'Text Editor', 'id': 'org.gnome.TextEditor.desktop'}]
     """
-    apps = []
+    apps: List[Dict[str, str]] = []
     file_path = Path(path)
     if not file_path.exists():
         return apps

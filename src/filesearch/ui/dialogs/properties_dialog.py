@@ -9,7 +9,7 @@ import math
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 from loguru import logger
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
@@ -90,7 +90,7 @@ class PropertiesDialog(QDialog):
         self.setModal(True)
         self.resize(400, 600)
 
-        self.checksum_worker = None
+        self.checksum_worker: Optional[ChecksumWorker] = None
         self.setup_ui()
         self.load_file_info()
 

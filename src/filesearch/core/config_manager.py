@@ -7,20 +7,25 @@ application configuration using JSON format with cross-platform directory suppor
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 import platformdirs
 from loguru import logger
 
-try:
-    from PyQt6.QtCore import QFileSystemWatcher, QObject
+QT_AVAILABLE: bool
+if TYPE_CHECKING:
+    from PyQt6.QtCore import QFileSystemWatcher
     from PyQt6.QtWidgets import QApplication
+else:
+    try:
+        from PyQt6.QtCore import QFileSystemWatcher
+        from PyQt6.QtWidgets import QApplication
 
-    QT_AVAILABLE = True
-except ImportError:
-    QT_AVAILABLE = False
-    QFileSystemWatcher = None
-    QObject = object
+        QT_AVAILABLE = True
+    except ImportError:
+        QT_AVAILABLE = False
+        QFileSystemWatcher = None
+        QApplication = None
 
 from filesearch.core.exceptions import ConfigError
 

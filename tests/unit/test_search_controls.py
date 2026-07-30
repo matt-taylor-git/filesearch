@@ -10,7 +10,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import QMimeData, QPoint, Qt, QTimer, QUrl
+from PyQt6.QtGui import QDragEnterEvent
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
@@ -377,10 +378,27 @@ class TestDirectorySelectorWidget:
             == "Enter directory path or browse..."
         )
         assert widget.browse_button.text() == "Browse..."
-
         # Check default directory is set (using os.path.expanduser in implementation)
         assert Path(widget.directory_input.text()) == Path.home().resolve()
         # Note: recent_directories may be loaded from config, so we don't assert empty
+
+    def test_directory_input_accepts_a_single_local_directory_drop(
+        self, widget, tmp_path
+    ):
+        """Directory drops forwarded by the line edit are accepted."""
+        mime_data = QMimeData()
+        mime_data.setUrls([QUrl.fromLocalFile(str(tmp_path))])
+        event = QDragEnterEvent(
+            QPoint(0, 0),
+            Qt.DropAction.CopyAction,
+            mime_data,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+
+        widget.directory_input.dragEnterEvent(event)
+
+        assert event.isAccepted()
 
     def test_directory_changed_signal(self, widget, qtbot):
         """Test directory_changed signal emits correct Path object."""
@@ -536,6 +554,10 @@ class TestSearchControlWidget:
         """Test widget initializes correctly."""
         assert widget.get_state() == SearchState.IDLE
         assert widget.search_button.text() == "Search"
+
+    def test_widget_is_not_a_directory_drop_target(self, widget):
+        """Directory selection belongs to DirectorySelectorWidget."""
+        assert not widget.acceptDrops()
         assert widget.size() == widget.minimumSize()
 
     def test_initial_state_with_empty_query(self, widget):

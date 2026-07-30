@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Dict
 
-import qtawesome as qta
+import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 from PyQt6.QtCore import QModelIndex, QRect, QSize, Qt
 from PyQt6.QtGui import QColor, QFont, QPixmap
 from PyQt6.QtWidgets import QStyle, QStyledItemDelegate

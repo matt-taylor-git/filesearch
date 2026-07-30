@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import qtawesome as qta
+import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 from loguru import logger
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (

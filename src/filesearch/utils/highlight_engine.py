@@ -20,7 +20,7 @@ class HighlightEngine:
             max_cache_size: Max entries in highlight cache (default: 10000)
         """
         self._pattern_cache: Dict[str, re.Pattern] = {}
-        self._highlight_cache: Dict[Tuple[str, str], List[Tuple[int, int]]] = {}
+        self._highlight_cache: Dict[Tuple[str, str, str], List[Tuple[int, int]]] = {}
         self.max_cache_size = max_cache_size
 
     def _escape_regex(self, text: str) -> str:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import qtawesome as qta
+import qtawesome as qta  # type: ignore[import-untyped]  # qtawesome has no typing metadata.
 from loguru import logger
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
@@ -379,6 +379,8 @@ class StorageTabWidget(QWidget):
         """Rebuild breadcrumb buttons for the current node."""
         while self._breadcrumb_layout.count():
             item = self._breadcrumb_layout.takeAt(0)
+            if item is None:
+                continue
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
@@ -408,7 +410,7 @@ class StorageTabWidget(QWidget):
             return
 
         path_chain = []
-        current_path = self._current_node.path
+        current_path: Path | None = self._current_node.path
         while current_path is not None:
             path_chain.append(current_path)
             current_path = self._parent_index.get(current_path)
@@ -477,8 +479,10 @@ class StorageTabWidget(QWidget):
     def _set_placeholder(self, message: str, css_class: str) -> None:
         """Show the placeholder page with a themed message."""
         self._placeholder.setProperty("class", css_class)
-        self._placeholder.style().unpolish(self._placeholder)
-        self._placeholder.style().polish(self._placeholder)
+        style = self._placeholder.style()
+        if style is not None:
+            style.unpolish(self._placeholder)
+            style.polish(self._placeholder)
         self._placeholder.setText(message)
         self._treemap_stack.setCurrentWidget(self._placeholder)
 

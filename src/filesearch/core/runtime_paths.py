@@ -21,7 +21,7 @@ def get_resource_path(*parts: str) -> Path:
     if hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS) / "filesearch" / Path(*parts)
 
-    return Path(resources.files("filesearch").joinpath(*parts))
+    return Path(str(resources.files("filesearch").joinpath(*parts)))
 
 
 def get_app_icon_path() -> Path:

@@ -174,9 +174,12 @@ def main() -> int:
         try:
             from PyQt6.QtWidgets import QApplication, QMessageBox
 
-            app = QApplication.instance()
-            if app is None:
-                app = QApplication(sys.argv)
+            app_instance = QApplication.instance()
+            app = (
+                app_instance
+                if isinstance(app_instance, QApplication)
+                else QApplication(sys.argv)
+            )
 
             QMessageBox.critical(
                 None,

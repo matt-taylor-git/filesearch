@@ -35,7 +35,8 @@ class ResultsView(QListView):
         self.customContextMenuRequested.connect(self._on_custom_context_menu_requested)
 
         # Delegate
-        self.setItemDelegate(ResultsItemDelegate(self))
+        delegate = ResultsItemDelegate(self)
+        self.setItemDelegate(delegate)
 
         # View settings
         self.setMinimumHeight(200)  # Minimum 10 items at ~20px each
@@ -68,7 +69,13 @@ class ResultsView(QListView):
         self._is_searching = False
 
         # Store reference to delegate for highlighting
-        self._delegate = self.itemDelegate()
+        self._delegate: ResultsItemDelegate = delegate
+
+    def _update_viewport(self) -> None:
+        """Repaint the viewport when Qt has created it."""
+        viewport = self.viewport()
+        if viewport is not None:
+            viewport.update()
 
     def _on_custom_context_menu_requested(self, pos: QPoint) -> None:
         """Handles the custom context menu request by emitting a signal with the global
@@ -82,25 +89,25 @@ class ResultsView(QListView):
         if self._delegate:
             self._delegate.set_query(query)
         # Trigger repaint to apply highlighting
-        self.viewport().update()
+        self._update_viewport()
 
     def set_highlight_enabled(self, enabled: bool):
         """Enable or disable highlighting"""
         if self._delegate:
             self._delegate.set_highlight_enabled(enabled)
-        self.viewport().update()
+        self._update_viewport()
 
     def set_highlight_color(self, color: str):
         """Set the highlight color (HTML hex code like #FFFF99)"""
         if self._delegate:
             self._delegate.set_highlight_color(color)
-        self.viewport().update()
+        self._update_viewport()
 
     def set_highlight_style(self, style: str):
         """Set the highlight style ('background', 'outline', or 'underline')"""
         if self._delegate:
             self._delegate.set_highlight_style(style)
-        self.viewport().update()
+        self._update_viewport()
 
     def _show_empty_state(self, message: str):
         """Show empty state message"""
@@ -165,7 +172,7 @@ class ResultsView(QListView):
             # Clear the searching state when first result arrives
             self.set_search_active(False)
             # Force viewport update to show the new model
-            self.viewport().update()
+            self._update_viewport()
         # Maintain scroll position when adding results
         scroll_bar = self.verticalScrollBar()
         vertical_scroll = scroll_bar.value() if scroll_bar else 0
@@ -381,7 +388,7 @@ class ResultsView(QListView):
         """
         original_selection = self.selectedIndexes()
         self.setCurrentIndex(index)
-        self.viewport().update()
+        self._update_viewport()
 
         from PyQt6.QtCore import QTimer
 
