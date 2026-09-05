@@ -13,11 +13,7 @@ from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
     DriveUsage,
     get_associated_applications,
-    get_file_info,
-    get_file_modified_time,
-    get_file_size,
     get_user_folder,
-    is_directory,
     list_directory_entries,
     list_drive_usage,
     normalize_path,
@@ -136,75 +132,6 @@ class TestAssociatedApplications:
             pytest.raises(FileSearchError, match="command is unavailable"),
         ):
             open_with_application(file_path, {"command": "missing-editor"})
-
-
-class TestGetFileInfo:
-    """Test cases for get_file_info function."""
-
-    @pytest.fixture
-    def temp_file(self):
-        """Create a temporary file for testing."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-            f.write("test content")
-            temp_path = Path(f.name)
-
-        yield temp_path
-
-        # Cleanup
-        if temp_path.exists():
-            temp_path.unlink()
-
-    @pytest.fixture
-    def temp_dir(self):
-        """Create a temporary directory for testing."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            yield Path(tmpdir)
-
-    def test_get_file_info_for_file(self, temp_file):
-        """Test getting file info for a regular file."""
-        info = get_file_info(temp_file)
-
-        assert info["path"] == str(temp_file.resolve())
-        assert info["name"] == temp_file.name
-        assert info["size"] == len("test content")
-        assert isinstance(info["modified"], float)
-        assert info["type"] == ".txt"
-        assert info["is_directory"] is False
-
-    def test_get_file_info_for_directory(self, tmpdir):
-        """Test getting file info for a directory."""
-        info = get_file_info(Path(tmpdir))
-
-        assert info["path"] == str(Path(tmpdir).resolve())
-        assert info["name"] == Path(tmpdir).name
-        assert int(info["size"]) >= 0  # Directory size varies by OS
-        assert isinstance(info["modified"], float)
-        assert info["type"] == "directory"
-        assert info["is_directory"] is True
-
-    def test_get_file_info_nonexistent_path(self):
-        """Test getting file info for non-existent path."""
-        with pytest.raises(FileSearchError, match="File does not exist"):
-            get_file_info("/nonexistent/path/file.txt")
-
-    def test_get_file_info_with_string_path(self, temp_file):
-        """Test getting file info with string path."""
-        info = get_file_info(str(temp_file))
-
-        assert info["path"] == str(temp_file.resolve())
-        assert info["name"] == temp_file.name
-
-    def test_get_file_info_unicode_filename(self):
-        """Test getting file info for file with Unicode name."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            unicode_file = Path(tmpdir) / "测试文件.txt"
-            unicode_file.write_text("Unicode content")
-
-            info = get_file_info(unicode_file)
-
-            assert info["name"] == "测试文件.txt"
-            assert info["type"] == ".txt"
-            assert info["is_directory"] is False
 
 
 class TestListDirectoryEntries:
@@ -520,54 +447,6 @@ class TestRevealFileInFolder:
             )
 
 
-class TestConvenienceFunctions:
-    """Test cases for convenience functions."""
-
-    @pytest.fixture
-    def temp_file(self):
-        """Create a temporary file for testing."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-            f.write("test content for convenience functions")
-            temp_path = Path(f.name)
-
-        yield temp_path
-
-        # Cleanup
-        if temp_path.exists():
-            temp_path.unlink()
-
-    def test_get_file_size(self, temp_file):
-        """Test getting file size."""
-        size = get_file_size(temp_file)
-        expected_size = len("test content for convenience functions")
-        assert size == expected_size
-
-    def test_get_file_modified_time(self, temp_file):
-        """Test getting file modification time."""
-        modified_time = get_file_modified_time(temp_file)
-        assert isinstance(modified_time, float)
-        assert modified_time > 0
-
-    def test_is_directory_with_file(self, temp_file):
-        """Test checking if path is directory (file case)."""
-        assert is_directory(temp_file) is False
-
-    def test_is_directory_with_directory(self, tmpdir):
-        """Test checking if path is directory (directory case)."""
-        assert is_directory(Path(tmpdir)) is True
-
-    def test_convenience_functions_error_handling(self):
-        """Test that convenience functions handle errors properly."""
-        with pytest.raises(FileSearchError):
-            get_file_size("/nonexistent/file.txt")
-
-        with pytest.raises(FileSearchError):
-            get_file_modified_time("/nonexistent/file.txt")
-
-        with pytest.raises(FileSearchError):
-            is_directory("/nonexistent/path")
-
-
 class TestPathNormalizationAndValidation:
     """Test cases for normalize_path and validate_directory functions."""
 
@@ -633,7 +512,7 @@ class TestPathNormalizationAndValidation:
         # pathlib.Path handles network paths cross-platform
         assert isinstance(normalized, Path)
         # Should normalize without error
-        assert str(normalized).endswith("server/share/folder")
+        assert normalized.as_posix().endswith("server/share/folder")
 
     # --- validate_directory tests ---
 

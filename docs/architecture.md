@@ -1,5 +1,10 @@
 # File Search - Architecture
 
+> Current search implementation: `SearchWorker` runs recursive traversal on one
+> Qt background thread. The redundant single-job `ThreadPoolExecutor` and its
+> thread-count setting have been removed. Thread-pool references in the historical
+> design sections below describe the earlier plan, not the current runtime.
+
 ## Executive Summary
 
 File Search is a cross-platform desktop application built with PyQt6 that provides fast, multi-threaded file and folder search with an extensible plugin architecture. The architecture emphasizes performance (sub-2-second searches), user experience (native platform integration), and extensibility (plugin system for future features like folder visualization).

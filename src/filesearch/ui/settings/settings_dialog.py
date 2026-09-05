@@ -11,7 +11,6 @@ from filesearch.core.application_runtime import DesktopEffects
 from filesearch.core.config_manager import ConfigManager
 from filesearch.plugins.plugin_manager import PluginManager
 from filesearch.ui.settings.highlight_tab import HighlightSettingsTab
-from filesearch.ui.settings.performance_tab import PerformanceSettingsTab
 from filesearch.ui.settings.plugin_tab import PluginSettingsTab
 from filesearch.ui.settings.search_tab import SearchSettingsTab
 from filesearch.ui.settings.ui_tab import UISettingsTab
@@ -23,7 +22,6 @@ class SettingsDialog(QDialog):
     This class implements a tabbed interface for configuring:
     - Search preferences (directories, case sensitivity, file exclusions)
     - UI preferences (window geometry, font size, display options)
-    - Performance settings (thread count, caching)
     - Highlighting preferences (color, style, enable/disable)
     - Plugin management (enable, disable, configure)
 
@@ -62,33 +60,6 @@ class SettingsDialog(QDialog):
 
         logger.debug("SettingsDialog initialized")
 
-    def __getattr__(self, name: str) -> object:
-        """Delegate attribute lookups to tab widgets for backward compatibility.
-
-        This allows code like ``dialog.default_dir_input`` to resolve to
-        ``dialog.search_tab.default_dir_input`` transparently.
-        """
-        # Avoid infinite recursion during init (before tabs are created)
-        tabs = (
-            "search_tab",
-            "ui_tab",
-            "performance_tab",
-            "highlight_tab",
-            "plugin_tab",
-        )
-        for tab_name in tabs:
-            try:
-                tab = object.__getattribute__(self, tab_name)
-            except AttributeError:
-                continue
-            try:
-                return getattr(tab, name)
-            except AttributeError:
-                continue
-        raise AttributeError(
-            f"'{type(self).__name__}' object has no attribute '{name}'"
-        )
-
     def setup_ui(self) -> None:
         """Setup the user interface."""
         main_layout = QVBoxLayout()
@@ -104,13 +75,11 @@ class SettingsDialog(QDialog):
             home_dir=self.config_manager.home_dir,
         )
         self.ui_tab = UISettingsTab()
-        self.performance_tab = PerformanceSettingsTab()
         self.highlight_tab = HighlightSettingsTab(desktop_effects=self.desktop_effects)
 
         # Add tabs to widget
         self.tabs.addTab(self.search_tab, "Search")
         self.tabs.addTab(self.ui_tab, "UI")
-        self.tabs.addTab(self.performance_tab, "Performance")
         self.tabs.addTab(self.highlight_tab, "Highlighting")
 
         if self.plugin_manager:
@@ -142,7 +111,6 @@ class SettingsDialog(QDialog):
         try:
             self.search_tab.load_settings(self.config_manager)
             self.ui_tab.load_settings(self.config_manager)
-            self.performance_tab.load_settings(self.config_manager)
             self.highlight_tab.load_settings(self.config_manager)
 
             if self.plugin_manager:
@@ -161,7 +129,6 @@ class SettingsDialog(QDialog):
         try:
             self.search_tab.save_settings(self.config_manager)
             self.ui_tab.save_settings(self.config_manager)
-            self.performance_tab.save_settings(self.config_manager)
             self.highlight_tab.save_settings(self.config_manager)
 
             # Save configuration

@@ -1,14 +1,12 @@
 """Unit tests for the settings dialog module."""
 
-import json  # noqa: F401
-from unittest.mock import MagicMock, Mock, patch  # noqa: F401
+from unittest.mock import patch
 
 import pytest
 from PyQt6.QtWidgets import QApplication
 
 from filesearch.core.config_manager import ConfigManager
-from filesearch.core.exceptions import ConfigError  # noqa: F401
-from filesearch.ui.settings_dialog import SettingsDialog
+from filesearch.ui.settings import SettingsDialog
 
 
 @pytest.fixture(scope="module")
@@ -49,72 +47,35 @@ class TestSettingsDialog:
         """Test dialog initialization."""
         assert settings_dialog.config_manager == config_manager
         assert settings_dialog.windowTitle() == "Settings"
-        assert (
-            settings_dialog.tabs.count() == 4
-        )  # Search, UI, Performance, Highlighting
-
-    def test_search_tab_ui(self, settings_dialog):
-        """Test search tab UI components."""
-        # Check that all expected widgets exist
-        assert settings_dialog.default_dir_input is not None
-        assert settings_dialog.default_dir_browse is not None
-        assert settings_dialog.case_sensitive_check is not None
-        assert settings_dialog.include_hidden_check is not None
-        assert settings_dialog.max_results_spin is not None
-        assert settings_dialog.exclude_list is not None
-        assert settings_dialog.new_ext_input is not None
-        assert settings_dialog.add_ext_button is not None
-        assert settings_dialog.remove_ext_button is not None
+        assert [
+            settings_dialog.tabs.tabText(i) for i in range(settings_dialog.tabs.count())
+        ] == ["Search", "UI", "Highlighting"]
 
     def test_empty_default_directory_browse_uses_runtime_home(
         self, settings_dialog, config_manager
     ):
         """The folder picker starts from the composed home directory."""
-        settings_dialog.default_dir_input.clear()
+        settings_dialog.search_tab.default_dir_input.clear()
 
-        settings_dialog.browse_default_directory()
+        settings_dialog.search_tab.browse_default_directory()
 
         assert settings_dialog.desktop_effects.directory_requests[-1] == (
             config_manager.home_dir,
             "Select Default Search Directory",
         )
 
-    def test_ui_tab_ui(self, settings_dialog):
-        """Test UI tab UI components."""
-        # Check that all expected widgets exist
-        assert settings_dialog.window_x_spin is not None
-        assert settings_dialog.window_y_spin is not None
-        assert settings_dialog.window_width_spin is not None
-        assert settings_dialog.window_height_spin is not None
-        assert settings_dialog.result_font_size_spin is not None
-        assert settings_dialog.show_file_icons_check is not None
-        assert settings_dialog.auto_expand_results_check is not None
-
-    def test_performance_tab_ui(self, settings_dialog):
-        """Test performance tab UI components."""
-        # Check that all expected widgets exist
-        assert settings_dialog.thread_count_spin is not None
-        assert settings_dialog.enable_cache_check is not None
-        assert settings_dialog.cache_ttl_spin is not None
-
     def test_consequence_heavy_settings_have_guidance(self, settings_dialog):
         """Settings with non-obvious effects explain what they change."""
-        assert settings_dialog.default_dir_input.toolTip() == (
-            settings_dialog.default_dir_input.text()
+        assert settings_dialog.search_tab.default_dir_input.toolTip() == (
+            settings_dialog.search_tab.default_dir_input.text()
         )
-        assert settings_dialog.max_results_spin.toolTip() == (
+        assert settings_dialog.search_tab.max_results_spin.toolTip() == (
             "Limit each search to this many results"
         )
-        assert settings_dialog.auto_expand_results_check.toolTip() == (
+        assert settings_dialog.ui_tab.auto_expand_results_check.toolTip() == (
             "Automatically expand the results view"
         )
-        assert settings_dialog.thread_count_spin.toolTip() == (
-            "Maximum worker threads used by a search"
-        )
-        assert settings_dialog.cache_ttl_spin.toolTip() == (
-            "How long cached search results remain valid"
-        )
-        assert settings_dialog.highlight_color_input.toolTip() == (
+        assert settings_dialog.highlight_tab.highlight_color_input.toolTip() == (
             "Hex color used for matching text"
         )
 
@@ -134,15 +95,15 @@ class TestSettingsDialog:
         settings_dialog.load_settings()
 
         # Verify values loaded correctly
-        assert settings_dialog.default_dir_input.text() == test_dir
-        assert settings_dialog.case_sensitive_check.isChecked() is True
-        assert settings_dialog.include_hidden_check.isChecked() is True
-        assert settings_dialog.max_results_spin.value() == 500
+        assert settings_dialog.search_tab.default_dir_input.text() == test_dir
+        assert settings_dialog.search_tab.case_sensitive_check.isChecked() is True
+        assert settings_dialog.search_tab.include_hidden_check.isChecked() is True
+        assert settings_dialog.search_tab.max_results_spin.value() == 500
 
         # Check extensions list
         extensions = []
-        for i in range(settings_dialog.exclude_list.count()):
-            extensions.append(settings_dialog.exclude_list.item(i).text())
+        for i in range(settings_dialog.search_tab.exclude_list.count()):
+            extensions.append(settings_dialog.search_tab.exclude_list.item(i).text())
         assert ".tmp" in extensions
         assert ".log" in extensions
 
@@ -159,42 +120,25 @@ class TestSettingsDialog:
         settings_dialog.load_settings()
 
         # Verify values loaded correctly
-        assert settings_dialog.window_x_spin.value() == 50
-        assert settings_dialog.window_y_spin.value() == 60
-        assert settings_dialog.window_width_spin.value() == 1024
-        assert settings_dialog.window_height_spin.value() == 768
-        assert settings_dialog.result_font_size_spin.value() == 14
-        assert settings_dialog.show_file_icons_check.isChecked() is False
-        assert settings_dialog.auto_expand_results_check.isChecked() is True
-
-    def test_load_settings_performance_settings(self, settings_dialog, config_manager):
-        """Test loading performance settings."""
-        # Set some test values
-        config_manager.set("performance_settings.search_thread_count", 8)
-        config_manager.set("performance_settings.enable_search_cache", True)
-        config_manager.set("performance_settings.cache_ttl_minutes", 60)
-
-        # Reload settings
-        settings_dialog.load_settings()
-
-        # Verify values loaded correctly
-        assert settings_dialog.thread_count_spin.value() == 8
-        assert settings_dialog.enable_cache_check.isChecked() is True
-        assert settings_dialog.cache_ttl_spin.value() == 60
-        assert settings_dialog.cache_ttl_spin.isEnabled() is True
+        assert settings_dialog.ui_tab.window_x_spin.value() == 50
+        assert settings_dialog.ui_tab.window_y_spin.value() == 60
+        assert settings_dialog.ui_tab.window_width_spin.value() == 1024
+        assert settings_dialog.ui_tab.window_height_spin.value() == 768
+        assert settings_dialog.ui_tab.result_font_size_spin.value() == 14
+        assert settings_dialog.ui_tab.show_file_icons_check.isChecked() is False
+        assert settings_dialog.ui_tab.auto_expand_results_check.isChecked() is True
 
     def test_save_settings(self, settings_dialog, config_manager, temp_config_dir):
         """Test saving settings."""
         # Set some values in the UI
-        settings_dialog.default_dir_input.setText("/new/test/dir")
-        settings_dialog.case_sensitive_check.setChecked(True)
-        settings_dialog.max_results_spin.setValue(2000)
-        settings_dialog.result_font_size_spin.setValue(16)
-        settings_dialog.thread_count_spin.setValue(6)
+        settings_dialog.search_tab.default_dir_input.setText("/new/test/dir")
+        settings_dialog.search_tab.case_sensitive_check.setChecked(True)
+        settings_dialog.search_tab.max_results_spin.setValue(2000)
+        settings_dialog.ui_tab.result_font_size_spin.setValue(16)
 
         # Add an extension
-        settings_dialog.new_ext_input.setText(".test")
-        settings_dialog.add_extension()
+        settings_dialog.search_tab.new_ext_input.setText(".test")
+        settings_dialog.search_tab.add_extension()
 
         # Save settings
         settings_dialog.save_settings()
@@ -207,7 +151,6 @@ class TestSettingsDialog:
         assert config_manager.get("search_preferences.case_sensitive_search") is True
         assert config_manager.get("search_preferences.max_search_results") == 2000
         assert config_manager.get("ui_preferences.result_font_size") == 16
-        assert config_manager.get("performance_settings.search_thread_count") == 6
 
         # Check extension was saved
         extensions = config_manager.get("search_preferences.file_extensions_to_exclude")
@@ -216,81 +159,66 @@ class TestSettingsDialog:
     def test_add_extension(self, settings_dialog):
         """Test adding file extension to exclude list."""
         # Clear existing items first to avoid duplicates with defaults
-        settings_dialog.exclude_list.clear()
+        settings_dialog.search_tab.exclude_list.clear()
 
         # Add extension with dot
-        settings_dialog.new_ext_input.setText(".txt")
-        settings_dialog.add_extension()
+        settings_dialog.search_tab.new_ext_input.setText(".txt")
+        settings_dialog.search_tab.add_extension()
 
         # Check it was added
         items = []
-        for i in range(settings_dialog.exclude_list.count()):
-            items.append(settings_dialog.exclude_list.item(i).text())
+        for i in range(settings_dialog.search_tab.exclude_list.count()):
+            items.append(settings_dialog.search_tab.exclude_list.item(i).text())
         assert ".txt" in items
 
         # Add extension without dot
-        settings_dialog.new_ext_input.setText("log")
-        settings_dialog.add_extension()
+        settings_dialog.search_tab.new_ext_input.setText("log")
+        settings_dialog.search_tab.add_extension()
 
         # Check dot was added automatically
         items = []
-        for i in range(settings_dialog.exclude_list.count()):
-            items.append(settings_dialog.exclude_list.item(i).text())
+        for i in range(settings_dialog.search_tab.exclude_list.count()):
+            items.append(settings_dialog.search_tab.exclude_list.item(i).text())
         assert ".log" in items
 
         # Clear input - this should be empty after adding extension
-        assert settings_dialog.new_ext_input.text() == ""
+        assert settings_dialog.search_tab.new_ext_input.text() == ""
 
     def test_add_duplicate_extension(self, settings_dialog):
         """Test adding duplicate extension shows warning."""
         # Clear existing items first to avoid duplicates with defaults
-        settings_dialog.exclude_list.clear()
+        settings_dialog.search_tab.exclude_list.clear()
 
         # Add extension first time
-        settings_dialog.new_ext_input.setText(".tmp")
-        settings_dialog.add_extension()
+        settings_dialog.search_tab.new_ext_input.setText(".tmp")
+        settings_dialog.search_tab.add_extension()
 
         # Try to add duplicate
-        settings_dialog.new_ext_input.setText(".tmp")
-        settings_dialog.add_extension()
+        settings_dialog.search_tab.new_ext_input.setText(".tmp")
+        settings_dialog.search_tab.add_extension()
         assert settings_dialog.desktop_effects.warnings[-1][0] == "Duplicate Extension"
 
     def test_remove_extension(self, settings_dialog):
         """Test removing extension from exclude list."""
         # Clear existing items first to avoid duplicates with defaults
-        settings_dialog.exclude_list.clear()
+        settings_dialog.search_tab.exclude_list.clear()
 
         # Add some extensions
-        settings_dialog.exclude_list.addItem(".tmp")
-        settings_dialog.exclude_list.addItem(".log")
-        settings_dialog.exclude_list.addItem(".swp")
+        settings_dialog.search_tab.exclude_list.addItem(".tmp")
+        settings_dialog.search_tab.exclude_list.addItem(".log")
+        settings_dialog.search_tab.exclude_list.addItem(".swp")
 
         # Select and remove middle item
-        settings_dialog.exclude_list.setCurrentRow(1)
-        settings_dialog.remove_extension()
+        settings_dialog.search_tab.exclude_list.setCurrentRow(1)
+        settings_dialog.search_tab.remove_extension()
 
         # Check it was removed
         items = []
-        for i in range(settings_dialog.exclude_list.count()):
-            items.append(settings_dialog.exclude_list.item(i).text())
+        for i in range(settings_dialog.search_tab.exclude_list.count()):
+            items.append(settings_dialog.search_tab.exclude_list.item(i).text())
         assert ".tmp" in items
         assert ".log" not in items
         assert ".swp" in items
-
-    def test_cache_toggle(self, settings_dialog):
-        """Test cache enable/disable toggle."""
-        # Initially disabled
-        assert settings_dialog.cache_ttl_spin.isEnabled() is False
-
-        # Enable cache
-        settings_dialog.enable_cache_check.setChecked(True)
-        settings_dialog.on_cache_toggled(True)
-        assert settings_dialog.cache_ttl_spin.isEnabled() is True
-
-        # Disable cache
-        settings_dialog.enable_cache_check.setChecked(False)
-        settings_dialog.on_cache_toggled(False)
-        assert settings_dialog.cache_ttl_spin.isEnabled() is False
 
     def test_reset_to_defaults(self, settings_dialog, config_manager):
         """Test reset to defaults functionality."""
@@ -396,8 +324,8 @@ class TestSettingsDialogIntegration:
 
         # Create dialog and modify settings
         dialog = SettingsDialog(config_manager, desktop_effects=desktop_effects)
-        dialog.max_results_spin.setValue(2500)
-        dialog.result_font_size_spin.setValue(18)
+        dialog.search_tab.max_results_spin.setValue(2500)
+        dialog.ui_tab.result_font_size_spin.setValue(18)
         dialog.accept()  # This should save
 
         # Create new config manager (simulating app restart)
@@ -428,7 +356,7 @@ class TestSettingsDialogIntegration:
 
         # Create dialog and modify settings
         dialog = SettingsDialog(config_manager, desktop_effects=desktop_effects)
-        dialog.max_results_spin.setValue(3000)
+        dialog.search_tab.max_results_spin.setValue(3000)
         dialog.reject()  # This should NOT save
 
         # Create new config manager (simulating app restart)

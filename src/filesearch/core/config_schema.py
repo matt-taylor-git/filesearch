@@ -24,10 +24,5 @@ CONFIG_SCHEMA = {
         "case_sensitive": False,
         "style": "background",
     },
-    "performance": {
-        "search_thread_count": 4,
-        "enable_search_cache": False,
-        "cache_ttl_minutes": 30,
-    },
     "plugins": {"enabled": []},
 }

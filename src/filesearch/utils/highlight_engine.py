@@ -22,18 +22,6 @@ class HighlightEngine:
         self._highlight_cache: dict[tuple[str, str, str], list[tuple[int, int]]] = {}
         self.max_cache_size = max_cache_size
 
-    def _escape_regex(self, text: str) -> str:
-        """
-        Escape regex metacharacters in search query
-
-        Args:
-            text: The text to escape
-
-        Returns:
-            Escaped text safe for regex use
-        """
-        return re.escape(text)
-
     def _convert_wildcards(self, query: str) -> str:
         """
         Convert wildcard patterns to regex patterns

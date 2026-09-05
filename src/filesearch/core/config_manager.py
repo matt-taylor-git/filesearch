@@ -5,7 +5,6 @@ application configuration using JSON format with cross-platform directory suppor
 """
 
 import json
-import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -98,11 +97,6 @@ class ConfigManager:
                 "enabled": True,
                 "color": "#FFFF99",
                 "case_sensitive": False,
-            },
-            "performance_settings": {
-                "search_thread_count": os.cpu_count() or 4,
-                "enable_search_cache": False,
-                "cache_ttl_minutes": 30,
             },
             "config_version": "1.0",
             "plugins": {"enabled": [], "disabled": []},
@@ -338,7 +332,6 @@ class ConfigManager:
             required_sections = [
                 "search_preferences",
                 "ui_preferences",
-                "performance_settings",
             ]
             for section in required_sections:
                 if section not in self._config:
@@ -406,35 +399,6 @@ class ConfigManager:
             if not isinstance(window_geom.get("height"), int):
                 raise ConfigError(
                     "ui_preferences.window_geometry.height must be an integer"
-                )
-
-            # Validate performance_settings section
-            perf_settings = self._config.get("performance_settings", {})
-            if not isinstance(perf_settings.get("search_thread_count"), int):
-                raise ConfigError(
-                    "performance_settings.search_thread_count must be an integer"
-                )
-
-            thread_count = perf_settings.get("search_thread_count", 4)
-            if thread_count < 1 or thread_count > 32:
-                raise ConfigError(
-                    "performance_settings.search_thread_count must be between 1 and 32"
-                )
-
-            if not isinstance(perf_settings.get("enable_search_cache"), bool):
-                raise ConfigError(
-                    "performance_settings.enable_search_cache must be a boolean"
-                )
-
-            if not isinstance(perf_settings.get("cache_ttl_minutes"), int):
-                raise ConfigError(
-                    "performance_settings.cache_ttl_minutes must be an integer"
-                )
-
-            cache_ttl = perf_settings.get("cache_ttl_minutes", 30)
-            if cache_ttl < 1 or cache_ttl > 1440:  # Max 24 hours
-                raise ConfigError(
-                    "performance_settings.cache_ttl_minutes must be between 1 and 1440"
                 )
 
             logger.debug("Configuration validation passed")

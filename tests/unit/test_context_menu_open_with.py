@@ -89,7 +89,7 @@ class TestOpenWithMenu:
         window._handle_choose_application(search_result)
 
         # Verify handle_open_with_app was called with correct info
-        expected_app_info = {"name": "gedit", "command": "/usr/bin/gedit"}
+        expected_app_info = {"name": "gedit", "command": str(Path("/usr/bin/gedit"))}
         window._handle_open_with_app.assert_called_once_with(
             expected_app_info, search_result
         )

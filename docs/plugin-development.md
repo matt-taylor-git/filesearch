@@ -13,6 +13,12 @@ The File Search application supports a plugin architecture that allows extending
 - **Discovery Mechanisms**: Directory scanning, Python entry points, and user-defined locations
 - **Configuration System**: Plugin-specific settings integrated with main config
 
+For a working example, see `src/filesearch/plugins/builtin/example_plugin.py`,
+which searches recent files. `PluginManager` owns discovery and loading;
+`PluginDiscovery.is_valid_plugin()` validates classes. The former placeholder
+discovery/loader helpers and size-filter example in `plugin_base.py` have been
+removed.
+
 ### Plugin Types
 
 1. **Search Plugins**: Extend search functionality (e.g., recent files, cloud storage)

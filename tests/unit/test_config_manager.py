@@ -64,7 +64,7 @@ class TestConfigManager:
 
         assert "search_preferences" in config_data
         assert "ui_preferences" in config_data
-        assert "performance_settings" in config_data
+        assert "performance_settings" not in config_data
         assert "plugins" in config_data
         assert "recent" in config_data
         assert "config_version" in config_data
@@ -139,8 +139,23 @@ class TestConfigManager:
         assert manager.get("search_preferences.max_search_results") == 500
 
         # Should have default values for missing keys
-        assert manager.get("performance_settings.search_thread_count") is not None
         assert manager.get("ui_preferences.show_file_icons") is True
+
+    def test_legacy_performance_settings_do_not_block_loading(self, config_manager):
+        """Obsolete performance values survive a save without being validated."""
+        legacy = {
+            "search_thread_count": 64,
+            "enable_search_cache": True,
+            "cache_ttl_minutes": 60,
+        }
+        config_manager.set("performance_settings", legacy)
+        config_manager.set("search_preferences.max_search_results", 500)
+        config_manager.save()
+
+        reloaded = ConfigManager(runtime=config_manager.runtime, watch_config=False)
+
+        assert reloaded.get("search_preferences.max_search_results") == 500
+        assert reloaded.get("performance_settings") == legacy
 
     def test_load_invalid_json(self, temp_config_dir, application_runtime):
         """Test loading invalid JSON configuration."""
@@ -271,31 +286,6 @@ class TestConfigManager:
                 "ui_preferences.window_geometry.height",
                 "600",
                 "geometry.height must be an integer",
-            ),
-            (
-                "performance_settings.search_thread_count",
-                "4",
-                "search_thread_count must be an integer",
-            ),
-            (
-                "performance_settings.search_thread_count",
-                0,
-                "search_thread_count must be between",
-            ),
-            (
-                "performance_settings.enable_search_cache",
-                1,
-                "enable_search_cache must be a boolean",
-            ),
-            (
-                "performance_settings.cache_ttl_minutes",
-                "30",
-                "cache_ttl_minutes must be an integer",
-            ),
-            (
-                "performance_settings.cache_ttl_minutes",
-                0,
-                "cache_ttl_minutes must be between",
             ),
         ],
     )

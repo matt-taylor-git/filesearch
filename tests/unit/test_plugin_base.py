@@ -2,12 +2,12 @@
 
 import inspect
 from abc import ABC
-from pathlib import Path
 from typing import Any
 
 import pytest
 
-from filesearch.plugins.plugin_base import ExamplePlugin, PluginDiscovery, SearchPlugin
+from filesearch.plugins.builtin.example_plugin import ExamplePlugin
+from filesearch.plugins.plugin_base import PluginDiscovery, SearchPlugin
 
 
 class TestSearchPlugin:
@@ -47,19 +47,15 @@ class TestConcretePlugin:
             self._version = "2.0.0"
             self._author = "Test Author"
             self._description = "Mock plugin for testing"
-            self.initialized = False
-            self.search_called = False
 
         def initialize(self, config: dict[str, Any]) -> bool:
             """Initialize the mock plugin."""
             self._config = config
-            self.initialized = True
             return True
 
         def search(self, query: str, context: dict[str, Any]) -> list[dict[str, Any]]:
             """Perform search (mock implementation)."""
-            self.search_called = True
-            return [{"path": "/test/file1.txt", "name": "file1.txt", "type": "text"}]
+            return []
 
         def get_name(self) -> str:
             """Get plugin name."""
@@ -92,32 +88,6 @@ class TestConcretePlugin:
 
         mock_plugin.enabled = True
         assert mock_plugin.enabled is True
-
-    def test_plugin_initialize(self, mock_plugin):
-        """Test plugin initialization."""
-        config = {"test": "value", "number": 42}
-
-        result = mock_plugin.initialize(config)
-
-        assert result is True
-        assert mock_plugin.initialized is True
-        assert mock_plugin.config == config
-
-    def test_plugin_search(self, mock_plugin):
-        """Test plugin search method."""
-        query = "test query"
-        context = {"directory": "/test"}
-
-        results = mock_plugin.search(query, context)
-
-        assert mock_plugin.search_called is True
-        assert isinstance(results, list)
-        assert len(results) == 1
-        assert results[0]["name"] == "file1.txt"
-
-    def test_plugin_get_name(self, mock_plugin):
-        """Test plugin get_name method."""
-        assert mock_plugin.get_name() == "MockPlugin"
 
     def test_plugin_get_version(self, mock_plugin):
         """Test plugin get_version method."""
@@ -162,21 +132,6 @@ class TestConcretePlugin:
 class TestPluginDiscovery:
     """Test cases for PluginDiscovery class."""
 
-    def test_discover_from_nonexistent_directory(self):
-        """Test discovering plugins from non-existent directory."""
-        nonexistent_dir = Path("/nonexistent/plugins")
-        plugins = PluginDiscovery.discover_from_directory(nonexistent_dir)
-
-        assert isinstance(plugins, list)
-        assert len(plugins) == 0
-
-    def test_discover_from_empty_directory(self, tmp_path):
-        """Test discovering plugins from empty directory."""
-        plugins = PluginDiscovery.discover_from_directory(tmp_path)
-
-        assert isinstance(plugins, list)
-        assert len(plugins) == 0
-
     def test_is_valid_plugin_with_valid_plugin(self):
         """Test validating a valid plugin class."""
         assert PluginDiscovery.is_valid_plugin(ExamplePlugin) is True
@@ -190,80 +145,3 @@ class TestPluginDiscovery:
         assert PluginDiscovery.is_valid_plugin("not a class") is False
         assert PluginDiscovery.is_valid_plugin(123) is False
         assert PluginDiscovery.is_valid_plugin(None) is False
-
-    def test_load_plugin_success(self):
-        """Test successfully loading a plugin."""
-        config = {"test": "value"}
-        plugin = PluginDiscovery.load_plugin(ExamplePlugin, config)
-
-        assert plugin is not None
-        assert isinstance(plugin, ExamplePlugin)
-        assert plugin.get_name() == "Example Size Filter"
-
-    def test_load_plugin_with_none_config(self):
-        """Test loading a plugin with None config."""
-        plugin = PluginDiscovery.load_plugin(ExamplePlugin, None)
-
-        assert plugin is not None
-        assert isinstance(plugin, ExamplePlugin)
-
-    def test_load_plugin_failure(self):
-        """Test loading a plugin that fails initialization."""
-
-        class FailingPlugin(SearchPlugin):
-            def initialize(self, config):
-                return False
-
-            def search(self, query, context):
-                return []
-
-            def get_name(self):
-                return "FailingPlugin"
-
-        plugin = PluginDiscovery.load_plugin(FailingPlugin, {})
-        assert plugin is None
-
-    def test_load_plugin_with_invalid_class(self):
-        """Test loading an invalid plugin class."""
-        plugin = PluginDiscovery.load_plugin(str, {})
-        assert plugin is None
-
-
-class TestExamplePlugin:
-    """Test cases for ExamplePlugin."""
-
-    def test_example_plugin_instantiation(self):
-        """Test ExamplePlugin instantiation."""
-        plugin = ExamplePlugin()
-
-        assert isinstance(plugin, SearchPlugin)
-        assert plugin.get_name() == "Example Size Filter"
-        assert plugin.version == "1.0.0"
-
-    def test_example_plugin_initialize(self):
-        """Test ExamplePlugin initialization."""
-        plugin = ExamplePlugin()
-        config = {"min_size": 1024, "max_size": 1048576}
-
-        result = plugin.initialize(config)
-
-        assert result is True
-        assert plugin.config == config
-
-    def test_example_plugin_search(self):
-        """Test ExamplePlugin search method."""
-        plugin = ExamplePlugin()
-        plugin.initialize({"min_size": 1024})
-
-        query = "*.txt"
-        context = {"directory": "/test", "min_size": 1024}
-
-        # Should return empty list (simplified implementation)
-        results = plugin.search(query, context)
-
-        assert isinstance(results, list)
-
-    def test_example_plugin_get_name(self):
-        """Test ExamplePlugin get_name method."""
-        plugin = ExamplePlugin()
-        assert plugin.get_name() == "Example Size Filter"

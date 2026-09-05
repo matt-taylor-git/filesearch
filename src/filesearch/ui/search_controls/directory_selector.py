@@ -361,8 +361,8 @@ class DirectorySelectorWidget(QWidget):
     def eventFilter(self, obj: QObject | None, event: QEvent) -> bool:  # type: ignore[override]  # Qt supplies a concrete event.
         """Event filter to detect Enter key in directory input."""
         if (
-            obj == self.directory_input
-            and event.type() == QEvent.Type.KeyPress
+            event.type() == QEvent.Type.KeyPress
+            and obj == self.directory_input
             and cast(QKeyEvent, event).key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
         ):
             self.enter_pressed.emit()

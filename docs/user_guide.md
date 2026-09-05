@@ -294,9 +294,13 @@ Access settings to customize:
 
 **Solutions**:
 1. **Narrow Search**: Use specific file patterns
-2. **Exclude Large Files**: Filter by file size
+2. **Limit Results**: Lower the maximum result count in Search settings
 3. **Check Directory**: Avoid searching system directories
 4. **System Resources**: Close other applications
+
+Search runs on a background worker so the window remains responsive. There are
+no thread-count or search-cache controls; the former Performance tab has been
+removed because those settings did not change search behavior.
 
 ## Getting Help
 

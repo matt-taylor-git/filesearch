@@ -1,17 +1,14 @@
 """Plugin base module defining the abstract base class for search plugins.
 
 This module provides the SearchPlugin abstract base class that all search plugins
-must inherit from, along with plugin metadata and discovery mechanisms.
+must inherit from, along with plugin metadata and class validation.
 """
 
 import inspect
 from abc import ABC, abstractmethod
-from pathlib import Path
 from typing import Any
 
 from loguru import logger
-
-from filesearch.core.exceptions import PluginError
 
 
 class SearchPlugin(ABC):
@@ -255,42 +252,7 @@ class SearchPlugin(ABC):
 
 
 class PluginDiscovery:
-    """Plugin discovery and loading utility.
-
-    This class provides methods for discovering and loading search plugins
-    from various sources including directory scanning and entry points.
-    """
-
-    @staticmethod
-    def discover_from_directory(plugin_dir: Path) -> list[type[SearchPlugin]]:
-        """Discover plugins from a directory.
-
-        Args:
-            plugin_dir: Directory to search for plugins
-
-        Returns:
-            List of plugin classes found
-        """
-        plugins: list[type] = []
-
-        if not plugin_dir.exists():
-            logger.warning(f"Plugin directory does not exist: {plugin_dir}")
-            return plugins
-
-        try:
-            # Scan for Python files in the plugin directory
-            for file_path in plugin_dir.glob("*.py"):
-                if file_path.name.startswith("_"):
-                    continue  # Skip private modules
-
-                # This is a simplified discovery mechanism
-                # In a real implementation, you might use importlib
-                logger.debug(f"Found potential plugin file: {file_path}")
-
-        except Exception as e:
-            logger.error(f"Error discovering plugins from directory {plugin_dir}: {e}")
-
-        return plugins
+    """Validate plugin classes before the manager loads them."""
 
     @staticmethod
     def is_valid_plugin(cls: type[object]) -> bool:
@@ -336,111 +298,3 @@ class PluginDiscovery:
         except Exception as e:
             logger.error(f"Error validating plugin {cls}: {e}")
             return False
-
-    @staticmethod
-    def load_plugin(
-        plugin_class: type[SearchPlugin], config: dict[str, Any] | None = None
-    ) -> SearchPlugin | None:
-        """Load and initialize a plugin.
-
-        Args:
-            plugin_class: Plugin class to instantiate
-            config: Configuration dictionary for the plugin
-
-        Returns:
-            Initialized plugin instance or None if loading failed
-        """
-        try:
-            if config is None:
-                config = {}
-
-            # Instantiate the plugin
-            plugin = plugin_class()
-
-            # Initialize with configuration
-            if plugin.initialize(config):
-                logger.info(f"Successfully loaded plugin: {plugin.get_name()}")
-                return plugin
-            else:
-                logger.error(f"Failed to initialize plugin: {plugin_class.__name__}")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error loading plugin {plugin_class}: {e}")
-            return None
-
-
-# Example plugin implementation for reference
-class ExamplePlugin(SearchPlugin):
-    """Example plugin demonstrating the plugin interface.
-
-    This is a simple example plugin that searches for files
-    based on file size criteria.
-    """
-
-    def __init__(self) -> None:
-        """Initialize the example plugin."""
-        super().__init__()
-        self._name = "Example Size Filter"
-        self._version = "1.0.0"
-        self._author = "FileSearch Team"
-        self._description = "Filters search results by file size"
-
-    def initialize(self, config: dict[str, Any]) -> bool:
-        """Initialize the example plugin.
-
-        Args:
-            config: Configuration dictionary
-
-        Returns:
-            True if initialization successful
-        """
-        try:
-            self._config = config
-
-            # Validate required config
-            if "min_size" not in config and "max_size" not in config:
-                logger.warning("ExamplePlugin: No size filters specified")
-
-            logger.info("ExamplePlugin initialized successfully")
-            return True
-
-        except Exception as e:
-            logger.error(f"ExamplePlugin initialization failed: {e}")
-            return False
-
-    def search(self, query: str, context: dict[str, Any]) -> list[dict[str, Any]]:
-        """Perform size-based search filtering.
-
-        Args:
-            query: Search query (not used in this example)
-            context: Search context
-
-        Returns:
-            List of filtered results
-        """
-        # This is a simplified example
-        # In a real plugin, you would implement actual search logic
-        results: list[dict[str, Any]] = []
-
-        try:
-            # Get search parameters from context
-            directory = context.get("directory", ".")
-            logger.debug(f"ExamplePlugin searching in {directory} with size filter")
-
-            # Example search logic (simplified)
-            # In reality, you would scan files and filter by size
-
-        except Exception as e:
-            logger.error(f"ExamplePlugin search failed: {e}")
-            raise PluginError(f"ExamplePlugin search error: {e}") from e
-
-        return results
-
-    def get_name(self) -> str:
-        """Get plugin name.
-
-        Returns:
-            Plugin name
-        """
-        return self._name

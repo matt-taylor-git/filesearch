@@ -51,11 +51,13 @@ class TestSearchInputWidget:
         return config
 
     @pytest.fixture
-    def widget(self, app, config_manager):
+    def widget(self, app, config_manager, qtbot):
         """Create SearchInputWidget instance for testing."""
         widget = SearchInputWidget(config_manager=config_manager)
+        qtbot.addWidget(widget)
         widget.show()
-        return widget
+        yield widget
+        widget._debounce_timer.stop()
 
     def test_widget_initialization(self, widget):
         """Test widget initializes correctly."""
@@ -207,28 +209,31 @@ class TestSearchInputWidget:
     def test_auto_complete_suggestions(self, widget):
         """Test auto-complete suggestions from recent searches (AC #2)."""
         # Setup history
-        widget.search_history = ["document", "download", "desktop"]
+        widget.search_history = ["document", "my-document", "download", "desktop"]
         widget._setup_completer()
 
         # Type partial match
         widget.search_input.setFocus()
-        QTest.keyClicks(widget.search_input, "doc")
+        QTest.keyClicks(widget.search_input, "DOC")
 
-        # Should have completer with suggestions
         completer = widget.search_input.completer()
-        assert completer is not None
-        assert len(widget.search_history) > 0
+        model = completer.completionModel()
+        assert [model.index(i, 0).data() for i in range(model.rowCount())] == [
+            "document",
+            "my-document",
+        ]
 
-    def test_visual_feedback_focus_states(self, widget, qtbot):
-        """Test visual feedback for focus states (AC #4)."""
-        # Test normal state
-        assert not widget.has_error
-        assert not widget.is_loading
+    def test_set_focus_selects_search_text(self, widget, qtbot):
+        """Focusing search moves focus into the input and selects the query."""
+        widget.search_input.setText("existing query")
+        widget.activateWindow()
+        widget.clear_button.setFocus()
+        qtbot.waitUntil(widget.clear_button.hasFocus)
 
-        # Test that focus can be set
         widget.set_focus()
-        # In test environment, focus may not actually be set, but method should exist
-        assert hasattr(widget, "set_focus")
+
+        qtbot.waitUntil(widget.search_input.hasFocus)
+        assert widget.search_input.selectedText() == "existing query"
 
     def test_error_state_visual_feedback(self, widget):
         """Test error state shows red border (AC #4)."""
@@ -468,8 +473,12 @@ class TestDirectorySelectorWidget:
             # Check size
             assert len(widget.recent_directories) == 5
             # Check order (most recent first)
-            assert widget.recent_directories[0] == f"{SYNTHETIC_TMP_ROOT}/dir9"
-            assert widget.recent_directories[-1] == f"{SYNTHETIC_TMP_ROOT}/dir5"
+            assert widget.recent_directories[0] == str(
+                Path(SYNTHETIC_TMP_ROOT) / "dir9"
+            )
+            assert widget.recent_directories[-1] == str(
+                Path(SYNTHETIC_TMP_ROOT) / "dir5"
+            )
 
     def test_recent_directories_menu_display(self, widget, qtbot):
         """Test recent directories menu is created and displayed (AC #4)."""

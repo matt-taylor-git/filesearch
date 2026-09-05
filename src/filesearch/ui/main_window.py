@@ -64,7 +64,7 @@ from filesearch.ui.search_controls import (
     StatusWidget,
 )
 from filesearch.ui.search_worker import SearchWorker
-from filesearch.ui.settings_dialog import SettingsDialog
+from filesearch.ui.settings import SettingsDialog
 from filesearch.ui.sidebar_widget import SidebarWidget
 from filesearch.ui.sort_controls import SortControls
 from filesearch.ui.storage_tab import StorageTabWidget

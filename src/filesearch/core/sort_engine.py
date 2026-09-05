@@ -182,8 +182,7 @@ class SortEngine:
         Calculates match score based on query position in filename:
         - Exact match: highest score (100)
         - Starts with query: high score (80 + length_ratio)
-        - Contains query: medium score (40 + position_penalty)
-        - Ends with query: lower score (20 + length_ratio)
+        - Contains query (including suffixes): 60 minus position penalty
 
         Args:
             results: List of SearchResult objects to sort
@@ -216,11 +215,6 @@ class SortEngine:
                 position = filename_lower.index(query_lower)
                 position_penalty = position / len(filename_lower) * 20.0
                 return 60.0 - position_penalty
-
-            if filename_lower.endswith(query_lower):
-                # Ends with query - lower priority
-                length_ratio = len(query) / len(result.path.name)
-                return 40.0 + (length_ratio * 10.0)
 
             # No match - lowest priority
             return 0.0

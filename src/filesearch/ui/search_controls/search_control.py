@@ -42,7 +42,6 @@ class SearchControlWidget(QWidget):
         # Setup UI
         self._setup_ui()
         self._setup_style()
-        self._setup_shortcuts()
 
         # Update initial state
         self._update_button_state()
@@ -72,11 +71,6 @@ class SearchControlWidget(QWidget):
     def _setup_style(self) -> None:
         """Setup widget styling via centralized theme."""
         self.setObjectName("searchControlWidget")
-
-    def _setup_shortcuts(self) -> None:
-        """Setup keyboard shortcuts via key press event handling."""
-        # Shortcuts are handled in keyPressEvent for better testability
-        pass
 
     def _on_button_clicked(self) -> None:
         """Handle search button click."""

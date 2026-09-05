@@ -14,7 +14,7 @@ directory. The exact resolved paths are available from
 ## Settings dialog
 
 Open **Settings > Preferences...** (or press `Ctrl+,`) to edit settings. The
-dialog contains Search, UI, Performance, Highlighting, and—when a plugin manager
+dialog contains Search, UI, Highlighting, and—when a plugin manager
 is available—Plugins tabs. **OK** validates and saves changes, **Cancel** restores
 the in-memory values from when the dialog opened, and **Reset** restores defaults
 after confirmation.
@@ -49,11 +49,6 @@ The generated configuration currently has this shape:
     "color": "#FFFF99",
     "case_sensitive": false
   },
-  "performance_settings": {
-    "search_thread_count": 8,
-    "enable_search_cache": false,
-    "cache_ttl_minutes": 30
-  },
   "config_version": "1.0",
   "plugins": {
     "enabled": [],
@@ -76,9 +71,7 @@ The generated configuration currently has this shape:
 }
 ```
 
-`performance_settings.search_thread_count` defaults to the detected CPU count,
-or 4 when it cannot be detected, so its generated value varies by machine. The
-Highlighting tab also supports a `highlighting.style` value of `background`,
+The Highlighting tab also supports a `highlighting.style` value of `background`,
 `outline`, or `underline`; `background` is the fallback until the dialog first
 saves that setting.
 
@@ -113,14 +106,6 @@ saves that setting.
 | `case_sensitive` | boolean | `false` |
 | `style` | string | Implicit `background`; dialog choices are `background`, `outline`, `underline` |
 
-### Performance
-
-| Key | Type | Default / constraint |
-| --- | --- | --- |
-| `search_thread_count` | integer | CPU count or 4; from 1 through 32 |
-| `enable_search_cache` | boolean | `false` |
-| `cache_ttl_minutes` | integer | `30`; from 1 through 1,440 |
-
 The remaining sections are application-managed state: plugin enablement,
 recent directories and searches, executable-warning preferences, recently
 opened files, and the configuration format version.
@@ -131,6 +116,11 @@ Close File Search before editing the file to avoid racing the file watcher or a
 later save. The file must be valid JSON; JSON comments are not supported. On
 load, missing keys are merged from the current defaults so older files gain new
 settings automatically.
+
+Search traversal runs on one background worker; search-result caching is not
+implemented. The former Performance tab and its defaults have been removed.
+Legacy `performance_settings` keys are preserved on load/save but ignored, so
+existing configurations do not require a reset.
 
 If the JSON syntax is invalid, File Search logs the parse error and replaces the
 file with defaults. If a required section or a validated value has the wrong

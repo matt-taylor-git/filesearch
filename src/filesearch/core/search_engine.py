@@ -1,6 +1,6 @@
 """Core search engine module for file and folder searching functionality.
 
-This module provides FileSearchEngine class that implements multi-threaded
+This module provides FileSearchEngine class that implements recursive
 file and folder searching with partial matching, early termination, and
 generator-based result streaming.
 """
@@ -9,7 +9,6 @@ import fnmatch
 import os
 import time
 from collections.abc import Callable, Generator
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -22,17 +21,16 @@ from filesearch.plugins.plugin_manager import PluginManager
 
 
 class FileSearchEngine(QObject):
-    """Multi-threaded file search engine with generator-based result streaming.
+    """Recursive file search engine with generator-based results.
 
-    This class implements efficient file searching using concurrent directory
+    This class implements file searching using recursive directory
     traversal, partial matching with fnmatch patterns, and early termination
-    when maximum results are reached.
+    when maximum results are reached. The GUI calls this engine from SearchWorker
+    to keep traversal off the UI thread.
 
     Attributes:
-        max_workers (int): Maximum number of worker threads for parallel search
         max_results (int): Maximum number of results to return (0 = unlimited)
         _cancelled (bool): Flag to indicate if search should be cancelled
-        _executor (Optional[ThreadPoolExecutor]): Thread pool for parallel execution
     """
 
     # Signals
@@ -41,7 +39,6 @@ class FileSearchEngine(QObject):
 
     def __init__(
         self,
-        max_workers: int = 4,
         max_results: int = 1000,
         config_manager: ConfigManager | None = None,
         plugin_manager: PluginManager | None = None,
@@ -50,7 +47,6 @@ class FileSearchEngine(QObject):
         """Initialize search engine.
 
         Args:
-            max_workers: Maximum number of worker threads (default: 4)
             max_results: Maximum results to return, 0 for unlimited (default: 1000)
             config_manager: ConfigManager instance to use for settings (optional)
         """
@@ -59,9 +55,6 @@ class FileSearchEngine(QObject):
 
         # Use config values if config_manager provided, otherwise use parameters
         if self.config_manager:
-            self.max_workers = self.config_manager.get(
-                "performance_settings.search_thread_count", max_workers
-            )
             self.max_results = self.config_manager.get(
                 "search_preferences.max_search_results", max_results
             )
@@ -75,14 +68,12 @@ class FileSearchEngine(QObject):
                 "search_preferences.file_extensions_to_exclude", []
             )
         else:
-            self.max_workers = max_workers
             self.max_results = max_results
             self.case_sensitive = False
             self.include_hidden = False
             self.file_extensions_to_exclude = []
 
         self._cancelled = False
-        self._executor: ThreadPoolExecutor | None = None
         self.plugin_manager = plugin_manager
         self.progress_callback = progress_callback
 
@@ -95,7 +86,7 @@ class FileSearchEngine(QObject):
         self._status_throttle_ms = 200  # 5 updates per second max
 
         logger.debug(
-            f"FileSearchEngine initialized with max_workers={self.max_workers}, "
+            "FileSearchEngine initialized: "
             f"max_results={self.max_results}, case_sensitive={self.case_sensitive}"
         )
 
@@ -149,7 +140,7 @@ class FileSearchEngine(QObject):
             )
 
             if self.case_sensitive:
-                return fnmatch.fnmatch(filename, search_pattern)
+                return fnmatch.fnmatchcase(filename, search_pattern)
             else:
                 return fnmatch.fnmatch(filename.lower(), search_pattern.lower())
         except Exception as e:
@@ -316,7 +307,7 @@ class FileSearchEngine(QObject):
                 ]
                 total += len(files)
                 # Limit depth for performance
-                if root.count(os.sep) - directory.as_posix().count(os.sep) > 3:
+                if len(Path(root).relative_to(directory).parts) > 3:
                     break
             return total
         except Exception as e:
@@ -363,64 +354,50 @@ class FileSearchEngine(QObject):
         # Reset cancellation state
         self._reset_cancel_state()
 
-        # Use a thread-safe set to store results
+        # Collect unique matching paths
         results: set[Path] = set()
 
         try:
             # Emit searching status
             self.status_update.emit("searching", 0)
 
-            # Use ThreadPoolExecutor for parallel directory scanning
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                self._executor = executor
+            self._scan_directory(directory, query, results)
 
-                # Submit root directory for scanning
-                future = executor.submit(
-                    self._scan_directory, directory, query, results, 0
-                )
+            # Emit completed status
+            self.status_update.emit("completed", len(results))
 
-                # Wait for scan to complete
+            # Yield all results found (even if cancelled due to max results)
+            for path in results:
                 try:
-                    future.result()  # Wait for scanning to complete
-                except Exception as e:
-                    logger.error(f"Error in search execution: {e}")
-                    raise SearchError(f"Search execution failed: {e}") from e
-
-                # Emit completed status
-                self.status_update.emit("completed", len(results))
-
-                # Yield all results found (even if cancelled due to max results)
-                for path in results:
-                    try:
-                        stat = path.stat()
-                        # Directories report 0 size for consistent UI ("Folder")
-                        size = 0 if path.is_dir() else stat.st_size
-                        yield {
-                            "path": str(path),
-                            "name": path.name,
-                            "source": "filesystem",
-                            "size": size,
-                            "modified": stat.st_mtime,
-                            "is_directory": path.is_dir(),
-                        }
-                    except Exception as e:
-                        logger.error(f"Error getting stat for {path}: {e}")
-                results.clear()
-
-                # Get plugin results
-                if self.plugin_manager:
-                    context = {
-                        "directory": str(directory),
-                        "query": query,
-                        "max_results": self.max_results,
+                    stat = path.stat()
+                    # Directories report 0 size for consistent UI ("Folder")
+                    size = 0 if path.is_dir() else stat.st_size
+                    yield {
+                        "path": str(path),
+                        "name": path.name,
+                        "source": "filesystem",
+                        "size": size,
+                        "modified": stat.st_mtime,
+                        "is_directory": path.is_dir(),
                     }
-                    for plugin in self.plugin_manager.get_loaded_plugins():
-                        if plugin.enabled:
-                            try:
-                                plugin_results = plugin.search(query, context)
-                                yield from plugin_results
-                            except Exception as e:
-                                logger.error(f"Plugin {plugin.name} search failed: {e}")
+                except Exception as e:
+                    logger.error(f"Error getting stat for {path}: {e}")
+            results.clear()
+
+            # Get plugin results
+            if self.plugin_manager:
+                context = {
+                    "directory": str(directory),
+                    "query": query,
+                    "max_results": self.max_results,
+                }
+                for plugin in self.plugin_manager.get_loaded_plugins():
+                    if plugin.enabled:
+                        try:
+                            plugin_results = plugin.search(query, context)
+                            yield from plugin_results
+                        except Exception as e:
+                            logger.error(f"Plugin {plugin.name} search failed: {e}")
 
             logger.info(f"Search completed. Cancelled: {self._should_cancel()}")
 
@@ -428,13 +405,11 @@ class FileSearchEngine(QObject):
             logger.error(f"Search failed: {e}")
             self.status_update.emit("error", 0)
             raise SearchError(f"Search operation failed: {e}") from e
-        finally:
-            self._executor = None
 
 
 # Convenience function for simple searches
 def search_files(
-    directory: Path, pattern: str, max_results: int = 1000, max_workers: int = 4
+    directory: Path, pattern: str, max_results: int = 1000
 ) -> Generator[dict[str, Any], None, None]:
     """Convenience function for one-off file searches.
 
@@ -442,7 +417,6 @@ def search_files(
         directory: Directory to search in
         pattern: File pattern to match
         max_results: Maximum number of results (default: 1000)
-        max_workers: Number of worker threads (default: 4)
 
     Yields:
         Dict objects for matching files with keys: 'path', 'name', 'source', etc.
@@ -451,5 +425,5 @@ def search_files(
         >>> for result in search_files(Path('.'), '*.txt', max_results=50):
         ...     print(result['path'])
     """
-    engine = FileSearchEngine(max_workers=max_workers, max_results=max_results)
+    engine = FileSearchEngine(max_results=max_results)
     yield from engine.search(directory, pattern)

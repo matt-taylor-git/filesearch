@@ -2,9 +2,40 @@
 
 from unittest.mock import Mock
 
+from PyQt6.QtCore import QThread
+
 from filesearch.core.exceptions import FileSearchError, SearchError
+from filesearch.core.search_engine import FileSearchEngine
 from filesearch.ui.search_worker import SearchWorker
 from filesearch.ui.storage_worker import StorageWorker
+
+
+def test_filesystem_search_runs_on_background_worker(tmp_path, qtbot):
+    """Real traversal stays off the UI thread without an additional executor."""
+    path = tmp_path / "notes.txt"
+    path.write_text("notes")
+    scan_threads = []
+    engine = FileSearchEngine(
+        progress_callback=lambda count, directory: scan_threads.append(
+            QThread.currentThread()
+        )
+    )
+    worker = SearchWorker(engine, tmp_path, "notes")
+    results = []
+    worker.result_found.connect(lambda result, number: results.append(result))
+
+    try:
+        with qtbot.waitSignal(worker.search_complete, timeout=5000) as completed:
+            worker.start()
+        qtbot.waitUntil(lambda: len(results) == 1)
+    finally:
+        worker.stop()
+        worker.wait(5000)
+
+    assert scan_threads == [worker]
+    assert scan_threads[0] != QThread.currentThread()
+    assert results[0]["path"] == str(path)
+    assert completed.args == [1, 0]
 
 
 def test_search_worker_emits_results_progress_and_completion(tmp_path):

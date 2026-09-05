@@ -379,56 +379,6 @@ def list_directory_entries(directory: str | Path) -> list[SearchResult]:
     return directories + files
 
 
-def get_file_info(path: str | Path) -> dict[str, str | int | float | bool]:
-    """Get comprehensive file information.
-
-    Args:
-        path: Path to the file
-
-    Returns:
-        Dictionary containing file information:
-            - 'path': Full file path as string
-            - 'name': File name
-            - 'size': File size in bytes
-            - 'modified': Modification timestamp
-            - 'type': File extension or 'directory'
-            - 'is_directory': Boolean indicating if path is directory
-
-    Raises:
-        FileSearchError: If file does not exist or cannot be accessed
-
-    Example:
-        >>> info = get_file_info("/path/to/file.txt")
-        >>> print(f"Size: {info['size']} bytes")
-    """
-    try:
-        file_path = Path(path)
-
-        if not file_path.exists():
-            raise FileSearchError(f"File does not exist: {path}")
-
-        stat = file_path.stat()
-
-        info: dict[str, str | int | float | bool] = {
-            "path": str(file_path.resolve()),
-            "name": file_path.name,
-            "size": stat.st_size,
-            "modified": stat.st_mtime,
-            "type": "directory" if file_path.is_dir() else file_path.suffix or "file",
-            "is_directory": file_path.is_dir(),
-        }
-
-        logger.debug(f"File info retrieved for {path}: {info}")
-        return info
-
-    except OSError as e:
-        logger.error(f"Error accessing file {path}: {e}")
-        raise FileSearchError(f"Cannot access file {path}: {e}") from e
-    except Exception as e:
-        logger.error(f"Unexpected error getting file info for {path}: {e}")
-        raise FileSearchError(f"Error getting file info for {path}: {e}") from e
-
-
 def safe_open(  # noqa: C901 - platform fallbacks are intentionally colocated.
     path: str | Path,
     security_manager: SecurityManager | None = None,
@@ -679,57 +629,6 @@ def reveal_file_in_folder(  # noqa: C901 - platform fallbacks are intentionally 
 
 # Alias for backward compatibility
 open_containing_folder = reveal_file_in_folder
-
-
-# Convenience functions for common operations
-
-
-def get_file_size(path: str | Path) -> int:
-    """Get file size in bytes.
-
-    Args:
-        path: Path to the file
-
-    Returns:
-        File size in bytes
-
-    Raises:
-        FileSearchError: If file does not exist or cannot be accessed
-    """
-    info = get_file_info(path)
-    return int(info["size"])
-
-
-def get_file_modified_time(path: str | Path) -> float:
-    """Get file modification timestamp.
-
-    Args:
-        path: Path to the file
-
-    Returns:
-        Modification timestamp as float
-
-    Raises:
-        FileSearchError: If file does not exist or cannot be accessed
-    """
-    info = get_file_info(path)
-    return float(info["modified"])
-
-
-def is_directory(path: str | Path) -> bool:
-    """Check if path is a directory.
-
-    Args:
-        path: Path to check
-
-    Returns:
-        True if path is a directory, False otherwise
-
-    Raises:
-        FileSearchError: If path does not exist
-    """
-    info = get_file_info(path)
-    return bool(info["is_directory"])
 
 
 def normalize_path(path: str) -> Path:

@@ -40,20 +40,17 @@ class TestFileSearchEngine:
     @pytest.fixture
     def search_engine(self):
         """Create a FileSearchEngine instance for testing."""
-        return FileSearchEngine(max_workers=2, max_results=100)
+        return FileSearchEngine(max_results=100)
 
     def test_init_default_values(self):
         """Test default initialization values."""
         engine = FileSearchEngine()
-        assert engine.max_workers == 4
         assert engine.max_results == 1000
         assert engine._cancelled is False
-        assert engine._executor is None
 
     def test_init_custom_values(self):
         """Test initialization with custom values."""
-        engine = FileSearchEngine(max_workers=8, max_results=500)
-        assert engine.max_workers == 8
+        engine = FileSearchEngine(max_results=500)
         assert engine.max_results == 500
 
     def test_cancel(self, search_engine):
@@ -221,7 +218,7 @@ class TestFileSearchEngine:
         for i in range(20):
             (temp_dir / f"test{i}.txt").write_text(f"content{i}")
 
-        engine = FileSearchEngine(max_workers=1, max_results=5)
+        engine = FileSearchEngine(max_results=5)
         results = list(engine.search(temp_dir, "*.txt"))
 
         # Should stop at max_results
@@ -347,13 +344,11 @@ class TestFileSearchEngine:
         config.set("search_preferences.file_extensions_to_exclude", [".LOG"])
         config.set("search_preferences.case_sensitive_search", True)
         config.set("search_preferences.max_search_results", 50)
-        config.set("performance_settings.search_thread_count", 1)
 
         engine = FileSearchEngine(config_manager=config)
         results = list(engine.search(temp_dir, "*.txt"))
 
         assert ".hidden.txt" in {result["name"] for result in results}
-        assert engine.max_workers == 1
         assert engine.case_sensitive is True
         assert list(engine.search(temp_dir, "*.log")) == []
 
@@ -411,7 +406,7 @@ class TestFileSearchEngine:
         enabled.search.assert_called_once()
         disabled.search.assert_not_called()
 
-    def test_search_reports_executor_failures_as_search_errors(
+    def test_search_reports_scan_failures_as_search_errors(
         self, search_engine, temp_dir
     ):
         statuses = []
@@ -428,7 +423,6 @@ class TestFileSearchEngine:
             list(search_engine.search(temp_dir, "*.txt"))
 
         assert statuses[-1] == ("error", 0)
-        assert search_engine._executor is None
 
     def test_estimate_total_files_counts_visible_files_and_handles_errors(
         self, search_engine, temp_dir
@@ -455,7 +449,7 @@ class TestSearchFilesFunction:
 
     def test_search_files_convenience(self, temp_dir):
         """Test convenience function for searching files."""
-        results = list(search_files(temp_dir, "*.txt", max_results=10, max_workers=2))
+        results = list(search_files(temp_dir, "*.txt", max_results=10))
 
         assert len(results) == 1
         assert results[0]["name"] == "test1.txt"

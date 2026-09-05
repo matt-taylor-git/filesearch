@@ -12,7 +12,7 @@ File Search is a desktop file-finding app built with Python and PyQt6. It combin
 - File type chips, recent-search tags, and sortable result lists
 - Storage tab with a drive summary and treemap drill-down for the active folder
 - Details panel and context actions such as open, open containing folder, copy path, rename, and delete
-- Configurable settings for search behavior, highlighting, performance, and plugins
+- Configurable settings for search behavior, highlighting, and plugins
 - Cross-platform file opening helpers and executable-file safety warnings
 
 ## Requirements

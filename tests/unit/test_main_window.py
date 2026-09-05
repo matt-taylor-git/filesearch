@@ -130,9 +130,8 @@ class TestMainWindowUIState:
         # Load settings
         main_window.load_window_settings()
 
-        # Note: In test environment, this might not actually resize
-        # but we verify the method runs without error
-        assert True
+        assert main_window.width() == 1024
+        assert main_window.height() == 768
 
     def test_save_window_settings(self, main_window):
         """Test saving window settings."""

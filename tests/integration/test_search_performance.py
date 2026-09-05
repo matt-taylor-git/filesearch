@@ -40,7 +40,7 @@ class TestSearchPerformance:
 
     def test_search_performance_under_2_seconds(self, large_temp_dir):
         """Test that search completes within 2 seconds for large directories."""
-        engine = FileSearchEngine(max_workers=4, max_results=1000)
+        engine = FileSearchEngine(max_results=1000)
 
         start_time = time.time()
         results = list(engine.search(large_temp_dir, "*.txt"))
@@ -67,7 +67,7 @@ class TestSearchPerformance:
         # Measure memory before search
         memory_before = process.memory_info().rss / 1024 / 1024  # MB
 
-        engine = FileSearchEngine(max_workers=4, max_results=10000)
+        engine = FileSearchEngine(max_results=10000)
 
         # Perform search
         results = list(engine.search(large_temp_dir, "*"))
@@ -83,37 +83,16 @@ class TestSearchPerformance:
         # files must still be present.
         assert sum(Path(result["path"]).is_file() for result in results) == 2000
 
-    def test_search_thread_count_configurable(self, large_temp_dir):
-        """Test that search thread count is configurable and affects performance."""
-        # Test with 1 thread
-        engine_1_thread = FileSearchEngine(max_workers=1, max_results=1000)
-        start_time = time.time()
-        results_1 = list(engine_1_thread.search(large_temp_dir, "*.txt"))
-        time_1_thread = time.time() - start_time
-
-        # Test with 4 threads
-        engine_4_threads = FileSearchEngine(max_workers=4, max_results=1000)
-        start_time = time.time()
-        results_4 = list(engine_4_threads.search(large_temp_dir, "*.txt"))
-        time_4_threads = time.time() - start_time
-
-        # Both should find same number of files
-        assert len(results_1) == len(results_4) == 1000
-
-        # 4 threads should be faster or at least not significantly slower
-        # (allowing some variance for small test directories)
-        assert time_4_threads <= time_1_thread * 1.2  # Allow 20% variance
-
     def test_early_termination_performance(self, large_temp_dir):
         """Test early termination performance with a limited result count."""
         # Search for all results
-        engine_all = FileSearchEngine(max_workers=4, max_results=0)  # 0 = unlimited
+        engine_all = FileSearchEngine(max_results=0)  # 0 = unlimited
         start_time = time.time()
         results_all = list(engine_all.search(large_temp_dir, "*.txt"))
         time_all = time.time() - start_time
 
         # Search with limited results
-        engine_limited = FileSearchEngine(max_workers=4, max_results=100)
+        engine_limited = FileSearchEngine(max_results=100)
         start_time = time.time()
         results_limited = list(engine_limited.search(large_temp_dir, "*.txt"))
         time_limited = time.time() - start_time
@@ -130,7 +109,7 @@ class TestSearchPerformance:
 
     def test_generator_pattern_memory_efficiency(self, large_temp_dir):
         """Test that generator pattern is memory efficient."""
-        engine = FileSearchEngine(max_workers=4, max_results=1000)
+        engine = FileSearchEngine(max_results=1000)
 
         # Get generator but don't consume all results
         search_gen = engine.search(large_temp_dir, "*.txt")
@@ -156,8 +135,8 @@ class TestSearchPerformance:
 
     def test_concurrent_search_performance(self, large_temp_dir):
         """Test concurrent search performance with multiple searches."""
-        engine1 = FileSearchEngine(max_workers=2, max_results=1000)  # Allow all results
-        engine2 = FileSearchEngine(max_workers=2, max_results=1000)
+        engine1 = FileSearchEngine(max_results=1000)  # Allow all results
+        engine2 = FileSearchEngine(max_results=1000)
 
         start_time = time.time()
 
