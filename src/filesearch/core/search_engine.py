@@ -74,6 +74,7 @@ class FileSearchEngine(QObject):
             self.file_extensions_to_exclude = []
 
         self._cancelled = False
+        self._directories_scanned = 0
         self.plugin_manager = plugin_manager
         self.progress_callback = progress_callback
 
@@ -117,6 +118,15 @@ class FileSearchEngine(QObject):
     def _reset_cancel_state(self) -> None:
         """Reset cancellation state for new search."""
         self._cancelled = False
+        self._directories_scanned = 0
+
+    @property
+    def directories_scanned(self) -> int:
+        """Number of directories visited by the most recent search.
+
+        Valid once the search generator has finished (or been abandoned).
+        """
+        return self._directories_scanned
 
     def _has_wildcard_syntax(self, pattern: str) -> bool:
         """Return whether pattern contains explicit fnmatch wildcard syntax."""
@@ -210,6 +220,10 @@ class FileSearchEngine(QObject):
         if depth > 10:
             logger.warning(f"Maximum symlink depth (10) reached at {directory}")
             return
+
+        # Count this directory as visited. Traversal is a single recursive pass on
+        # the worker thread, so only one caller mutates this counter.
+        self._directories_scanned += 1
 
         try:
             logger.debug(f"Scanning directory: {directory}")

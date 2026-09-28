@@ -24,6 +24,14 @@ class Colors:
     PRIMARY_LIGHT = "#1B2A4A"
     PRIMARY_SUBTLE = "#131C32"
 
+    # Button surfaces — darkened so white labels clear WCAG AA (audit C3)
+    PRIMARY_BUTTON = "#3B69B8"
+    PRIMARY_BUTTON_HOVER = "#325DA6"
+    PRIMARY_BUTTON_PRESSED = "#2B5290"
+
+    # Keyboard focus indicator (audit W8)
+    FOCUS_RING = "#8AB4FF"
+
     # Backgrounds — layered depth
     BG_PRIMARY = "#0D0F17"
     BG_SECONDARY = "#131620"
@@ -32,24 +40,26 @@ class Colors:
     # Borders — subtle separation
     BORDER_DEFAULT = "#232840"
     BORDER_STRONG = "#2F3652"
+    # Form-field boundary — must clear 3:1 against BG_SECONDARY (audit W2)
+    BORDER_INPUT = "#6B78A0"
 
     # Text — high-contrast on dark
     TEXT_PRIMARY = "#E2E5EE"
     TEXT_SECONDARY = "#858BA0"
-    TEXT_TERTIARY = "#525973"
+    TEXT_TERTIARY = "#8A93A8"
 
     # Status
     SUCCESS = "#34D399"
     ERROR = "#F87171"
     WARNING = "#FBBF24"
 
-    # Highlight — warm amber on dark
+    # Highlight — the configured fill is pale, so the match text is dark (audit C1)
     HIGHLIGHT_BG = "#C8911A"
-    HIGHLIGHT_TEXT = "#FFF8E7"
+    HIGHLIGHT_TEXT = "#1B1B1B"
 
     # Result items
     SIZE_PILL_BG = "#1A1E2E"
-    ITEM_SELECTED_BG = "#1B2A4A"
+    ITEM_SELECTED_BG = "#22355E"
     ITEM_HOVER_BG = "#171B28"
     ITEM_SEPARATOR = "#1C2030"
 
@@ -89,16 +99,27 @@ class Colors:
 
 
 class Fonts:
-    """Font configuration constants."""
+    """Font configuration constants.
+
+    Sizes follow a single modular scale — a fixed ratio applied to a base size,
+    so every step is proportional to the others instead of being picked ad hoc
+    (audit O2). Base is SIZE_BASE with a 1.2 (minor third) ratio:
+
+        ms(-2) 8   ms(-1) 10   ms(0) 12   ms(1) 14   ms(2) 17
+
+    Never add a size that is not on the scale; pick the nearest step instead.
+    """
 
     FAMILY = "Segoe UI, system-ui, -apple-system, sans-serif"
     FAMILY_MONO = "Consolas, Menlo, monospace"
 
-    SIZE_XS = 8  # pt — metadata, timestamps
-    SIZE_SM = 9  # pt — secondary text, paths
-    SIZE_BASE = 10  # pt — body text, filenames
-    SIZE_LG = 12  # pt — labels, headings
-    SIZE_XL = 14  # pt — primary headings
+    SCALE_RATIO = 1.2  # minor third
+
+    SIZE_XS = 8  # pt — ms(-2): metadata, timestamps
+    SIZE_SM = 10  # pt — ms(-1): secondary text, paths
+    SIZE_BASE = 12  # pt — ms(0), base: body text, filenames (~16 px)
+    SIZE_LG = 14  # pt — ms(1): labels, headings
+    SIZE_XL = 17  # pt — ms(2): primary headings
 
     WEIGHT_NORMAL = 400
     WEIGHT_MEDIUM = 500
@@ -122,7 +143,7 @@ class Spacing:
     RADIUS_LG = 12
 
     # Dimensions
-    ITEM_HEIGHT = 64
+    ITEM_HEIGHT = 72
     SCROLLBAR_WIDTH = 6
     SEPARATOR_HEIGHT = 1
 
@@ -280,7 +301,7 @@ QLabel[class="sort-label"] {{
 QLineEdit {{
     font-size: {Fonts.SIZE_BASE}pt;
     padding: {Spacing.PADDING_INPUT}px;
-    border: 1.5px solid {Colors.BORDER_DEFAULT};
+    border: 1.5px solid {Colors.BORDER_INPUT};
     border-radius: {Spacing.RADIUS_MD}px;
     background: {Colors.BG_SECONDARY};
     color: {Colors.TEXT_PRIMARY};
@@ -311,21 +332,21 @@ QLineEdit:read-only {{
 QPushButton {{
     font-size: {Fonts.SIZE_BASE}pt;
     font-weight: {Fonts.WEIGHT_SEMIBOLD};
-    border: 1.5px solid {Colors.PRIMARY};
+    border: 1.5px solid {Colors.PRIMARY_BUTTON};
     border-radius: {Spacing.RADIUS_SM}px;
-    background-color: {Colors.PRIMARY};
+    background-color: {Colors.PRIMARY_BUTTON};
     color: #FFFFFF;
     padding: 6px 16px;
 }}
 
 QPushButton:hover {{
-    background-color: {Colors.PRIMARY_HOVER};
-    border-color: {Colors.PRIMARY_HOVER};
+    background-color: {Colors.PRIMARY_BUTTON_HOVER};
+    border-color: {Colors.PRIMARY_BUTTON_HOVER};
 }}
 
 QPushButton:pressed {{
-    background-color: #3A65B8;
-    border-color: #3A65B8;
+    background-color: {Colors.PRIMARY_BUTTON_PRESSED};
+    border-color: {Colors.PRIMARY_BUTTON_PRESSED};
 }}
 
 QPushButton:disabled {{
@@ -395,7 +416,7 @@ QToolButton[class="clear-button"]:hover {{
 QComboBox {{
     font-size: {Fonts.SIZE_BASE}pt;
     padding: 5px 10px;
-    border: 1.5px solid {Colors.BORDER_DEFAULT};
+    border: 1.5px solid {Colors.BORDER_INPUT};
     border-radius: {Spacing.RADIUS_SM}px;
     background: {Colors.BG_SECONDARY};
     color: {Colors.TEXT_PRIMARY};
@@ -600,7 +621,7 @@ QCheckBox::indicator:hover {{
 QSpinBox {{
     font-size: {Fonts.SIZE_BASE}pt;
     padding: 5px 10px;
-    border: 1.5px solid {Colors.BORDER_DEFAULT};
+    border: 1.5px solid {Colors.BORDER_INPUT};
     border-radius: {Spacing.RADIUS_SM}px;
     background: {Colors.BG_SECONDARY};
     color: {Colors.TEXT_PRIMARY};
@@ -868,13 +889,13 @@ QPushButton[class="details-open"] {{
     font-weight: {Fonts.WEIGHT_SEMIBOLD};
     border: none;
     border-radius: {Spacing.RADIUS_SM}px;
-    background-color: {Colors.PRIMARY};
+    background-color: {Colors.PRIMARY_BUTTON};
     color: #FFFFFF;
     padding: 8px 16px;
 }}
 
 QPushButton[class="details-open"]:hover {{
-    background-color: {Colors.PRIMARY_HOVER};
+    background-color: {Colors.PRIMARY_BUTTON_HOVER};
 }}
 
 QPushButton[class="details-action"] {{
@@ -917,7 +938,7 @@ QPushButton[class="details-trash"]:hover {{
 /* ===== Search Bar (redesigned) ===== */
 QWidget#searchBarContainer {{
     background-color: {Colors.BG_SECONDARY};
-    border: 1.5px solid {Colors.BORDER_DEFAULT};
+    border: 1.5px solid {Colors.BORDER_INPUT};
     border-radius: {Spacing.RADIUS_MD}px;
 }}
 
@@ -1081,6 +1102,46 @@ QLabel[class="storage-detail-size"] {{
 QLabel[class="storage-detail-path"] {{
     font-size: {Fonts.SIZE_SM}pt;
     color: {Colors.TEXT_SECONDARY};
+}}
+
+/* ===== Keyboard focus (audit W8) =====
+   Every interactive control must show a visible focus indicator so keyboard
+   users can tell where they are. The indicator is a dedicated ring colour,
+   distinct from the accent used for normal states. */
+QPushButton:focus {{
+    border: 1.5px solid {Colors.FOCUS_RING};
+}}
+QToolButton:focus,
+QToolButton[class="clear-button"]:focus,
+QToolButton[class="details-close"]:focus {{
+    border: 1.5px solid {Colors.FOCUS_RING};
+    border-radius: {Spacing.RADIUS_SM}px;
+}}
+QPushButton[class="details-open"]:focus {{
+    border: 2px solid {Colors.FOCUS_RING};
+}}
+QLineEdit:focus,
+QComboBox:focus,
+QSpinBox:focus {{
+    border: 1.5px solid {Colors.FOCUS_RING};
+}}
+QWidget#searchBarContainer:focus-within {{
+    border: 1.5px solid {Colors.FOCUS_RING};
+}}
+QListView:focus,
+QListWidget:focus {{
+    border: 1.5px solid {Colors.FOCUS_RING};
+}}
+QCheckBox:focus,
+QRadioButton:focus {{
+    /* Style the widget, not ::indicator: a sub-control rule replaces the base
+       indicator rule wholesale and stretches the indicator. */
+    border: 1.5px solid {Colors.FOCUS_RING};
+    border-radius: {Spacing.RADIUS_SM}px;
+}}
+QTabBar::tab:focus {{
+    color: {Colors.FOCUS_RING};
+    border-color: {Colors.FOCUS_RING};
 }}
 """
 

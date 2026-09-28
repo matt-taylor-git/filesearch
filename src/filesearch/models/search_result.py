@@ -22,6 +22,21 @@ class SearchResult:
         except ValueError:
             return str(self.path)
 
+    def get_display_folder(self) -> str:
+        """Return the containing folder, with the user directory abbreviated.
+
+        The results list already shows the filename as the row title, so the
+        secondary line shows where the file lives instead of repeating the name
+        (audit W6).
+        """
+        folder = self.path.parent
+        try:
+            relative = folder.relative_to(Path.home())
+        except ValueError:
+            return str(folder)
+        text = str(relative)
+        return "~" if text == "." else f"~/{text}"
+
     def get_display_size(self) -> str:
         """Return human-readable file size"""
         if self.size == 0:

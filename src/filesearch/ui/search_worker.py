@@ -60,7 +60,6 @@ class SearchWorker(QThread):
         """Execute the search operation."""
         self._is_running = True
         files_found = 0
-        dirs_searched = 0
 
         try:
             logger.info(f"Starting search in {self.directory} for '{self.query}'")
@@ -77,12 +76,22 @@ class SearchWorker(QThread):
                 if files_found % 10 == 0:
                     self.progress_update.emit(50, str(self.directory), files_found)
 
+            # The directory count is only final once traversal stops, so read it
+            # from the engine rather than tracking it here.
+            dirs_searched = self.search_engine.directories_scanned
+
             if self._is_running:
                 self.search_complete.emit(files_found, dirs_searched)
-                logger.info(f"Search completed: {files_found} files found")
+                logger.info(
+                    f"Search completed: {files_found} files found in "
+                    f"{dirs_searched} directories"
+                )
             else:
                 self.search_stopped.emit(files_found, dirs_searched)
-                logger.info(f"Search stopped: {files_found} files found")
+                logger.info(
+                    f"Search stopped: {files_found} files found in "
+                    f"{dirs_searched} directories"
+                )
 
         except FileSearchError as e:
             logger.error(f"Search error: {e}")

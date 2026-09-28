@@ -20,6 +20,9 @@ class DesktopEffects(Protocol):
     def open_with(self, path: Path, application: dict[str, Any]) -> None:
         """Open a file with a selected application."""
 
+    def open_file_with_application(self, path: Path, application_path: str) -> None:
+        """Open a file with a specific application executable."""
+
     def choose_directory(
         self, parent: Any, initial: Path, *, title: str = "Select Search Directory"
     ) -> Path | None:

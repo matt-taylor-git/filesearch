@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
 )
 
+from filesearch.core.exceptions import FileSearchError
 from filesearch.core.file_utils import (
     open_with_application,
     reveal_file_in_folder,
@@ -31,6 +32,25 @@ class QtDesktopEffects:
     def reveal_file(self, path: Path) -> None:
         """Reveal a file or directory in the platform file manager."""
         reveal_file_in_folder(path)
+
+    def open_file_with_application(self, path: Path, application_path: str) -> None:
+        """Open a file with a specific application.
+
+        Args:
+            path: Path to the file to open
+            application_path: Path to the application executable to use
+        """
+        try:
+            if application_path:
+                # Use the specified application
+                app_info = {"command": application_path}
+                open_with_application(path, app_info)
+            else:
+                # Fall back to default application
+                self.open_file(path)
+        except FileSearchError:
+            # Re-raise to let the caller handle the error
+            raise
 
     def open_with(self, path: Path, application: dict[str, Any]) -> None:
         """Open a file with an explicitly selected application."""

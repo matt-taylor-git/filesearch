@@ -107,14 +107,21 @@ class DetailsPanelWidget(QWidget):
     """Right-side details panel showing info about the selected result.
 
     Signals:
-        open_requested(object): Open the file.
+        open_requested(object): Open the file with default application.
+        open_with_requested(object, str): Open the file with specified application.
         open_folder_requested(object): Open containing folder.
         copy_path_requested(object): Copy file path.
         delete_requested(object): Move file to trash.
         panel_close_requested(): Hide the panel.
     """
 
+    # Minimum usable width. The splitter ignores setSizes() for this panel but
+    # honours its minimum width, so this is what actually sizes it — and it must
+    # clear the content's natural width or the action buttons clip (audit W4).
+    DETAILS_MIN_WIDTH = 264
+
     open_requested = pyqtSignal(object)
+    open_with_requested = pyqtSignal(object, str)  # result, application_path
     open_folder_requested = pyqtSignal(object)
     copy_path_requested = pyqtSignal(object)
     delete_requested = pyqtSignal(object)
@@ -199,17 +206,26 @@ class DetailsPanelWidget(QWidget):
         self._open_btn.clicked.connect(self._on_open)
         layout.addWidget(self._open_btn)
 
-        # Action buttons row
-        action_row = QHBoxLayout()
-        action_row.setSpacing(8)
+        # Open With... button
+        self._open_with_btn = QPushButton(
+            qta.icon("mdi6.open-in-app", color=Colors.TEXT_SECONDARY), " Open With..."
+        )
+        self._open_with_btn.setProperty("class", "details-action")
+        self._open_with_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._open_with_btn.setToolTip("Open with specific application")
+        self._open_with_btn.clicked.connect(self._on_open_with)
+        layout.addWidget(self._open_with_btn)
 
+        # Secondary actions. Stacked full width rather than side by side: the
+        # panel can end up narrower than the two buttons' combined width, which
+        # clipped "Copy Path" at the panel edge (audit W4).
         self._open_folder_btn = QPushButton(
             qta.icon("mdi6.folder-open", color=Colors.TEXT_SECONDARY), " Folder"
         )
         self._open_folder_btn.setProperty("class", "details-action")
         self._open_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._open_folder_btn.clicked.connect(self._on_open_folder)
-        action_row.addWidget(self._open_folder_btn)
+        layout.addWidget(self._open_folder_btn)
 
         self._copy_path_btn = QPushButton(
             qta.icon("mdi6.content-copy", color=Colors.TEXT_SECONDARY), " Copy Path"
@@ -217,9 +233,7 @@ class DetailsPanelWidget(QWidget):
         self._copy_path_btn.setProperty("class", "details-action")
         self._copy_path_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._copy_path_btn.clicked.connect(self._on_copy_path)
-        action_row.addWidget(self._copy_path_btn)
-
-        layout.addLayout(action_row)
+        layout.addWidget(self._copy_path_btn)
 
         layout.addSpacing(12)
 
@@ -310,6 +324,12 @@ class DetailsPanelWidget(QWidget):
     def _on_open(self) -> None:
         if self._current_result:
             self.open_requested.emit(self._current_result)
+
+    def _on_open_with(self) -> None:
+        if self._current_result:
+            # Emit signal to request application selection
+            # The main window will handle showing the application chooser dialog
+            self.open_with_requested.emit(self._current_result, "")
 
     def _on_open_folder(self) -> None:
         if self._current_result:

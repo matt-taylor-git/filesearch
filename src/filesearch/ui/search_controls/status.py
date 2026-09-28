@@ -75,6 +75,9 @@ class StatusWidget(QWidget):
         # Search summary label
         self.summary_label = QLabel("")
         self.summary_label.setProperty("class", "status-summary")
+        # Summaries include a full search path; wrap rather than clip when the
+        # window is narrow (audit: text overflow).
+        self.summary_label.setWordWrap(True)
         layout.addWidget(self.summary_label)
 
     def _setup_style(self) -> None:

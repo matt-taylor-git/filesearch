@@ -115,6 +115,7 @@ class ResultsItemDelegate(QStyledItemDelegate):
         # Cache theme colors
         self._colors = Colors
         self._spacing = Spacing
+        self._item_height = Spacing.ITEM_HEIGHT
 
     def get_file_type_icon(self, path: Path) -> str:
         """Get file type icon based on extension with caching (legacy fallback)"""
@@ -168,6 +169,17 @@ class ResultsItemDelegate(QStyledItemDelegate):
         # Draw background based on state
         if option.state & QStyle.StateFlag.State_Selected:
             painter.fillRect(option.rect, QColor(C.ITEM_SELECTED_BG))
+            # Non-colour selection cue so the state is visible without relying on
+            # a subtle background shift alone (audit W1).
+            painter.fillRect(
+                QRect(
+                    option.rect.left(),
+                    option.rect.top(),
+                    3,
+                    option.rect.height(),
+                ),
+                QColor(C.PRIMARY),
+            )
         elif option.state & QStyle.StateFlag.State_MouseOver:
             painter.fillRect(option.rect, QColor(C.ITEM_HOVER_BG))
 
@@ -241,7 +253,7 @@ class ResultsItemDelegate(QStyledItemDelegate):
         filename_width = pill_x - content_left - 12
 
         # Filename
-        filename_rect = QRect(content_left, rect.top(), filename_width, 20)
+        filename_rect = QRect(content_left, rect.top(), filename_width, 24)
         filename = result.get_display_name()
         if len(filename) > 80:
             filename = filename[:77] + "..."
@@ -264,10 +276,12 @@ class ResultsItemDelegate(QStyledItemDelegate):
                 filename,
             )
 
-        # Path (below filename)
-        path_rect = QRect(content_left, filename_rect.bottom() + 2, filename_width, 16)
+        # Path (below filename) — the containing folder, elided from the left so
+        # the most specific part survives. The filename is already the title, so
+        # repeating it here wasted the line (audit W6).
+        path_rect = QRect(content_left, filename_rect.bottom() + 2, filename_width, 18)
         painter.setFont(self.path_font)
-        path = result.get_display_path()
+        path = result.get_display_folder()
         if len(path) > 80:
             path = "..." + path[-77:]
         painter.setPen(QColor(C.TEXT_TERTIARY))
@@ -281,7 +295,7 @@ class ResultsItemDelegate(QStyledItemDelegate):
 
     def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
         """Return the size hint for items"""
-        return QSize(400, 64)  # Spacious items with room for pill and separator
+        return QSize(400, self._item_height)  # Room for pill, path row and separator
 
     def set_query(self, query: str) -> None:
         """Set the current search query for highlighting"""
@@ -295,6 +309,11 @@ class ResultsItemDelegate(QStyledItemDelegate):
     def set_highlight_color(self, color: str) -> None:
         """Set the highlight color (HTML color code)"""
         self.highlight_color = color
+        # Keep the text legible on whatever fill was configured, so a light fill
+        # never gets paired with light text (audit C1).
+        bg = QColor(color)
+        luma = 0.2126 * bg.redF() + 0.7152 * bg.greenF() + 0.0722 * bg.blueF()
+        self.highlight_text_color = "#1B1B1B" if luma > 0.5 else "#FFF8E7"
 
     def set_highlight_style(self, style: str) -> None:
         """Set the highlight style ('background', 'outline', or 'underline')"""

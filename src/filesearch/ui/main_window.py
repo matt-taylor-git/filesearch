@@ -323,10 +323,6 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             self.time_label = QLabel()
             status_bar.addPermanentWidget(self.time_label)
 
-            # Add line/column label to status bar
-            self.line_col_label = QLabel("Ln 1, Col 1")
-            status_bar.addPermanentWidget(self.line_col_label)
-
         # Timer for updating time
         self.time_update_timer = QTimer()
         self.time_update_timer.timeout.connect(self._update_status_time)
@@ -386,6 +382,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
 
         # --- Details panel signals ---
         self.details_panel.open_requested.connect(self._on_file_open_requested)
+        self.details_panel.open_with_requested.connect(
+            self._on_file_open_with_requested
+        )
         self.details_panel.open_folder_requested.connect(
             lambda r: self.open_selected_folder(r.path)
         )
@@ -469,17 +468,20 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         result = index.data(Qt.ItemDataRole.UserRole)
         if result is not None:
             self.details_panel.show_result(result)
-            # Ensure splitter gives the details panel width
+            # The splitter honours the panel's minimum width but ignores
+            # setSizes() for it, so the width comes from the minimum (audit W4).
+            min_width = self.details_panel.DETAILS_MIN_WIDTH
+            self.details_panel.setMinimumWidth(min_width)
             sizes = self.main_splitter.sizes()
-            if sizes[2] < 10:
-                # Steal space from center panel to open details
-                details_w = 280
-                center_w = max(300, sizes[1] - details_w)
-                self.main_splitter.setSizes([sizes[0], center_w, details_w])
+            if sizes[2] < min_width:
+                center_w = max(300, sizes[1] + sizes[2] - min_width)
+                self.main_splitter.setSizes([sizes[0], center_w, min_width])
 
     def _on_details_panel_close(self) -> None:
         """Hide the details panel and reclaim space."""
         self.details_panel.clear()
+        # Drop the minimum so the splitter can collapse the panel again.
+        self.details_panel.setMinimumWidth(0)
         # Give the details panel's space back to center
         sizes = self.main_splitter.sizes()
         self.main_splitter.setSizes([sizes[0], sizes[1] + sizes[2], 0])
@@ -1039,7 +1041,9 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
             directory=str(search_request.directory) if search_request else "",
             duration=duration,
         )
-        self.safe_status_message(f"Found {total_files} results in {duration:.1f}s")
+        # The result count lives in the status widget; the status bar reports the
+        # search scope instead, so the count is not stated three times (audit O1).
+        self.safe_status_message(f"Searched {total_dirs:,} folders")
         # Auto-scroll to first result when search completes
         if (
             hasattr(self.results_view, "_results_model")
@@ -1135,6 +1139,65 @@ class MainWindow(ContextMenuHandlerMixin, QMainWindow):
         except FileSearchError as e:
             self.safe_status_message(f"Error opening file: {e}")
             logger.error(f"Error opening file {file_path}: {e}")
+
+    def open_file_with_application(
+        self, file_path: Path, application_path: str
+    ) -> None:
+        """Open the selected file with a specific application.
+
+        Args:
+            file_path: Path to the file to open
+            application_path: Path to the application to use
+        """
+        try:
+            if application_path:
+                # Use the specified application
+                self.desktop_effects.open_file_with_application(
+                    file_path, application_path
+                )
+                self.safe_status_message(
+                    f"Opened {file_path.name} with {application_path}"
+                )
+                logger.info(f"Opened file {file_path} with {application_path}")
+            else:
+                # Fall back to default application
+                self.open_selected_file(file_path)
+        except FileSearchError as e:
+            self.safe_status_message(f"Error opening file: {e}")
+            logger.error(f"Error opening file {file_path} with {application_path}: {e}")
+
+            # Offer to open with default application as fallback
+            if application_path:  # Only show fallback if a specific app was requested
+                confirmed = self.desktop_effects.confirm(
+                    self,
+                    "Open With Default Application",
+                    f"Could not open {file_path.name} with the specified application. "
+                    f"Would you like to open it with the default application instead?",
+                    default_yes=True,
+                )
+                if confirmed:
+                    self.open_selected_file(file_path)
+
+    def _on_file_open_with_requested(
+        self, result: SearchResult, application_path: str
+    ) -> None:
+        """Handle open-with request from details panel.
+
+        Args:
+            result: SearchResult object for the item to open
+            application_path: Path to the application to use, or an empty string to
+                show the application chooser.
+        """
+        resolved_path = application_path
+        # If application_path is empty, show the application chooser dialog
+        if not application_path:
+            chosen = self.desktop_effects.choose_application(self)
+            # If user cancelled, don't proceed
+            if chosen is None:
+                return
+            resolved_path = str(chosen)
+
+        self.open_file_with_application(result.path, resolved_path)
 
     def open_selected_folder(self, file_path: Path) -> None:
         """Open the selected folder, or the containing folder of a file.

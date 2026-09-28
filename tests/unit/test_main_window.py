@@ -697,7 +697,10 @@ class TestMainWindowResultHandling:
         assert main_window.search_control.get_state() == SearchState.IDLE
 
         status_message = main_window.statusBar().currentMessage()
-        assert "Found 5 results" in status_message
+        # The result count lives in the status widget; the status bar reports the
+        # search scope instead of repeating the count (audit O1).
+        assert "Found 5 results" not in status_message
+        assert status_message == "Searched 2 folders"
 
     def test_on_search_stopped(self, main_window):
         """Test handling search stop."""

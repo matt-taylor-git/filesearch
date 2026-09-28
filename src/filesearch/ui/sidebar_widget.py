@@ -317,7 +317,8 @@ class SidebarWidget(QWidget):
         layout.addSpacing(16)
 
         # --- TAGS (recent searches) ---
-        layout.addWidget(self._section_header("TAGS"))
+        self._tags_header = self._section_header("TAGS")
+        layout.addWidget(self._tags_header)
         layout.addSpacing(4)
 
         self._tags_container = QVBoxLayout()
@@ -467,6 +468,8 @@ class SidebarWidget(QWidget):
         for btn in self._tag_buttons:
             btn.deleteLater()
         self._tag_buttons.clear()
+        # Hide the section entirely when there is nothing to show (audit W5)
+        self._tags_header.setVisible(bool(searches))
 
         # Wrap tags in a flow-like layout (row of 2-3)
         row: QHBoxLayout | None = None

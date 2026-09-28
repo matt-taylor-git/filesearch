@@ -35,12 +35,15 @@ def test_filesystem_search_runs_on_background_worker(tmp_path, qtbot):
     assert scan_threads == [worker]
     assert scan_threads[0] != QThread.currentThread()
     assert results[0]["path"] == str(path)
-    assert completed.args == [1, 0]
+    # One directory (tmp_path) was traversed. The worker used to hardcode 0
+    # here; the count now comes from the engine.
+    assert completed.args == [1, 1]
 
 
 def test_search_worker_emits_results_progress_and_completion(tmp_path):
     engine = Mock()
     engine.search.return_value = ({"name": f"file-{index}"} for index in range(10))
+    engine.directories_scanned = 7
     worker = SearchWorker(engine, tmp_path, "file")
     results = []
     progress = []
@@ -55,11 +58,12 @@ def test_search_worker_emits_results_progress_and_completion(tmp_path):
 
     assert results[-1] == ({"name": "file-9"}, 10)
     assert progress == [(50, str(tmp_path), 10)]
-    assert completed == [(10, 0)]
+    assert completed == [(10, 7)]
 
 
 def test_search_worker_stop_cancels_search_and_emits_stopped(tmp_path):
     engine = Mock()
+    engine.directories_scanned = 3
     worker = SearchWorker(engine, tmp_path, "file")
 
     def results_stopping_after_first():
@@ -74,7 +78,7 @@ def test_search_worker_stop_cancels_search_and_emits_stopped(tmp_path):
     worker.run()
 
     engine.cancel.assert_called_once_with()
-    assert stopped == [(1, 0)]
+    assert stopped == [(1, 3)]
 
 
 def test_search_worker_distinguishes_expected_and_unexpected_errors(tmp_path):

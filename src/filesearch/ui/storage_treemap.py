@@ -160,7 +160,16 @@ class StorageTreemapWidget(QWidget):
                 int(text_rect.width()),
             )
 
-            painter.setPen(QColor("#FFFFFF"))
+            # Label colour adapts to the fill, so light tiles get dark text and
+            # dark tiles keep light text (audit C4).
+            if fill_color.lightness() >= 128:
+                label_color = QColor("#1B1B1B")
+                label_secondary = QColor(27, 27, 27, 205)
+            else:
+                label_color = QColor("#FFFFFF")
+                label_secondary = QColor(255, 255, 255, 190)
+
+            painter.setPen(label_color)
             painter.drawText(
                 text_rect,
                 Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextSingleLine,
@@ -169,7 +178,7 @@ class StorageTreemapWidget(QWidget):
 
             if text_rect.height() >= 32:
                 secondary_rect = text_rect.adjusted(0, 18, 0, 0)
-                painter.setPen(QColor(255, 255, 255, 190))
+                painter.setPen(label_secondary)
                 painter.drawText(
                     secondary_rect,
                     Qt.AlignmentFlag.AlignTop | Qt.TextFlag.TextSingleLine,

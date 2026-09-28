@@ -102,6 +102,15 @@ class SettingsDialog(QDialog):
         if reset_button is not None:
             reset_button.clicked.connect(self.reset_to_defaults)
 
+        cancel_button = button_box.button(QDialogButtonBox.StandardButton.Cancel)
+
+        # Only OK is a primary action; Cancel and Reset are secondary so the
+        # dialog has a clear hierarchy (audit W3).
+        if cancel_button is not None:
+            cancel_button.setProperty("class", "ghost")
+        if reset_button is not None:
+            reset_button.setProperty("class", "ghost")
+
         main_layout.addWidget(button_box)
 
         logger.debug("SettingsDialog UI setup completed")

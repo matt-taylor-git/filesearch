@@ -334,6 +334,26 @@ class TestFileSearchEngine:
         assert any("level0" in path for path in result_paths)
         assert any("level4" in path for path in result_paths)
 
+    def test_directories_scanned_counts_visited_directories(
+        self, search_engine, temp_dir
+    ):
+        """A search reports how many directories it visited (audit O1)."""
+        results = list(search_engine.search(temp_dir, "*.txt"))
+
+        assert results
+        # The fixture creates temp_dir plus one subdirectory.
+        assert search_engine.directories_scanned == 2
+
+    def test_directories_scanned_resets_between_searches(self, search_engine, temp_dir):
+        """The count describes the most recent search, not a running total."""
+        list(search_engine.search(temp_dir, "*.txt"))
+        first = search_engine.directories_scanned
+
+        list(search_engine.search(temp_dir, "*.py"))
+
+        assert first == 2
+        assert search_engine.directories_scanned == first
+
     def test_search_respects_configured_hidden_and_extension_preferences(
         self, temp_dir, application_runtime
     ):
